@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<configuration>
+    <general>
+        <altsource path="\\FS1\apps\sources\2016\sources\sxs" comment="Windows Server 2016 install media share" />
+    </general>
+    <scripts>
+        <script enabled="true" name="Server Roles" file="serverroles" source="\\FS1\apps\MS\Roles" params="" detect="HKLM:\SOFTWARE\CM_BUILD\Processed\ROLES1" target="" reboot="true" />
+        <script enabled="true" name="Windows 10 ADK" file="payload" source="\\FS1\apps\MS\ADK1703\cached\adksetup.exe" params="/installpath E:\ADK /Features OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment OptionId.UserStateMigrationTool /quiet /ceip off" detect="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots" target="E:\ADK" reboot="false" />
+        <script enabled="true" name="MDT 8443" file="payload" source="\\FS1\apps\MS\MDT8443\MicrosoftDeploymentToolkit_x64.msi" params="INSTALLDIR=E:\MDT /qb! /norestart REBOOT=ReallySuppress" detect="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9547DE37-4A70-4194-97EA-ACC3E747254B}" target="E:\MDT" reboot="false" />
+        <!--
+        *** note: uncomment and use the following line for domain service accounts with passwords, and swap with the line after it ***
+        <script enabled="false" name="SQL Server 2016" file="payload" source="\\FS1\apps\MS\SQL2016\setup.exe" params="/SQLSVCPASSWORD="" /AGTSVCPASSWORD="" /RSSVCPASSWORD="" /SAPWD="" /ConfigurationFile=.\sqlsetup.ini" detect="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" target="" reboot="false" />
+        -->
+        <script enabled="true" name="SQL Server 2016" file="payload" source="\\FS1\apps\MS\SQL2016\setup.exe" params="/ConfigurationFile=F:\CM_BUILD\sqlsetup.ini" detect="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" target="" reboot="false" />
+        <script enabled="true" name="SQL Management Studio" file="payload" source="\\FS1\apps\MS\SQL2016\SSMS\SSMS-Setup-ENU.exe" params="/install /quiet /norestart" detect="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{510DB6E6-7CF0-4B25-A51E-3AED7E25D507}" target="" reboot="" />
+        <script enabled="true" name="Configure SQL Server" file="configsql" source="" params="" detect="HKLM:\SOFTWARE\CM_BUILD\Processed\SQLCONFIG" target="" reboot="false" />
+        <script enabled="true" name="Configure WSUS" file="configwsus" source="" params="" detect="HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" target="F:\UPDATES" reboot="false" />
+        <script enabled="false" name="Extend AD Schema" file="Extend-ADSchema.ps1" source="\\FS1\aps\MS\CM1702\SMSSETUP\BIN\X64\extadsch.exe" params="" detect="C:\extadsch.log" target="" reboot="false" />
+        <script enabled="false" name="Create AD Container" file="adcontainer" source="" params="" detect="ad:CN=System Management,CN=System,DC=Contoso,DC=com" target="" reboot="false" />
+        <script enabled="true" name="Configuration Manager 1702" file="payload" source="\\FS1\apps\MS\CM1702\SMSSETUP\BIN\X64\setup.exe" params="/script cmsetup.ini" detect="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SMS Primary Site" target="E:\ConfigMgr" reboot="false" />
+        <script enabled="true" name="ConfigMgr Toolkit" file="payload" source="\\FS1\apps\MS\TOOLS\ConfigMgrTools.msi" params="" detect="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{4FFF7ECC-CCF7-4530-B938-E7812BB91186}" target="" reboot="false" />
+        <script enabled="true" name="ConfigMgr Right-Click Tools" file="payload" source="\\FS1\apps\MS\TOOLS\Recast_RCT_Latest.msi" params="" detect="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{87e167be-284c-4a9c-92a9-ccccf210492e}" target="" reboot="false" />
+        <!--
+        <script enabled="false" name="" file="" source="" params="" detect="" target="" reboot="false" />
+        -->
+    </scripts>
+	<targets>
+        <target name="MAIN" path="F:\CM_BUILD" />
+		<target name="ADK" path="E:\ADK" />
+		<target name="MDT" path="E:\MDT" />
+		<target name="SCCM" path="E:\ConfigMgr,F:\CMPREREQS" />
+		<target name="SQL" path="F:\SQLBACKUPS,E:\SQLDB,E:\SQLLOG,F:\SQLTEMPDB" />
+        <target name="WSUS" path="F:\UPDATES" />
+        <target name="APPS" path="F:\SOURCES,F:\SOURCES\APPS,F:\SOURCES\DRVPKG,F:\SOURCES\DRVSRC,F:\SOURCES\OS,F:\SOURCES\SCRIPTS,F:\SOURCES\TOOLS" />
+	</targets>
+    <newfiles>
+        <newfile name="sqlsetup.ini" path="F:\CM_BUILD">
+			<keys>
+                <key name="__SECTION1" value="OPTIONS" />
+				<key name="ACTION" value="Install" />
+				<key name="ASCOLLATION" value="Latin1_General_CI_AS" />
+				<key name="ErrorReporting" value="False" />
+				<key name="SUPPRESSPRIVACYSTATEMENTNOTICE" value="False" />
+				<key name="IACCEPTROPENLICENSETERMS" value="False" />
+				<key name="ENU" value="True" />
+				<key name="QUIET" value="True" />
+				<key name="QUIETSIMPLE" value="False" />
+				<key name="UpdateEnabled" value="True" />
+				<key name="USEMICROSOFTUPDATE" value="True" />
+				<key name="FEATURES" value="SQLENGINE,RS,CONN,IS,BC,SDK,BOL" />
+				<key name="UpdateSource" value="MU" />
+				<key name="HELP" value="False" />
+				<key name="INDICATEPROGRESS" value="False" />
+				<key name="X86" value="False" />
+				<key name="INSTANCENAME" value="MSSQLSERVER" />
+				<key name="INSTALLSHAREDDIR" value="C:\Program Files\Microsoft SQL Server" />
+				<key name="INSTALLSHAREDWOWDIR" value="C:\Program Files (x86)\Microsoft SQL Server" />
+				<key name="INSTANCEID" value="MSSQLSERVER" />
+				<key name="SQLBACKUPDIR" value="F:\SQLBACKUPS" />
+				<key name="SQLUSERDBDIR" value="E:\SQLDB" />
+				<key name="SQLUSERDBLOGDIR" value="E:\SQLLOG" />
+				<key name="SQLTEMPDBDIR" value="F:\SQLTEMPDB" />
+				<key name="RSINSTALLMODE" value="DefaultNativeMode" />
+				<key name="INSTANCEDIR" value="C:\Program Files\Microsoft SQL Server" />
+				<key name="SQLSVCACCOUNT" value="NT AUTHORITY\System" />
+				<key name="AGTSVCACCOUNT" value="NT AUTHORITY\System" />
+				<key name="ISTELSVCACCT" value="NT Service\SSISTELEMETRY130" />
+				<key name="SQLTELSVCACCT" value="NT Service\SQLTELEMETRY" />
+				<key name="ISSVCACCOUNT" value="NT AUTHORITY\System" />
+				<key name="RSSVCACCOUNT" value="NT AUTHORITY\System" />
+				<key name="SQLSVCSTARTUPTYPE" value="Automatic" />
+				<key name="AGTSVCSTARTUPTYPE" value="Automatic" />
+				<key name="ISSVCSTARTUPTYPE" value="Disabled" />
+				<key name="SQLTELSVCSTARTUPTYPE" value="Automatic" />
+				<key name="ISTELSVCSTARTUPTYPE" value="Automatic" />
+				<key name="RSSVCSTARTUPTYPE" value="Automatic" />
+				<key name="COMMFABRICPORT" value="0" />
+				<key name="COMMFABRICNETWORKLEVEL" value="0" />
+				<key name="COMMFABRICENCRYPTION" value="0" />
+				<key name="MATRIXCMBRICKCOMMPORT" value="0" />
+				<key name="FILESTREAMLEVEL" value="0" />
+				<key name="ENABLERANU" value="False" />
+				<key name="SQLCOLLATION" value="SQL_Latin1_General_CP1_CI_AS" />
+				<key name="SQLSVCINSTANTFILEINIT" value="False" />
+				<key name="SQLSYSADMINACCOUNTS" value="CONTOSO\sccmadmin" />
+				<key name="SQLTEMPDBFILECOUNT" value="1" />
+				<key name="SQLTEMPDBFILESIZE" value="8" />
+				<key name="SQLTEMPDBFILEGROWTH" value="64" />
+				<key name="SQLTEMPDBLOGFILESIZE" value="8" />
+				<key name="SQLTEMPDBLOGFILEGROWTH" value="64" />
+				<key name="TCPENABLED" value="1" />
+				<key name="NPENABLED" value="1" />
+				<key name="BROWSERSVCSTARTUPTYPE" value="Disabled" />
+				<key name="IAcceptSQLServerLicenseTerms" value="True" />
+			</keys>
+		</newfile>
+		<newfile name="cmsetup.ini" path="\\FS1\apps\MS\CM1702\SMSSETUP\BIN\X64">
+			<keys>
+                <key name="__SECTION1" value="Identification" />
+                <key name="Action" value="InstallPrimarySite" />
+                <key name="__SECTION2" value="Options" />
+                <key name="ProductID" value="xxxxx-xxxxx-xxxxx-xxxxx-xxxxx" />
+                <key name="SiteCode" value="P01" />
+                <key name="SiteName" value="Primary Site 1" />
+                <key name="SMSInstallDir" value="E:\ConfigMgr" />
+                <key name="SDKServer" value="CM01.contoso.com" />
+                <key name="RoleCommunicationProtocol" value="HTTPorHTTPS" />
+                <key name="ClientsUsePKICertificate" value="0" />
+                <key name="PrerequisiteComp" value="0" />
+                <key name="PrerequisitePath" value="F:\CMPREREQS" />
+                <key name="ManagementPoint" value="CM01.contoso.com" />
+                <key name="ManagementPointProtocol" value="HTTP" />
+                <key name="DistributionPoint" value="CM01.contoso.com" />
+                <key name="DistributionPointProtocol" value="HTTP" />
+                <key name="DistributionPointInstallIIS" value="0" />
+                <key name="AdminConsole" value="1" />
+                <key name="JoinCEIP" value="0" />
+                <key name="__SECTION3" value="SQLConfigOptions" />
+                <key name="SQLServerName" value="CM01.contoso.com" />
+                <key name="DatabaseName" value="CM_P01" />
+                <key name="SQLSSBPort" value="4022" />
+                <key name="__SECTION4" value="CloudConnectorOptions" />
+                <key name="CloudConnector" value="1" />
+                <key name="CloudConnectorServer" value="CM01.contoso.com" />
+                <key name="UseProxy" value="0" />
+                <key name="ProxyName" value="" />
+                <key name="ProxyPort" value="" />
+                <key name="__SECTION5" value="SystemCenterOptions" />
+                <key name="__SECTION6" value="SABranchOptions" />
+                <key name="SAActive" value="1" />
+                <key name="CurrentBranch" value="1" />
+                <key name="SAExpiration" value="2017-08-14 00:00:00.000" />
+                <key name="__SECTION7" value="HierarchyExpansionOption" />
+			</keys>
+		</newfile>
+	</newfiles>
+</configuration>
