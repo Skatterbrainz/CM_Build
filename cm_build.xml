@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <configuration>
-    <project comment="Information describing the purpose of this configuration">
-        <customer name="Contoso" comment="" />
-        <version name="1.1.0" comment="2017.08.16" />
-        <siteserver name="cm02.contoso.com" comment="Primary site server host" />
-        <author name="David Stein" comment="" />
-    </project>
+    <project comment="Contoso SCCM primary site server build for CM02.contoso.com, by DS 2017-08-16" />
     <references>
         <reference name="WindowsServer" type="AltSource" path="\\FS1\apps\sources\2016\sources\sxs" file="" comment="Windows Server 2016 install media" />
         <reference name="Windows10" type="AltSource" path="\\FS1\apps\sources\SXS" file="" comment="Windows 10 x64 enterprise" />
@@ -17,9 +12,10 @@
         <package name="ADK" enabled="true" type="payload" comment="Windows 10 ADK 1703" />
         <package name="MDT" enabled="true" type="payload" comment="Microsoft Deployment Toolkit 8443" />
         <package name="SQLSERVER" enabled="true" type="payload" comment="SQL Server 2016" />
-        <package name="SSMS" enabled="true" type="payload" comment="SQL Server Management Studio" />
+        <package name="SSMS" enabled="true" type="payload" comment="SQL Server Management Studio 2017" />
         <package name="SQLCONFIG" enabled="true" type="function" comment="Configure SQL Server" />
         <package name="WSUS" enabled="true" type="feature" comment="WSUS Role" />
+        <package name="WSUSCONFIG" enabled="true" type="function" comment="WSUS Configuration" />
         <package name="CONFIGMGR" enabled="true" type="payload" comment="Configuration Manager 1702" />
         <package name="CMTOOLKIT" enabled="true" type="payload" comment="ConfigMgr Toolkit 2012 R2" />
         <package name="RCTOOLS" enabled="true" type="payload" comment="Recast RightClick Tools" />
@@ -33,7 +29,8 @@
         <payload name="SSMS" path="\\FS1\apps\MS\SQL2016\SSMS" file="SSMS-Setup-ENU.exe" params="/install /quiet /norestart" comment="" />
         <payload name="CONFIGMGR" path="\\FS1\apps\MS\CM1702\SMSSETUP\BIN\X64" file="setup.exe" params="/script F:\CM_BUILD\cmsetup.ini" comment="" />
         <payload name="CMTOOLKIT" path="\\FS1\apps\MS\TOOLS" file="ConfigMgrTools.msi" params="/qb! /norestart" comment="" />
-        <payload name="RCTOOLS" path="\\FS1\apps\MS\TOOLS" file="Recast_RCT_Latest.msi" params="/qb! /norestart"  target="" reboot="false" />
+        <payload name="RCTOOLS" path="\\FS1\apps\MS\TOOLS" file="Recast_RCT_Latest.msi" params="/qb! /norestart" comment="" />
+        <payload name="WSUSCONFIG" path="C:\Program Files\Update Services\Tools" file="WsusUtil.exe" params="postinstall SQL_INSTANCE_NAME=CM02.contoso.com CONTENT_DIR=F:\UPDATES" comment="" />
     </payloads>
     <detections comment="Describe evidence to indicate payload completion">
         <detect name="ADK" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots" value="" type="automatic" />
@@ -41,12 +38,13 @@
         <detect name="SQLSERVER" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" value="" type="automatic" />
         <detect name="SSMS" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{510DB6E6-7CF0-4B25-A51E-3AED7E25D507}" value="" type="automatic" />
         <detect name="CONFIGMGR" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SMS Primary Site" value="" type="automatic" />
-        <detect name="CMTOOLKIT" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{87e167be-284c-4a9c-92a9-ccccf210492e}" value="" type="automatic" />
+        <detect name="CMTOOLKIT" path="C:\Program Files (x86)\ConfigMgr 2012 Toolkit R2\ToolkitHelp.docx" value="" type="automatic" />
         <detect name="RCTOOLS" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{4FFF7ECC-CCF7-4530-B938-E7812BB91186}" value="" type="automatic" />
         <detect name="WSUS" path="HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" value="" type="automatic" />
-        <detect name="SERVERROLES" path="HKLM:\SOFTWARE\CMBUILD\PROCESS" value="SERVERROLES" type="synthetic" />
-        <detect name="SQLCONFIG" path="HKLM:\SOFTWARE\CMBUILD\PROCESS" value="SQLCONFIG" type="synthetic" />
-        <detect name="SITECONFIG" path="HKLM:\SOFTWARE\CMBUILD\PROCESS" value="SITECONFIG" type="synthetic" />
+        <detect name="SERVERROLES" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SERVERROLES" type="synthetic" />
+        <detect name="SQLCONFIG" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SQLCONFIG" type="synthetic" />
+        <detect name="SITECONFIG" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SITECONFIG" type="synthetic" />
+        <detect name="WSUSCONFIG" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="WSUSCONFIG" type="synthetic" />
     </detections>
     <folders comment="Folders to be created">
         <folder name="E:\ADK" comment="ADK installation path" />
@@ -65,61 +63,61 @@
         <file pkg="SQLSERVER" name="sqlsetup.ini" path="F:\CM_BUILD" force="true" comment="SQL Server Installation file">
             <keys>
                 <key name="__SECTION1" value="OPTIONS" />
-		<key name="ACTION" value="Install" />
-		<key name="ASCOLLATION" value="Latin1_General_CI_AS" />
-		<key name="ErrorReporting" value="False" />
-		<key name="SUPPRESSPRIVACYSTATEMENTNOTICE" value="False" />
-		<key name="IACCEPTROPENLICENSETERMS" value="False" />
-		<key name="ENU" value="True" />
-		<key name="QUIET" value="True" />
-		<key name="QUIETSIMPLE" value="False" />
-		<key name="UpdateEnabled" value="True" />
-		<key name="USEMICROSOFTUPDATE" value="True" />
-		<key name="FEATURES" value="SQLENGINE,RS,CONN,IS,BC,SDK,BOL" />
-		<key name="UpdateSource" value="MU" />
-		<key name="HELP" value="False" />
-		<key name="INDICATEPROGRESS" value="False" />
-		<key name="X86" value="False" />
-		<key name="INSTANCENAME" value="MSSQLSERVER" />
-		<key name="INSTALLSHAREDDIR" value="C:\Program Files\Microsoft SQL Server" />
-		<key name="INSTALLSHAREDWOWDIR" value="C:\Program Files (x86)\Microsoft SQL Server" />
-		<key name="INSTANCEID" value="MSSQLSERVER" />
-		<key name="SQLBACKUPDIR" value="F:\SQLBACKUPS" />
-		<key name="SQLUSERDBDIR" value="E:\SQLDB" />
-		<key name="SQLUSERDBLOGDIR" value="E:\SQLLOGS" />
-		<key name="SQLTEMPDBDIR" value="F:\SQLTEMPDB" />
-		<key name="RSINSTALLMODE" value="DefaultNativeMode" />
-		<key name="INSTANCEDIR" value="C:\Program Files\Microsoft SQL Server" />
-		<key name="SQLSVCACCOUNT" value="NT AUTHORITY\System" />
-		<key name="AGTSVCACCOUNT" value="NT AUTHORITY\System" />
-		<key name="ISTELSVCACCT" value="NT Service\SSISTELEMETRY130" />
-		<key name="SQLTELSVCACCT" value="NT Service\SQLTELEMETRY" />
-		<key name="ISSVCACCOUNT" value="NT AUTHORITY\System" />
-		<key name="RSSVCACCOUNT" value="NT AUTHORITY\System" />
-		<key name="SQLSVCSTARTUPTYPE" value="Automatic" />
-		<key name="AGTSVCSTARTUPTYPE" value="Automatic" />
-		<key name="ISSVCSTARTUPTYPE" value="Disabled" />
-		<key name="SQLTELSVCSTARTUPTYPE" value="Automatic" />
-		<key name="ISTELSVCSTARTUPTYPE" value="Automatic" />
-		<key name="RSSVCSTARTUPTYPE" value="Automatic" />
-		<key name="COMMFABRICPORT" value="0" />
-		<key name="COMMFABRICNETWORKLEVEL" value="0" />
-		<key name="COMMFABRICENCRYPTION" value="0" />
-		<key name="MATRIXCMBRICKCOMMPORT" value="0" />
-		<key name="FILESTREAMLEVEL" value="0" />
-		<key name="ENABLERANU" value="False" />
-		<key name="SQLCOLLATION" value="SQL_Latin1_General_CP1_CI_AS" />
-		<key name="SQLSVCINSTANTFILEINIT" value="False" />
-		<key name="SQLSYSADMINACCOUNTS" value="CONTOSO\sccmadmin" />
-		<key name="SQLTEMPDBFILECOUNT" value="1" />
-		<key name="SQLTEMPDBFILESIZE" value="8" />
-		<key name="SQLTEMPDBFILEGROWTH" value="64" />
-		<key name="SQLTEMPDBLOGFILESIZE" value="8" />
-		<key name="SQLTEMPDBLOGFILEGROWTH" value="64" />
-		<key name="TCPENABLED" value="1" />
-		<key name="NPENABLED" value="1" />
-		<key name="BROWSERSVCSTARTUPTYPE" value="Disabled" />
-		<key name="IAcceptSQLServerLicenseTerms" value="True" />
+                <key name="ACTION" value="Install" />
+                <key name="ASCOLLATION" value="Latin1_General_CI_AS" />
+                <key name="ErrorReporting" value="False" />
+                <key name="SUPPRESSPRIVACYSTATEMENTNOTICE" value="False" />
+                <key name="IACCEPTROPENLICENSETERMS" value="False" />
+                <key name="ENU" value="True" />
+                <key name="QUIET" value="True" />
+                <key name="QUIETSIMPLE" value="False" />
+                <key name="UpdateEnabled" value="True" />
+                <key name="USEMICROSOFTUPDATE" value="True" />
+                <key name="FEATURES" value="SQLENGINE,RS,CONN,IS,BC,SDK,BOL" />
+                <key name="UpdateSource" value="MU" />
+                <key name="HELP" value="False" />
+                <key name="INDICATEPROGRESS" value="False" />
+                <key name="X86" value="False" />
+                <key name="INSTANCENAME" value="MSSQLSERVER" />
+                <key name="INSTALLSHAREDDIR" value="C:\Program Files\Microsoft SQL Server" />
+                <key name="INSTALLSHAREDWOWDIR" value="C:\Program Files (x86)\Microsoft SQL Server" />
+                <key name="INSTANCEID" value="MSSQLSERVER" />
+                <key name="SQLBACKUPDIR" value="F:\SQLBACKUPS" />
+                <key name="SQLUSERDBDIR" value="E:\SQLDB" />
+                <key name="SQLUSERDBLOGDIR" value="E:\SQLLOGS" />
+                <key name="SQLTEMPDBDIR" value="F:\SQLTEMPDB" />
+                <key name="RSINSTALLMODE" value="DefaultNativeMode" />
+                <key name="INSTANCEDIR" value="C:\Program Files\Microsoft SQL Server" />
+                <key name="SQLSVCACCOUNT" value="NT AUTHORITY\System" />
+                <key name="AGTSVCACCOUNT" value="NT AUTHORITY\System" />
+                <key name="ISTELSVCACCT" value="NT Service\SSISTELEMETRY130" />
+                <key name="SQLTELSVCACCT" value="NT Service\SQLTELEMETRY" />
+                <key name="ISSVCACCOUNT" value="NT AUTHORITY\System" />
+                <key name="RSSVCACCOUNT" value="NT AUTHORITY\System" />
+                <key name="SQLSVCSTARTUPTYPE" value="Automatic" />
+                <key name="AGTSVCSTARTUPTYPE" value="Automatic" />
+                <key name="ISSVCSTARTUPTYPE" value="Disabled" />
+                <key name="SQLTELSVCSTARTUPTYPE" value="Automatic" />
+                <key name="ISTELSVCSTARTUPTYPE" value="Automatic" />
+                <key name="RSSVCSTARTUPTYPE" value="Automatic" />
+                <key name="COMMFABRICPORT" value="0" />
+                <key name="COMMFABRICNETWORKLEVEL" value="0" />
+                <key name="COMMFABRICENCRYPTION" value="0" />
+                <key name="MATRIXCMBRICKCOMMPORT" value="0" />
+                <key name="FILESTREAMLEVEL" value="0" />
+                <key name="ENABLERANU" value="False" />
+                <key name="SQLCOLLATION" value="SQL_Latin1_General_CP1_CI_AS" />
+                <key name="SQLSVCINSTANTFILEINIT" value="False" />
+                <key name="SQLSYSADMINACCOUNTS" value="CONTOSO\sccmadmin" />
+                <key name="SQLTEMPDBFILECOUNT" value="1" />
+                <key name="SQLTEMPDBFILESIZE" value="8" />
+                <key name="SQLTEMPDBFILEGROWTH" value="64" />
+                <key name="SQLTEMPDBLOGFILESIZE" value="8" />
+                <key name="SQLTEMPDBLOGFILEGROWTH" value="64" />
+                <key name="TCPENABLED" value="1" />
+                <key name="NPENABLED" value="1" />
+                <key name="BROWSERSVCSTARTUPTYPE" value="Disabled" />
+                <key name="IAcceptSQLServerLicenseTerms" value="True" />
             </keys>
         </file>
         <file pkg="CONFIGMGR" name="cmsetup.ini" path="F:\CM_BUILD" force="true" comment="ConfigMgr Installation file">
@@ -166,34 +164,4 @@
         <feature name="SERVERROLES" comment="Prerequisite roles">BITS,BITS-IIS-Ext,NET-Framework-45-ASPNET,NET-Framework-Core,NET-Framework-Features,NET-WCF-HTTP-Activation45,RDC,RSAT,RSAT-Bits-Server,RSAT-Feature-Tools,WAS,WAS-Config-APIs,WAS-Process-Model,Web-App-Dev,Web-Asp-Net,Web-Asp-Net45,Web-Common-Http,Web-Default-Doc,Web-Dir-Browsing,Web-Filtering,Web-Health,Web-Http-Errors,Web-Http-Logging,Web-Http-Redirect,Web-Http-Tracing,Web-ISAPI-Ext,Web-ISAPI-Filter,Web-Log-Libraries,Web-Metabase,Web-Mgmt-Compat,Web-Mgmt-Console,Web-Mgmt-Tools,Web-Net-Ext,Web-Net-Ext45,Web-Performance,Web-Request-Monitor,Web-Security,Web-Server,Web-Stat-Compression,Web-Static-Content,Web-WebServer,Web-Windows-Auth,Web-WMI</feature>
         <feature name="WSUS" comment="WSUS role">UpdateServices-Services,UpdateServices-DB,UpdateServices-RSAT</feature>
     </features>
-    <!-- 
-    the following section is still in development / not currently used
-    cmdlet ref: https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/configurationmanager 
-    -->
-    <cmsite>
-        <discoveries comment="https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/set-cmdiscoverymethod">
-            <discovery name="ActiveDirectoryForestDiscovery" EnableActiveDirectorySiteBoundaryCreation="false" EnableSubnetBoundaryCreation="true" PollingSchedule="10 minutes" />
-            <discovery name="ActiveDirectorySystemDiscovery" EnableFilteringExpiredLogon="true" EnableFilteringExpiredPassword="true" TimeSinceLastLogonDays="90" TimeSinceLastPasswordUpdateDays="90" PollingSchedule="1 days" />
-            <discovery name="ActiveDirectoryGroupDiscovery" PollingSchedule="5 days" />
-            <discovery name="ActiveDirectoryUserDiscovery" PollingSchedule="5 days" />
-        </discoveries>
-        <boundarygroups>
-            <boundarygroup name="NA-US-VA-Norfolk" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="" />
-            <boundarygroup name="NA-US-NY-Albany" SiteSystemServer="" LinkType="" comment="" />
-            <boundarygroup name="NA-US-CA-Fremont" SiteSystemServer="" LinkType="" comment="" />
-            <boundarygroup name="SA-AR-Moreno" SiteSystemServer="" LinkType="" comment="" />
-            <boundarygroup name="EMEA-UK-Derbyshire" SiteSystemServer="" LinkType="" comment="" />
-            <boundarygroup name="APAC-AU-Sidney" SiteSystemServer="" LinkType="" comment="" />
-        </boundarygroups>
-        <clientoptions>
-            <CMClientPushInstallation EnableAutomaticClientPushInstallation="false" EnableSystemTypeConfiguationManager="false" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
-        </clientoptions>
-        <misc>
-            <CMAssetIntelligenceClass EnableAllReportingClass="true" />
-        </misc>
-        <siteservers>
-            <siteserver name="FS1.contoso.com" roles="DP,SUP" comment="" />
-            <siteserver name="FS2.contoso.com" roles="DP" comment="" />
-        </siteservers>
-    </cmsite>
 </configuration>
