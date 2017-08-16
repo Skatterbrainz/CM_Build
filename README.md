@@ -56,3 +56,5 @@ Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MD
 
 * .\cm_build.ps1 -xmlfile .\cm_build.xml -Verbose
 * .\cm_build.ps1 -xmlfile .\cm_build.xml -NoCheck -Verbose
+* .\cm_build.ps1 -xmlfile .\cm_build.xml -NoReboot -Verbose
+
