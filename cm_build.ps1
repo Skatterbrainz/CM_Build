@@ -48,7 +48,27 @@ function Get-TimeOffset {
     Write-Output $Offset
 }
 
-function Set-CMBuildRegVal {
+function Test-Platform {
+    param ()
+    Write-Verbose "[function: test-platform]"
+    $os = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty caption
+    if (($os -like "*Windows Server 2012 R2*") -or ($os -like "*Windows Server 2016*")) {
+        Write-Verbose "info: passed rule = operating system"
+        $mem = [math]::Round($(gwmi Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)/1GB,0)
+        if ($mem -ge 8) {
+            Write-Verbose "info: passed rule = minimmum memory allocation"
+            Write-Output $True
+        }
+        else {
+            Write-Host "FAIL: System has $mem GB of memory. ConfigMgr requires 8 GB of memory or more" -ForegroundColor Red
+        }
+    }
+    else {
+        Write-Host "FAIL: Operating System must be Windows Server 2012 R2 or 2016" -ForegroundColor Red
+    }
+}
+
+function Write-TaskCompleted {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -58,7 +78,7 @@ function Set-CMBuildRegVal {
             [ValidateNotNullOrEmpty()]
             [string] $Value
     )
-    Write-Verbose "[function: set-cmbuildregval]"
+    Write-Verbose "[function: Write-TaskCompleted]"
     try {
         New-Item -Path $basekey -ErrorAction SilentlyContinue | Out-Null
         New-Item -Path $basekey\PROCESSED -ErrorAction SilentlyContinue | Out-Null
@@ -113,13 +133,24 @@ function Get-ConfigData {
     }
 }
 
+function Set-CMBuildParams {
+    param ($DataSet)
+    Write-Host "Loading configuration data" -ForegroundColor Green
+    Set-Variable -Name project -Value $DataSet.configuration.project -Scope Script
+    Set-Variable -Name packages -Value $($DataSet.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}) -Scope Script
+    Set-Variable -Name payloads -Value $DataSet.configuration.payloads.payload -Scope Script
+    Set-Variable -Name features -Value $DataSet.configuration.features.feature -Scope Script
+    Set-Variable -Name detects -Value $DataSet.configuration.detections.detect -Scope Script
+    Set-Variable -Name folders -Value $DataSet.configuration.folders.folder -Scope Script
+    Set-Variable -Name files -Value $DataSet.configuration.files.file -Scope Script
+    Set-Variable -Name newfiles -Value $DataSet.configuration.files.file -Scope Script
+    Set-Variable -Name refs -Value $DataSet.configuration.references.reference -Scope Script
+    Set-Variable -Name AltSource -Value $($refs | Where-Object {$_.name -eq 'WindowsServer'} | Select-Object -ExpandProperty path) -Scope Script
+}
 function Show-CMBuildParams {
     [CmdletBinding()]
     param ()
-    Write-Verbose "info: project customer... $($project.customer.name)"
-    Write-Verbose "info: project author..... $($project.author.name)"
-    Write-Verbose "info: project version.... $($project.version.name) `($($project.version.comment)`)"
-    Write-Verbose "info: site server........ $($project.siteserver.name)"
+    Write-Verbose "info: project info....... $($project.comment)"
     Write-Verbose "info: packages........... $($packages.count)"
     Write-Verbose "info: payloads........... $($payloads.count)"
     Write-Verbose "info: features........... $($features.count)"
@@ -253,7 +284,32 @@ function Add-ServerRoles {
     } # foreach-object
     Write-Verbose "info: result = $result"
     if ($result -eq 0) {
-        Set-CMBuildRegVal -KeyName 'SERVERROLES' -Value $(Get-Date)
+        Write-TaskCompleted -KeyName 'SERVERROLES' -Value $(Get-Date)
+    }
+    $time2 = Get-TimeOffset -StartTime $time1
+    Write-Verbose "info: function runtime = $time2"
+    Write-Output $result
+}
+
+function Set-WsusConfiguration {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        [string] $UpdatesFolder
+    )
+    Write-Verbose "[function: set-wsusconfiguration]"
+    $time1 = Get-Date
+    $sqlhost = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
+    Write-Verbose "INFO: wsus SQL_INSTANCE_NAME=$sqlhost"
+    Write-Verbose "INFO: wsus CONTENT_DIR=$UpdatesFolder"
+    try {
+        & 'C:\Program Files\Update Services\Tools\WsusUtil.exe' postinstall SQL_INSTANCE_NAME=$sqlhost CONTENT_DIR=$UpdatesFolder | Out-Null
+        #Write-TaskCompleted -KeyName WSUSCONFIG -Value $(Get-Date)
+        $result = 0
+    }
+    catch {
+        Write-Warning "ERROR: Unable to invoke WSUS post-install configuration"
     }
     $time2 = Get-TimeOffset -StartTime $time1
     Write-Verbose "info: function runtime = $time2"
@@ -282,14 +338,14 @@ function Set-SqlConfiguration {
     Write-Verbose "info: current SQL max is $curMax GB"
     if ($actMax -lt 7) {
         Write-Verbose "warning: Server has $actMax GB of memory - SQL Config cannot be optimized"
-        Set-CMBuildRegVal -KeyName 'SQLCONFIG' -Value $(Get-Date)
+        Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
         $result = 0
     }
     elseif ($curMax -ne $newMax) {
         try {
             Set-DbaMaxMemory -SqlServer (&hostname) -MaxMb $newMax
             Write-Verbose "info: maximum memory allocation is now: $newMax"
-            Set-CMBuildRegVal -KeyName 'SQLCONFIG' -Value $(Get-Date)
+            Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
             $result = 0
         }
         catch {
@@ -343,6 +399,7 @@ function Install-Payload {
         $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Stop
         if ((0,3010,1605,1641,1618,1707).Contains($p.ExitCode)) {
             $result = 0
+            Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
         }
         else {
             $result = $p.ExitCode
@@ -359,10 +416,6 @@ function Install-Payload {
         }
         else {
             Write-Host "Reboot will be requested" -ForegroundColor Magenta
-            <#
-            Stop-Transcript
-            Restart-Computer
-            #>
         }
     }
     Get-TimeOffset -StartTime $time1
@@ -375,25 +428,23 @@ function Install-Payload {
 
 $RunTime1 = Get-Date
 Write-Output "info: begin process at $(Get-Date)"
-Set-CMBuildRegVal -KeyName 'START' -Value $(Get-Date)
+Write-TaskCompleted -KeyName 'START' -Value $(Get-Date)
 
 [xml]$xmldata = Get-ConfigData $XmlFile
-$project  = $xmldata.configuration.project
-$packages = $xmldata.configuration.packages.package | ? {$_.enabled -eq 'true'}
-$payloads = $xmldata.configuration.payloads.payload
-$features = $xmldata.configuration.features.feature
-$detects  = $xmldata.configuration.detections.detect
-$folders  = $xmldata.configuration.folders.folder
-$files    = $xmldata.configuration.files.file
-$newfiles = $xmldata.configuration.files.file
-$refs     = $xmldata.configuration.references.reference
-$AltSource = $refs | Where-Object {$_.name -eq 'WindowsServer'} | Select-Object -ExpandProperty path
-
+Set-CMBuildParams -DataSet $xmldata
 Show-CMBuildParams
 
 Set-Location $env:USERPROFILE
 $tsFile = "$($env:TEMP)\cm_build$($env:COMPUTERNAME)_transaction.log"
-Start-Transcript -Path $tsFile
+Write-Host "Transaction log: $tsFile" -ForegroundColor Green
+
+try {
+    Start-Transcript -Path $tsFile
+}
+catch {
+    Write-Error $error[0]
+    break
+}
 
 Write-Output "------------------- BEGIN $(Get-Date) -------------------"
 Write-Verbose "info: alternate windows source = $AltSource"
@@ -431,6 +482,10 @@ foreach ($package in $packages) {
     Write-Verbose "info: payload file.... $pkgFile"
     Write-Verbose "info: payload args.... $pkgArgs"
     Write-Verbose "info: rule type....... $detType"
+    if (($detType -eq "") -or ($detPath -eq "") -or (-not($detPath))) {
+        Write-Warning "error: detection rule is missing for $pkgName (aborting)"
+        break
+    }
     if ($detType -eq 'synthetic') {
         # example "HKLM:\SOFTWARE\CM_BUILD\PROCESS\WSUS"
         $detPath = "$detPath\$pkgName"
@@ -444,9 +499,12 @@ foreach ($package in $packages) {
         switch ($pkgType) {
             'feature' {
                 Write-Host "Installing $pkgComm" -ForegroundColor Green
-                $xdata = ($xmldata.configuration.features.feature | Where-Object {$_.name -eq $pkgName} | Foreach-Object {$_.innerText}).Split(',')
+                $xdata = ($xmldata.configuration.features.feature | 
+                    Where-Object {$_.name -eq $pkgName} | 
+                        Foreach-Object {$_.innerText}).Split(',')
                 $x = Add-ServerRoles -RoleName $pkgName -FeaturesList $xdata -AlternateSource $AltSource
                 Write-Verbose "info: exit code = $x"
+                Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
                 break
             }
             'function' {
@@ -455,6 +513,18 @@ foreach ($package in $packages) {
                         Write-Host "$pkgComm" -ForegroundColor Green
                         $x = Set-SqlConfiguration
                         Write-Verbose "info: exit code = $x"
+                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
+                        break
+                    }
+                    'WSUSCONFIG' {
+                        Write-Host "$pkgComm" -ForegroundColor Green
+                        $fpath = $folders | ?{$_.comment -like 'WSUS*'} | Select-Object -ExpandProperty name
+                        if (-not($fpath) -or ($fpath -eq "")) {
+                            Write-Warning "error: missing WSUS updates storage path setting in XML file. Refer to FOLDERS section."
+                            break
+                        }
+                        $x = Set-WsusConfiguration -UpdatesFolder $fpath
+                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
                         break
                     }
                     default {
@@ -486,11 +556,12 @@ foreach ($package in $packages) {
     Write-Verbose "-----------------------------"
 }
 
-Write-Output "info: finished at $(Get-Date)"
+Write-Host "Processing finished at $(Get-Date)" -ForegroundColor Green
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
-Write-Output "info: total time = $RunTime2"
+Write-Output "info: finished at $(Get-Date) - total runtime = $RunTime2"
 if ((Test-PendingReboot) -and ($NoReboot)) {
     Write-Host "REBOOT in 30 SECONDS - or press CTRL`+C to abort" -ForegroundColor Cyan
     Start-Sleep -Seconds 30
     Restart-Computer -Force
 }
+Stop-Transcript
