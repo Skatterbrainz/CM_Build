@@ -2,7 +2,7 @@
 <configuration>
     <project comment="Information describing the purpose of this configuration">
         <customer name="Contoso" comment="" />
-        <version name="1.0.0" comment="2017.08.14" />
+        <version name="1.1.0" comment="2017.08.16" />
         <siteserver name="cm02.contoso.com" comment="Primary site server host" />
         <author name="David Stein" comment="" />
     </project>
@@ -11,17 +11,17 @@
         <reference name="Windows10" type="AltSource" path="\\FS1\apps\sources\SXS" file="" comment="Windows 10 x64 enterprise" />
     </references>
     <packages comment="Controls the order and links of execution">
-        <package name="SERVERROLES" enabled="true" type="feature" comment="Install Prereq Server Roles and Features" />
+        <package name="SERVERROLES" enabled="true" type="feature" comment="Server Roles and Features" />
         <package name="ADSCHEMA" enabled="false" type="function" comment="Extend AD Schema" />
-        <package name="ADCONTAINER" enabled="false" type="function" comment="Create System Management AD container" />
-        <package name="ADK" enabled="true" type="payload" comment="Windows 10 ADK" />
-        <package name="MDT" enabled="true" type="payload" comment="Microsoft Deployment Toolkit" />
-        <package name="SQLSERVER" enabled="true" type="payload" comment="SQL Server" />
+        <package name="ADCONTAINER" enabled="false" type="function" comment="System Management AD container" />
+        <package name="ADK" enabled="true" type="payload" comment="Windows 10 ADK 1703" />
+        <package name="MDT" enabled="true" type="payload" comment="Microsoft Deployment Toolkit 8443" />
+        <package name="SQLSERVER" enabled="true" type="payload" comment="SQL Server 2016" />
         <package name="SSMS" enabled="true" type="payload" comment="SQL Server Management Studio" />
-        <package name="SQLCONFIG" enabled="true" type="function" comment="Configure SQL Server options" />
-        <package name="WSUS" enabled="true" type="feature" comment="Install WSUS role" />
-        <package name="CONFIGMGR" enabled="true" type="payload" comment="Configuration Manager" />
-        <package name="CMTOOLKIT" enabled="true" type="payload" comment="ConfigMgr Toolkit" />
+        <package name="SQLCONFIG" enabled="true" type="function" comment="Configure SQL Server" />
+        <package name="WSUS" enabled="true" type="feature" comment="WSUS Role" />
+        <package name="CONFIGMGR" enabled="true" type="payload" comment="Configuration Manager 1702" />
+        <package name="CMTOOLKIT" enabled="true" type="payload" comment="ConfigMgr Toolkit 2012 R2" />
         <package name="RCTOOLS" enabled="true" type="payload" comment="Recast RightClick Tools" />
         <package name="SITECONFIG" enabled="false" type="function" comment="Configure ConfigMgr site" />
     </packages>
@@ -36,14 +36,14 @@
         <payload name="RCTOOLS" path="\\FS1\apps\MS\TOOLS" file="Recast_RCT_Latest.msi" params="/qb! /norestart"  target="" reboot="false" />
     </payloads>
     <detections comment="Describe evidence to indicate payload completion">
-        <detect name="ADK" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots" type="automatic" />
-        <detect name="MDT" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9547DE37-4A70-4194-97EA-ACC3E747254B}" type="automatic" />
-        <detect name="SQLSERVER" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" type="automatic" />
-        <detect name="SSMS" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{510DB6E6-7CF0-4B25-A51E-3AED7E25D507}" type="automatic" />
-        <detect name="CONFIGMGR" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SMS Primary Site" type="automatic" />
-        <detect name="CMTOOLKIT" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{87e167be-284c-4a9c-92a9-ccccf210492e}" type="automatic" />
-        <detect name="RCTOOLS" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{4FFF7ECC-CCF7-4530-B938-E7812BB91186}" type="automatic" />
-        <detect name="WSUS" path="HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" type="automatic" />
+        <detect name="ADK" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots" value="" type="automatic" />
+        <detect name="MDT" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9547DE37-4A70-4194-97EA-ACC3E747254B}" value="" type="automatic" />
+        <detect name="SQLSERVER" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" value="" type="automatic" />
+        <detect name="SSMS" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{510DB6E6-7CF0-4B25-A51E-3AED7E25D507}" value="" type="automatic" />
+        <detect name="CONFIGMGR" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SMS Primary Site" value="" type="automatic" />
+        <detect name="CMTOOLKIT" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{87e167be-284c-4a9c-92a9-ccccf210492e}" value="" type="automatic" />
+        <detect name="RCTOOLS" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{4FFF7ECC-CCF7-4530-B938-E7812BB91186}" value="" type="automatic" />
+        <detect name="WSUS" path="HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" value="" type="automatic" />
         <detect name="SERVERROLES" path="HKLM:\SOFTWARE\CMBUILD\PROCESS" value="SERVERROLES" type="synthetic" />
         <detect name="SQLCONFIG" path="HKLM:\SOFTWARE\CMBUILD\PROCESS" value="SQLCONFIG" type="synthetic" />
         <detect name="SITECONFIG" path="HKLM:\SOFTWARE\CMBUILD\PROCESS" value="SITECONFIG" type="synthetic" />
@@ -62,7 +62,7 @@
         <folder name="F:\SOURCES,F:\SOURCES\DRVPKG,F:\SOURCES\DRVSRC,F:\SOURCES\SCRIPTS,F:\SOURCES\TOOLS" comment="" />
     </folders>
     <files comment="files to be created">
-        <file name="sqlsetup.ini" path="F:\CM_BUILD" force="true" comment="SQL Server Installation file">
+        <file pkg="SQLSERVER" name="sqlsetup.ini" path="F:\CM_BUILD" force="true" comment="SQL Server Installation file">
             <keys>
                 <key name="__SECTION1" value="OPTIONS" />
 		<key name="ACTION" value="Install" />
@@ -122,7 +122,7 @@
 		<key name="IAcceptSQLServerLicenseTerms" value="True" />
             </keys>
         </file>
-        <file name="cmsetup.ini" path="F:\CM_BUILD" force="true" comment="ConfigMgr Installation file">
+        <file pkg="CONFIGMGR" name="cmsetup.ini" path="F:\CM_BUILD" force="true" comment="ConfigMgr Installation file">
             <keys>
                 <key name="__SECTION1" value="Identification" />
                 <key name="Action" value="InstallPrimarySite" />
