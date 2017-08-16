@@ -1,7 +1,9 @@
 # CM_Build
 ConfigMgr Site Server installer script
 
-## 1.0.0
+## Revision History
+1.0.0 - 2017.08.14 - initial release
+1.1.0 - 2017.08.15 - redesigned XML structure, process and code factoring
 
 Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
