@@ -10,11 +10,9 @@
 .PARAMETER NoCheck
     [switch](optional) Skip platform validation restrictions
 .PARAMETER NoReboot
-    [switch](optional) Suppress reboots
-.PARAMETER DelayReboot
-    [switch](optional) Suppress reboot until very end
+    [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.0 - DS - 2017.08.15
+    1.1.0 - DS - 2017.08.16
     1.0.0 - DS - 2017.08.14
     
     Read the associated XML to make sure the path and filename values
@@ -32,9 +30,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Skip platform validation checking")]
         [switch] $NoCheck,
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
-        [switch] $NoReboot,
-    [parameter(Mandatory=$False, HelpMessage="Defer reboot until the very end")]
-        [switch] $DelayReboot
+        [switch] $NoReboot
 )
 
 $basekey = 'HKLM:\SOFTWARE\CM_BUILD'
@@ -117,6 +113,22 @@ function Get-ConfigData {
     }
 }
 
+function Show-CMBuildParams {
+    [CmdletBinding()]
+    param ()
+    Write-Verbose "info: project customer... $($project.customer.name)"
+    Write-Verbose "info: project author..... $($project.author.name)"
+    Write-Verbose "info: project version.... $($project.version.name) `($($project.version.comment)`)"
+    Write-Verbose "info: site server........ $($project.siteserver.name)"
+    Write-Verbose "info: packages........... $($packages.count)"
+    Write-Verbose "info: payloads........... $($payloads.count)"
+    Write-Verbose "info: features........... $($features.count)"
+    Write-Verbose "info: detect rules....... $($detects.count)"
+    Write-Verbose "info: folders............ $($folders.count)"
+    Write-Verbose "info: files.............. $($newfiles.count)"
+    Write-Verbose "info: references......... $($refs.count)"    
+}
+
 function Set-NewFolders {
     [CmdletBinding()]
     param($Folders)
@@ -130,6 +142,7 @@ function Set-NewFolders {
                 Write-Verbose "info: creating folder: $fn"
                 try {
                     New-Item -Path $fn -ItemType Directory -ErrorAction Stop | Out-Null
+                    $WaitAfter = $True
                 }
                 catch {
                     Write-Warning "error: unable to create folder: $fn"
@@ -140,6 +153,10 @@ function Set-NewFolders {
                 Write-Verbose "info: folder exists: $fn"
             }
         }
+    }
+    if ($WaitAfter) {
+        Write-Verbose "info: pausing for 5 seconds"
+        Start-Sleep -Seconds 5
     }
     Write-Output $result
 }
@@ -195,35 +212,49 @@ function Add-ServerRoles {
             [ValidateNotNullOrEmpty()]
             [string[]] $FeaturesList,
         [parameter(Mandatory=$False)]
-            [string] $AlternateSource = ""
+            [string] $AlternateSource = "",
+        [parameter(Mandatory=$False)]
+            [string] $LogFile = "roles.log"
     )
     Write-Verbose "-----------------------------"
     Write-Verbose "[function: add-serverroles]"
     $time1  = Get-Date
-    $result = $True
+    $result = 0
     $FeaturesList | 
     Foreach-Object {
         $FeatureCode = $_
-        Write-Verbose "`info: installing role or feature: $FeatureCode"
+        Write-Verbose "info: installing role or feature: $FeatureCode"
         $time3 = Get-Date
-        try {
-            if ($AlternateSource -ne "") {
-                $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD" -Source $AlternateSource -ErrorAction Stop
+
+        if ($AlternateSource -ne "") {
+            try {
+                $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource -ErrorAction Stop
+                $result = $exitcode
             }
-            else {
-                $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD" -ErrorAction Stop
+            catch {
+                $result = -1
             }
-            Write-Output "`info: $FeatureCode exitcode: $exitcode"
-            $result = $exitcode
+            Write-Output "info: $FeatureCode exitcode: $exitcode"
+            #Write-Warning "error: $($error[0].Exception)"
         }
-        catch {
-            Write-Warning "error: failed to add role or feature: $FeatureCode"
-            Write-Warning "error: $($error[0].Exception)"
-            $result = $False
+        else {
+            try {
+                $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop
+                $result = $exitcode
+            }
+            catch {
+                $result = -1
+            }
+            Write-Output "info: $FeatureCode exitcode: $exitcode"
+            #Write-Warning "error: $($error[0].Exception)"
         }
         $time4 = Get-TimeOffset -StartTime $time3
-        Write-Verbose "info: task runtime = $time4"
+        Write-Verbose "info: $FeatureCode runtime = $time4"
     } # foreach-object
+    Write-Verbose "info: result = $result"
+    if ($result -eq 0) {
+        Set-CMBuildRegVal -KeyName 'SERVERROLES' -Value $(Get-Date)
+    }
     $time2 = Get-TimeOffset -StartTime $time1
     Write-Verbose "info: function runtime = $time2"
     Write-Output $result
@@ -235,29 +266,34 @@ function Set-SqlConfiguration {
         [parameter(Mandatory=$False)]
             [int] $MemRatio = 80
     )
-    Write-Verbose "[function:set-sqlconfiguration] MemRatio: $MemRatio"
+    Write-Verbose "[function: set-sqlconfiguration]"
+    Write-Verbose "info: MemRatio = $MemRatio"
     $time1 = Get-Date
     $dblRatio = $MemRatio * 0.01
+    Install-Module -Name PowerShellGet -Force
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
     Install-Module dbatools -SkipPublisherCheck -Force
-    Write-Host "info: configuring server memory limits..." -ForegroundColor Green
     $TotalMem = (Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)
     $actMax   = [math]::Round($TotalMem/1GB,0)
     $newMax   = [math]::Round(($TotalMem / 1MB)*$dblRatio,0)
     $curMax   = Get-DbaMaxMemory -SqlServer (&hostname)
+    Write-Verbose "info: total memory is $actMax GB"
+    Write-Verbose "info: recommended SQL max is $newMax GB"
+    Write-Verbose "info: current SQL max is $curMax GB"
     if ($actMax -lt 7) {
-        Write-Warning "`tServer has $actMax GB of memory - SQL Config cannot be optimized"
+        Write-Verbose "warning: Server has $actMax GB of memory - SQL Config cannot be optimized"
+        Set-CMBuildRegVal -KeyName 'SQLCONFIG' -Value $(Get-Date)
         $result = 0
     }
     elseif ($curMax -ne $newMax) {
         try {
             Set-DbaMaxMemory -SqlServer (&hostname) -MaxMb $newMax
             Write-Verbose "info: maximum memory allocation is now: $newMax"
-            Set-CMBuildRegVal -KeyName SQLCONFIG -Value $(Get-Date)
+            Set-CMBuildRegVal -KeyName 'SQLCONFIG' -Value $(Get-Date)
             $result = 0
         }
         catch {
-            Write-Warning "unable to change memory allocation"
+            Write-Verbose "warning: unable to change memory allocation"
         }
     }
     $time2 = Get-TimeOffset -StartTime $time1
@@ -299,16 +335,23 @@ function Install-Payload {
     else {
         $ArgList = $OptionParams
     }
+    $result = 0
     Write-Verbose "info: launcher... $SourceFile"
     Write-Verbose "info: arguments.. $ArgList"
     $time1 = Get-Date
     try {
-        $p = Start-Process -FilePath "$SourceFile" -Wait -ArgumentList $ArgList -PassThru -ErrorAction Stop
-        $result = $p.ExitCode
+        $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Stop
+        if ((0,3010,1605,1641,1618,1707).Contains($p.ExitCode)) {
+            $result = 0
+        }
+        else {
+            $result = $p.ExitCode
+        }
     }
     catch {
         Write-Warning "error: failed to execute installation: $Name"
         Write-Warning "error: $($error[0].Exception)"
+        $result = -1
     }
     if (Test-PendingReboot) {
         if ($NoReboot) {
@@ -332,6 +375,7 @@ function Install-Payload {
 
 $RunTime1 = Get-Date
 Write-Output "info: begin process at $(Get-Date)"
+Set-CMBuildRegVal -KeyName 'START' -Value $(Get-Date)
 
 [xml]$xmldata = Get-ConfigData $XmlFile
 $project  = $xmldata.configuration.project
@@ -343,36 +387,29 @@ $folders  = $xmldata.configuration.folders.folder
 $files    = $xmldata.configuration.files.file
 $newfiles = $xmldata.configuration.files.file
 $refs     = $xmldata.configuration.references.reference
-
-Write-Verbose "info: project customer... $($project.customer.name)"
-Write-Verbose "info: project author..... $($project.author.name)"
-Write-Verbose "info: project version.... $($project.version.name) `($($project.version.comment)`)"
-Write-Verbose "info: site server........ $($project.siteserver.name)"
-Write-Verbose "info: packages........... $($packages.count)"
-Write-Verbose "info: payloads........... $($payloads.count)"
-Write-Verbose "info: features........... $($features.count)"
-Write-Verbose "info: detect rules....... $($detects.count)"
-Write-Verbose "info: folders............ $($folders.count)"
-Write-Verbose "info: files.............. $($newfiles.count)"
-Write-Verbose "info: references......... $($refs.count)"
-
 $AltSource = $refs | Where-Object {$_.name -eq 'WindowsServer'} | Select-Object -ExpandProperty path
 
+Show-CMBuildParams
+
 Set-Location $env:USERPROFILE
-Start-Transcript -Path ".\cm_build_$($env:COMPUTERNAME)_transaction.log" -Append
+$tsFile = "$($env:TEMP)\cm_build$($env:COMPUTERNAME)_transaction.log"
+Start-Transcript -Path $tsFile
 
 Write-Output "------------------- BEGIN $(Get-Date) -------------------"
 Write-Verbose "info: alternate windows source = $AltSource"
 
-if (-not(Set-NewFolders -Folders $folders)) {
+Write-Host "Creating Folders and data files" -ForegroundColor Green
+
+if (-not (Set-NewFolders -Folders $folders)) {
     Write-Warning "error: failed to create folders (aborting)"
     break
 }
-if (-not(Set-NewFiles -Files $files)) {
+if (-not (Set-NewFiles -Files $files)) {
     Write-Warning "error: failed to create files (aborting)"
     break
 }
 
+Write-Host "Executing project configuration" -ForegroundColor Green
 Write-Verbose "-----------------------------"
 
 foreach ($package in $packages) {
@@ -383,24 +420,30 @@ foreach ($package in $packages) {
     $pkgSrc  = $payload.path 
     $pkgFile = $payload.file
     $pkgArgs = $payload.params
-    $detrule = $detects  | Where-Object {$_.name -eq $pkgName}
-    $detPath = $detrule.path
-    $detType = $detrule.type
+    $detRule = $detects  | Where-Object {$_.name -eq $pkgName}
+    $detPath = $detRule.path
+    $detType = $detRule.type
+
     Write-Verbose "info: package name.... $pkgName"
     Write-Verbose "info: package type.... $pkgType"
     Write-Verbose "info: package comment. $pkgComm"
     Write-Verbose "info: payload source.. $pkgSrc"
     Write-Verbose "info: payload file.... $pkgFile"
     Write-Verbose "info: payload args.... $pkgArgs"
-    Write-Verbose "info: detect rule..... $detPath"
     Write-Verbose "info: rule type....... $detType"
-    if (Test-Path $detRule) {
+    if ($detType -eq 'synthetic') {
+        # example "HKLM:\SOFTWARE\CM_BUILD\PROCESS\WSUS"
+        $detPath = "$detPath\$pkgName"
+    }
+    Write-Verbose "info: detect rule..... $detPath"
+    if (Test-Path $detPath) {
         Write-Verbose "info: install state... installed"
     }
     else {
         Write-Verbose "info: install state... not installed"
         switch ($pkgType) {
             'feature' {
+                Write-Host "Installing $pkgComm" -ForegroundColor Green
                 $xdata = ($xmldata.configuration.features.feature | Where-Object {$_.name -eq $pkgName} | Foreach-Object {$_.innerText}).Split(',')
                 $x = Add-ServerRoles -RoleName $pkgName -FeaturesList $xdata -AlternateSource $AltSource
                 Write-Verbose "info: exit code = $x"
@@ -409,6 +452,7 @@ foreach ($package in $packages) {
             'function' {
                 switch ($pkgName) {
                     'SQLCONFIG' {
+                        Write-Host "$pkgComm" -ForegroundColor Green
                         $x = Set-SqlConfiguration
                         Write-Verbose "info: exit code = $x"
                         break
@@ -421,6 +465,10 @@ foreach ($package in $packages) {
                 break
             }
             'payload' {
+                Write-Host "Installing $pkgComm" -ForegroundColor Green
+                if ($pkgName -eq 'CONFIGMGR') {
+                    Write-Host "Tip: Monitor C:\ConfigMgrSetup.log for progress" -ForegroundColor Green
+                }
                 $runFile = "$pkgSrc\$pkgFile"
                 $x = Install-Payload -Name $pkgName -SourceFile $runFile -OptionParams $pkgArgs
                 Write-Verbose "info: exit code = $x"
@@ -441,7 +489,8 @@ foreach ($package in $packages) {
 Write-Output "info: finished at $(Get-Date)"
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
 Write-Output "info: total time = $RunTime2"
-if ((Test-PendingReboot) -and ($DelayReboot)) {
-    Write-Host "Deferred reboot until now - REBOOTING!!"
-    Restart-Computer -Timeout 30
+if ((Test-PendingReboot) -and ($NoReboot)) {
+    Write-Host "REBOOT in 30 SECONDS - or press CTRL`+C to abort" -ForegroundColor Cyan
+    Start-Sleep -Seconds 30
+    Restart-Computer -Force
 }
