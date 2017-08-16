@@ -2,8 +2,8 @@
 ConfigMgr Site Server installer script
 
 ## Revision History
-1.0.0 - 2017.08.14 - initial release
-1.1.0 - 2017.08.15 - redesigned XML structure, process and code factoring
+* 1.0.0 - 2017.08.14 - initial release
+* 1.1.0 - 2017.08.16 - redesigned XML structure, process logic and code factoring
 
 Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
