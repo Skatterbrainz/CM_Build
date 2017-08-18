@@ -266,6 +266,7 @@ function Add-ServerRoles {
                 $result = -1
             }
             Write-Output "info: $FeatureCode exitcode: $exitcode"
+            #Write-Warning "error: $($error[0].Exception)"
         }
         else {
             try {
@@ -276,6 +277,7 @@ function Add-ServerRoles {
                 $result = -1
             }
             Write-Output "info: $FeatureCode exitcode: $exitcode"
+            #Write-Warning "error: $($error[0].Exception)"
         }
         $time4 = Get-TimeOffset -StartTime $time3
         Write-Verbose "info: $FeatureCode runtime = $time4"
@@ -286,6 +288,50 @@ function Add-ServerRoles {
     }
     $time2 = Get-TimeOffset -StartTime $time1
     Write-Verbose "info: function runtime = $time2"
+    Write-Output $result
+}
+
+function Add-ServerRolesFile {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $PackageName,
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $PackageFile
+    )
+    Write-Verbose "[function: add-serverrolesfile]"
+    if (Test-Path $PackageFile) {
+        if ($AltSource -ne "") {
+            try {
+                Write-Verbose "info: installing features from configuration file: $PackageFile using alternate source"
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "F:\CM_BUILD\$LogFile" -Source $AltSource -ErrorAction Stop | Out-Null
+                $result = 0
+                Write-TaskCompleted -KeyName $PackageName -Value $(Get-Date)
+            }
+            catch {
+                Write-Error $_
+                break
+            }
+        }
+        else {
+            try {
+                Write-Verbose "info: installing features from configuration file: $PackageFile"
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop | Out-Null
+                $result = 0
+                Write-TaskCompleted -KeyName $PackageName -Value $(Get-Date)
+            }
+            catch {
+                Write-Error $_
+                break
+            }
+        }
+    }
+    else {
+        Write-Warning "ERROR: role configuration file $PackageFile was not found!"
+        break
+    }
     Write-Output $result
 }
 
@@ -303,6 +349,7 @@ function Set-WsusConfiguration {
     Write-Verbose "INFO: wsus CONTENT_DIR=$UpdatesFolder"
     try {
         & 'C:\Program Files\Update Services\Tools\WsusUtil.exe' postinstall SQL_INSTANCE_NAME=$sqlhost CONTENT_DIR=$UpdatesFolder | Out-Null
+        #Write-TaskCompleted -KeyName WSUSCONFIG -Value $(Get-Date)
         $result = 0
     }
     catch {
@@ -395,6 +442,7 @@ function Install-Payload {
     try {
         $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Stop
         if ((0,3010,1605,1641,1618,1707).Contains($p.ExitCode)) {
+            Write-Verbose "info: aggregating a success code."
             Write-TaskCompleted -KeyName $Name -Value $(Get-Date)
             $result = 0
         }
@@ -417,12 +465,20 @@ function Install-Payload {
             Write-Host "Reboot will be requested" -ForegroundColor Magenta
         }
     }
-    Get-TimeOffset -StartTime $time1
     $time2 = Get-TimeOffset -StartTime $time1
     Write-Verbose "info: function runtime = $time2"
     Write-Output $result
 }
 
+function Get-WsusUpdatesPath {
+    param ($FolderSet)
+    $fpath = $FolderSet | Where-Object {$_.comment -like 'WSUS*'} | Select-Object -ExpandProperty name
+    if (-not($fpath) -or ($fpath -eq "")) {
+        Write-Warning "error: missing WSUS updates storage path setting in XML file. Refer to FOLDERS section."
+        break
+    }
+    Write-Output $fpath
+}
 # end-functions
 
 $RunTime1 = Get-Date
@@ -493,12 +549,13 @@ foreach ($package in $packages) {
         }
         Write-Verbose "info: detect rule..... $detPath"
         if (Test-Path $detPath) {
-            Write-Verbose "info: install state... installed"
+            Write-Verbose "info: install state... INSTALLED"
         }
         else {
-            Write-Verbose "info: install state... not installed"
+            Write-Verbose "info: install state... NOT INSTALLED"
             switch ($pkgType) {
                 'feature' {
+                    Write-Verbose "info: installation feature = $pkgName"
                     Write-Host "Installing $pkgComm" -ForegroundColor Green
                     $xdata = ($xmldata.configuration.features.feature | 
                         Where-Object {$_.name -eq $pkgName} | 
@@ -509,6 +566,7 @@ foreach ($package in $packages) {
                     break
                 }
                 'function' {
+                    Write-Verbose "info: installation function = $pkgName"
                     switch ($pkgName) {
                         'SQLCONFIG' {
                             Write-Host "$pkgComm" -ForegroundColor Green
@@ -519,12 +577,13 @@ foreach ($package in $packages) {
                         }
                         'WSUSCONFIG' {
                             Write-Host "$pkgComm" -ForegroundColor Green
-                            $fpath = $folders | ?{$_.comment -like 'WSUS*'} | Select-Object -ExpandProperty name
-                            if (-not($fpath) -or ($fpath -eq "")) {
-                                Write-Warning "error: missing WSUS updates storage path setting in XML file. Refer to FOLDERS section."
+                            $fpath = Get-WsusUpdatesPath -FolderSet $folders
+                            if (-not($fpath)) {
+                                $continue = $False
                                 break
                             }
                             $x = Set-WsusConfiguration -UpdatesFolder $fpath
+                            Write-Verbose "info: exit code = $x"
                             Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
                             break
                         }
@@ -537,54 +596,36 @@ foreach ($package in $packages) {
                 }
                 'payload' {
                     Write-Host "Installing $pkgComm" -ForegroundColor Green
+                    Write-Verbose "info: installation payload = $pkgName"
                     switch ($pkgName) {
                         'CONFIGMGR' {
                             Write-Host "Tip: Monitor C:\ConfigMgrSetup.log for progress" -ForegroundColor Green
                             $runFile = "$pkgSrc\$pkgFile"
                             $x = Install-Payload -Name $pkgName -SourceFile $runFile -OptionParams $pkgArgs
+                            Write-Verbose "info: exit code = $x"
+                            break
+                        }
+                        'SQLSERVER' {
+                            Write-Host "Tip: Monitor $($env:PROGRAMFILES)\Microsoft SQL Server\130\Setup Bootstrap\Logs\summary.txt for progress" -ForegroundColor Green
+                            $runFile = "$pkgSrc\$pkgFile"
+                            $x = Install-Payload -Name $pkgName -SourceFile $runFile -OptionParams $pkgArgs
+                            Write-Verbose "info: exit code = $x"
                             break
                         }
                         'SERVERROLES' {
                             $runFile = "$((Get-ChildItem $xmlfile).DirectoryName)\$pkgFile"
-                            if (Test-Path $pkgFile) {
-                                if ($AltSource -ne "") {
-                                    try {
-                                        Write-Verbose "info: installing features from configuration file: $pkgFile using alternate source"
-                                        $x = Install-WindowsFeature -ConfigurationFilePath $pkgFile -LogPath "F:\CM_BUILD\$LogFile" -Source $AltSource -ErrorAction Stop | Out-Null
-                                        $x = 0
-                                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
-                                    }
-                                    catch {
-                                        Write-Error $_
-                                        break
-                                    }
-                                }
-                                else {
-                                    try {
-                                        Write-Verbose "info: installing features from configuration file: $pkgFile"
-                                        $x = Install-WindowsFeature -ConfigurationFilePath $pkgFile -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop | Out-Null
-                                        $x = 0
-                                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
-                                    }
-                                    catch {
-                                        Write-Error $_
-                                        break
-                                    }
-                                }
-                            }
-                            else {
-                                Write-Warning "ERROR: role configuration file $pkgFile was not found!"
-                                break
-                            }
+                            $x = Add-ServerRolesFile -PackageName $pkgName -PackageFile $pkgFile
+                            Write-Verbose "info: exit code = $x"
                             break
                         }
                         default {
                             $runFile = "$pkgSrc\$pkgFile"
                             $x = Install-Payload -Name $pkgName -SourceFile $runFile -OptionParams $pkgArgs
+                            Write-Verbose "info: exit code = $x"
                             break
                         }
                     } # switch
-                    Write-Verbose "info: exit code = $x"
+
                     if ($x -ne 0) {
                         Write-Warning "error: step failure at: $pkgName"
                         $continue = $False
@@ -610,5 +651,7 @@ $RunTime2 = Get-TimeOffset -StartTime $RunTime1
 Write-Verbose "info: finished at $(Get-Date) - total runtime = $RunTime2"
 if ((Test-PendingReboot) -and ($NoReboot)) {
     Write-Host "A REBOOT is REQUIRED" -ForegroundColor Cyan
+#    Start-Sleep -Seconds 30
+#    Restart-Computer -Force
 }
 Stop-Transcript
