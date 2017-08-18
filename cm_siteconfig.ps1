@@ -25,9 +25,6 @@ param (
         [ValidateNotNullOrEmpty()]
         [string] $XmlFile
 )
-
-$XmlFile = "\\FS1\apps\MS\CM_BUILD\1.1.0\cm_siteconfig.xml"
-
 $basekey = 'HKLM:\SOFTWARE\CM_BUILD'
 
 $RunTime1 = Get-Date
