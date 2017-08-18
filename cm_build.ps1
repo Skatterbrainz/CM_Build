@@ -12,6 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
+    1.1.1 - DS - 2017.08.17
     1.1.0 - DS - 2017.08.16
     1.0.0 - DS - 2017.08.14
     
@@ -402,12 +403,14 @@ function Install-Payload {
             Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
         }
         else {
+            Write-Verbose "internal : exit code = $($p.ExitCode)"
             $result = $p.ExitCode
         }
     }
     catch {
         Write-Warning "error: failed to execute installation: $Name"
         Write-Warning "error: $($error[0].Exception)"
+        Write-Verbose "internal : exit code = -1"
         $result = -1
     }
     if (Test-PendingReboot) {
@@ -462,99 +465,149 @@ if (-not (Set-NewFiles -Files $files)) {
 
 Write-Host "Executing project configuration" -ForegroundColor Green
 Write-Verbose "-----------------------------"
+$continue = $True
 
 foreach ($package in $packages) {
-    $pkgName = $package.name
-    $pkgType = $package.type 
-    $pkgComm = $package.comment 
-    $payload = $payloads | Where-Object {$_.name -eq $pkgName}
-    $pkgSrc  = $payload.path 
-    $pkgFile = $payload.file
-    $pkgArgs = $payload.params
-    $detRule = $detects  | Where-Object {$_.name -eq $pkgName}
-    $detPath = $detRule.path
-    $detType = $detRule.type
+    if ($continue) {
+        $pkgName = $package.name
+        $pkgType = $package.type 
+        $pkgComm = $package.comment 
+        $payload = $payloads | Where-Object {$_.name -eq $pkgName}
+        $pkgSrc  = $payload.path 
+        $pkgFile = $payload.file
+        $pkgArgs = $payload.params
+        $detRule = $detects  | Where-Object {$_.name -eq $pkgName}
+        $detPath = $detRule.path
+        $detType = $detRule.type
 
-    Write-Verbose "info: package name.... $pkgName"
-    Write-Verbose "info: package type.... $pkgType"
-    Write-Verbose "info: package comment. $pkgComm"
-    Write-Verbose "info: payload source.. $pkgSrc"
-    Write-Verbose "info: payload file.... $pkgFile"
-    Write-Verbose "info: payload args.... $pkgArgs"
-    Write-Verbose "info: rule type....... $detType"
-    if (($detType -eq "") -or ($detPath -eq "") -or (-not($detPath))) {
-        Write-Warning "error: detection rule is missing for $pkgName (aborting)"
-        break
-    }
-    if ($detType -eq 'synthetic') {
-        # example "HKLM:\SOFTWARE\CM_BUILD\PROCESS\WSUS"
-        $detPath = "$detPath\$pkgName"
-    }
-    Write-Verbose "info: detect rule..... $detPath"
-    if (Test-Path $detPath) {
-        Write-Verbose "info: install state... installed"
-    }
-    else {
-        Write-Verbose "info: install state... not installed"
-        switch ($pkgType) {
-            'feature' {
-                Write-Host "Installing $pkgComm" -ForegroundColor Green
-                $xdata = ($xmldata.configuration.features.feature | 
-                    Where-Object {$_.name -eq $pkgName} | 
-                        Foreach-Object {$_.innerText}).Split(',')
-                $x = Add-ServerRoles -RoleName $pkgName -FeaturesList $xdata -AlternateSource $AltSource
-                Write-Verbose "info: exit code = $x"
-                Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
-                break
-            }
-            'function' {
-                switch ($pkgName) {
-                    'SQLCONFIG' {
-                        Write-Host "$pkgComm" -ForegroundColor Green
-                        $x = Set-SqlConfiguration
-                        Write-Verbose "info: exit code = $x"
-                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
-                        break
-                    }
-                    'WSUSCONFIG' {
-                        Write-Host "$pkgComm" -ForegroundColor Green
-                        $fpath = $folders | ?{$_.comment -like 'WSUS*'} | Select-Object -ExpandProperty name
-                        if (-not($fpath) -or ($fpath -eq "")) {
-                            Write-Warning "error: missing WSUS updates storage path setting in XML file. Refer to FOLDERS section."
-                            break
-                        }
-                        $x = Set-WsusConfiguration -UpdatesFolder $fpath
-                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
-                        break
-                    }
-                    default {
-                        Write-Warning "not function mapping for: $PkgName"
-                        break
-                    }
-                }
-                break
-            }
-            'payload' {
-                Write-Host "Installing $pkgComm" -ForegroundColor Green
-                if ($pkgName -eq 'CONFIGMGR') {
-                    Write-Host "Tip: Monitor C:\ConfigMgrSetup.log for progress" -ForegroundColor Green
-                }
-                $runFile = "$pkgSrc\$pkgFile"
-                $x = Install-Payload -Name $pkgName -SourceFile $runFile -OptionParams $pkgArgs
-                Write-Verbose "info: exit code = $x"
-                if ($x -ne 0) {
-                    Write-Warning "error: step failure at: $pkgName"
+        Write-Verbose "info: package name.... $pkgName"
+        Write-Verbose "info: package type.... $pkgType"
+        Write-Verbose "info: package comment. $pkgComm"
+        Write-Verbose "info: payload source.. $pkgSrc"
+        Write-Verbose "info: payload file.... $pkgFile"
+        Write-Verbose "info: payload args.... $pkgArgs"
+        Write-Verbose "info: rule type....... $detType"
+        if (($detType -eq "") -or ($detPath -eq "") -or (-not($detPath))) {
+            Write-Warning "error: detection rule is missing for $pkgName (aborting)"
+            break
+        }
+        if ($detType -eq 'synthetic') {
+            # example "HKLM:\SOFTWARE\CM_BUILD\PROCESS\WSUS"
+            $detPath = "$detPath\$pkgName"
+        }
+        Write-Verbose "info: detect rule..... $detPath"
+        if (Test-Path $detPath) {
+            Write-Verbose "info: install state... installed"
+        }
+        else {
+            Write-Verbose "info: install state... not installed"
+            switch ($pkgType) {
+                'feature' {
+                    Write-Host "Installing $pkgComm" -ForegroundColor Green
+                    $xdata = ($xmldata.configuration.features.feature | 
+                        Where-Object {$_.name -eq $pkgName} | 
+                            Foreach-Object {$_.innerText}).Split(',')
+                    $x = Add-ServerRoles -RoleName $pkgName -FeaturesList $xdata -AlternateSource $AltSource
+                    Write-Verbose "info: exit code = $x"
+                    Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
                     break
                 }
-            }
-            default {
-                Write-Warning "invalid package type value: $pkgType"
-                break
-            }
+                'function' {
+                    switch ($pkgName) {
+                        'SQLCONFIG' {
+                            Write-Host "$pkgComm" -ForegroundColor Green
+                            $x = Set-SqlConfiguration
+                            Write-Verbose "info: exit code = $x"
+                            Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
+                            break
+                        }
+                        'WSUSCONFIG' {
+                            Write-Host "$pkgComm" -ForegroundColor Green
+                            $fpath = $folders | ?{$_.comment -like 'WSUS*'} | Select-Object -ExpandProperty name
+                            if (-not($fpath) -or ($fpath -eq "")) {
+                                Write-Warning "error: missing WSUS updates storage path setting in XML file. Refer to FOLDERS section."
+                                break
+                            }
+                            $x = Set-WsusConfiguration -UpdatesFolder $fpath
+                            Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
+                            break
+                        }
+                        default {
+                            Write-Warning "not function mapping for: $PkgName"
+                            break
+                        }
+                    } # switch
+                    break
+                }
+                'payload' {
+                    Write-Host "Installing $pkgComm" -ForegroundColor Green
+                    switch ($pkgName) {
+                        'CONFIGMGR' {
+                            Write-Host "Tip: Monitor C:\ConfigMgrSetup.log for progress" -ForegroundColor Green
+                            $runFile = "$pkgSrc\$pkgFile"
+                            $x = Install-Payload -Name $pkgName -SourceFile $runFile -OptionParams $pkgArgs
+                            break
+                        }
+                        'SERVERROLES' {
+                            $runFile = "$((Get-ChildItem $xmlfile).DirectoryName)\$pkgFile"
+                            if (Test-Path $pkgFile) {
+                                if ($AltSource -ne "") {
+                                    try {
+                                        Write-Verbose "info: installing features from configuration file: $pkgFile using alternate source"
+                                        $x = Install-WindowsFeature -ConfigurationFilePath $pkgFile -LogPath "F:\CM_BUILD\$LogFile" -Source $AltSource -ErrorAction Stop | Out-Null
+                                        $x = 0
+                                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
+                                    }
+                                    catch {
+                                        Write-Error $_
+                                        break
+                                    }
+                                }
+                                else {
+                                    try {
+                                        Write-Verbose "info: installing features from configuration file: $pkgFile"
+                                        $x = Install-WindowsFeature -ConfigurationFilePath $pkgFile -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop | Out-Null
+                                        $x = 0
+                                        Write-TaskCompleted -KeyName $pkgName -Value $(Get-Date)
+                                    }
+                                    catch {
+                                        Write-Error $_
+                                        break
+                                    }
+                                }
+                            }
+                            else {
+                                Write-Warning "ERROR: role configuration file $pkgFile was not found!"
+                                break
+                            }
+                            break
+                        }
+                        default {
+                            $runFile = "$pkgSrc\$pkgFile"
+                            $x = Install-Payload -Name $pkgName -SourceFile $runFile -OptionParams $pkgArgs
+                            break
+                        }
+                    } # switch
+                    Write-Verbose "info: exit code = $x"
+                    if ($x -ne 0) {
+                        Write-Warning "error: step failure at: $pkgName"
+                        $continue = $False
+                        break
+                    }
+                }
+                default {
+                    Write-Warning "invalid package type value: $pkgType"
+                    break
+                }
+            } # switch
         }
+        Write-Verbose "-----------------------------"
     }
-    Write-Verbose "-----------------------------"
-}
+    else {
+        Write-Warning "STOP! aborted at $(Get-Date)"
+        break
+    }
+} # foreach
 
 Write-Host "Processing finished at $(Get-Date)" -ForegroundColor Green
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
