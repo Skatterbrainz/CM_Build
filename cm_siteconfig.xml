@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+1.1.1 - DS - 2017.08.17 - still in dev/test
+-->
+<configuration>
+    <cmsite sitecode="P01" forest="contoso.com">
+        <schedules>
+            <schedule name="sch15min" unit="minutes" value="15" />
+            <schedule name="schDaily" unit="days" value="1" />
+            <schedule name="schWeekly" unit="days" value="7" />
+        </schedules>
+        <discoveries comment="https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/set-cmdiscoverymethod">
+            <discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="" />
+            <!--<discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />-->
+            <discovery enabled="true" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
+            <discovery enabled="true" name="ActiveDirectoryGroupDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15" />
+            <discovery enabled="true" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:LDAP://dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
+            <discovery enabled="false" name="NetworkDiscovery" PollingSchedule="schDaily" />
+            <discovery enabled="true" name="HeartbeatDiscovery" PollingSchedule="DEFAULT" />
+        </discoveries>
+        <boundarygroups>
+            <boundarygroup name="NA-US-VA-Norfolk" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Norfolk" />
+            <boundarygroup name="NA-US-VA-VB" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
+            <boundarygroup name="NA-US-CA-Fremont" SiteSystemServer="" LinkType="" comment="Fremont" />
+            <boundarygroup name="NA-US-NY-NewYork" SiteSystemServer="" LinkType="" comment="New York" />
+        </boundarygroups>
+        <boundaries>
+            <boundary name="NA-US-VA-Norfolk-Servers" type="IPRange" value="192.168.0.10-192.168.0.99" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
+            <boundary name="NA-US-VA-Norfolk-Workstations" type="IPRange" value="192.168.0.100-192.168.0.150" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
+            <boundary name="NA-US-NY-NewYork-Servers" type="IPRange" value="192.168.2.10-192.168.2.99" boundarygroup="NA-US-NY-NewYork" comment="New York" />
+        </boundaries>
+        <clientoptions>
+            <CMClientPushInstallation EnableAutomaticClientPushInstallation="false" EnableSystemTypeConfiguationManager="false" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
+        </clientoptions>
+        <misc>
+            <CMAssetIntelligenceClass EnableAllReportingClass="true" />
+        </misc>
+        <siteservers>
+            <siteserver name="FS1.contoso.com" roles="DP,SUP" comment="" />
+            <siteserver name="FS2.contoso.com" roles="DP" comment="" />
+        </siteservers>
+    </cmsite>
+</configuration>
