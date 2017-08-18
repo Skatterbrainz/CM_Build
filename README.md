@@ -1,7 +1,9 @@
 # CM_Build
 ConfigMgr Site Server installer script
 
-## 1.0.0
+## Revision History
+* 1.0.0 - 2017.08.14 - initial release
+* 1.1.0 - 2017.08.16 - redesigned XML structure, process logic and code factoring
 
 Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
@@ -13,7 +15,7 @@ Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MD
 * -NoReboot (suppress reboots)
 * a transcript log is created in the runtime folder
 
-## Assumptions
+## System Requirements
 
 * Server installed and patched (Windows Server 2012 R2 or 2016)
 * Server is joined to domain
@@ -21,7 +23,21 @@ Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MD
 * Disks are allocated (e.g. E:, F:, G:)
 * At least 8 GB memory
 
-## Overview
+## Execution
+
+* Installs Windows Server Roles and Features
+* Installs ADK
+* Installs MDT
+* Installs SQL Server
+* Installs SSMS
+* Configures SQL Server memory
+* Installs WSUS role
+* Installs ConfigMgr
+* Installs ConfigMgr Toolkit
+* Installs Right-click Tools
+* Installs anything else you want it to
+
+## Process Overview
 
 * Download installation media
   * Configuration Manager 1702
@@ -40,3 +56,5 @@ Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MD
 
 * .\cm_build.ps1 -xmlfile .\cm_build.xml -Verbose
 * .\cm_build.ps1 -xmlfile .\cm_build.xml -NoCheck -Verbose
+* .\cm_build.ps1 -xmlfile .\cm_build.xml -NoReboot -Verbose
+
