@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+comments...
+1.1.1 - DS - 2017.08.17 - added support for external serverroles xml file
+    to use this, set the [package] type to "payload" and modify the associated 
+    [payload] entry FILE element to the filename itself.  The XML file must reside
+    in the same path as the -XmlFile referenced at the beginning.
+    To switch back to internal function handling, set the [package] type to "feature"
+-->
 <configuration>
-    <project comment="Contoso SCCM primary site server build for CM02.contoso.com, by DS 2017-08-16" />
+    <project comment="Contoso SCCM primary site server build for CM02.contoso.com, 1.1.1 by DS 2017-08-17" />
     <references>
         <reference name="WindowsServer" type="AltSource" path="\\FS1\apps\sources\2016\sources\sxs" file="" comment="Windows Server 2016 install media" />
         <reference name="Windows10" type="AltSource" path="\\FS1\apps\sources\SXS" file="" comment="Windows 10 x64 enterprise" />
     </references>
     <packages comment="Controls the order and links of execution">
-        <package name="SERVERROLES" enabled="true" type="feature" comment="Server Roles and Features" />
+        <package name="SERVERROLES" enabled="true" type="feature" comment="Server Roles and Features" note="set type to payload to read external xml file" />
         <package name="ADSCHEMA" enabled="false" type="function" comment="Extend AD Schema" />
         <package name="ADCONTAINER" enabled="false" type="function" comment="System Management AD container" />
         <package name="ADK" enabled="true" type="payload" comment="Windows 10 ADK 1703" />
@@ -21,6 +29,7 @@
         <package name="RCTOOLS" enabled="true" type="payload" comment="Recast RightClick Tools" />
     </packages>
     <payloads comment="Describes execution details for each package">
+        <payload name="SERVERROLES" path="Install-WindowsFeature" file="roles.xml" params="" comment="only used if the package type is payload, must reside in same path as cm_build.xml" />
         <payload name="ADSCHEMA" path="\\FS1\apps\MS\CM1702\SMSSETUP\BIN\X64" file="extadsch.exe" params="" comment="" />
         <payload name="ADK" path="\\FS1\apps\MS\ADK1703\cached" file="adksetup.exe" params="/installpath E:\ADK /Features OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment OptionId.UserStateMigrationTool /quiet /ceip off" comment="" />
         <payload name="MDT" path="\\FS1\apps\MS\MDT8443" file="MicrosoftDeploymentToolkit_x64.msi" params="/qb! /norestart" comment="" />
