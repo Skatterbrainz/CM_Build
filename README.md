@@ -4,6 +4,7 @@ ConfigMgr Site Server installer script
 ## Revision History
 * 1.0.0 - 2017.08.14 - initial release
 * 1.1.0 - 2017.08.16 - redesigned XML structure, process logic and code factoring
+* 1.1.1 - 2017.08.xx - added support for Add-ServerRoles to use external XML file, bug fixes
 
 Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
@@ -57,4 +58,9 @@ Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MD
 * .\cm_build.ps1 -xmlfile .\cm_build.xml -Verbose
 * .\cm_build.ps1 -xmlfile .\cm_build.xml -NoCheck -Verbose
 * .\cm_build.ps1 -xmlfile .\cm_build.xml -NoReboot -Verbose
+
+## Notes
+
+* To use the internal function process for adding server roles/features, leave the XML setting under [packages] to use *type*="feature".
+* To use an external XML role config file, change the SERVERROLES *type*="payload", and edit the [payload] entry to specify the *file*="filename.xml".  The XML file needs to reside in the same folder where the -XmlFile filename resides.
 
