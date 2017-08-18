@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.1 - DS - 2017.08.17
+    1.1.1 - DS - 2017.08.18
     1.1.0 - DS - 2017.08.16
     1.0.0 - DS - 2017.08.14
     
@@ -91,7 +91,6 @@ function Write-TaskCompleted {
     try {
         New-Item -Path $basekey\PROCESSED\$KeyName -Value $Value -ErrorAction SilentlyContinue | Out-Null
         Write-Verbose "INFO: writing registry key $KeyName"
-        Write-Output $True
     }
     catch {
         Write-Verbose "ERROR: failed to write to registry!"
@@ -267,7 +266,6 @@ function Add-ServerRoles {
                 $result = -1
             }
             Write-Output "info: $FeatureCode exitcode: $exitcode"
-            #Write-Warning "error: $($error[0].Exception)"
         }
         else {
             try {
@@ -278,7 +276,6 @@ function Add-ServerRoles {
                 $result = -1
             }
             Write-Output "info: $FeatureCode exitcode: $exitcode"
-            #Write-Warning "error: $($error[0].Exception)"
         }
         $time4 = Get-TimeOffset -StartTime $time3
         Write-Verbose "info: $FeatureCode runtime = $time4"
@@ -306,7 +303,6 @@ function Set-WsusConfiguration {
     Write-Verbose "INFO: wsus CONTENT_DIR=$UpdatesFolder"
     try {
         & 'C:\Program Files\Update Services\Tools\WsusUtil.exe' postinstall SQL_INSTANCE_NAME=$sqlhost CONTENT_DIR=$UpdatesFolder | Out-Null
-        #Write-TaskCompleted -KeyName WSUSCONFIG -Value $(Get-Date)
         $result = 0
     }
     catch {
@@ -614,7 +610,5 @@ $RunTime2 = Get-TimeOffset -StartTime $RunTime1
 Write-Verbose "info: finished at $(Get-Date) - total runtime = $RunTime2"
 if ((Test-PendingReboot) -and ($NoReboot)) {
     Write-Host "A REBOOT is REQUIRED" -ForegroundColor Cyan
-#    Start-Sleep -Seconds 30
-#    Restart-Computer -Force
 }
 Stop-Transcript
