@@ -374,7 +374,7 @@ function Install-Payload {
     Write-Verbose "info: name = $Name"
     Write-Verbose "info: sourcefile = $SourceFile"
     Write-Verbose "info: optionparams = $OptionParams"
-    Write-Host "Installing: $Name" -ForegroundColor Green
+    #Write-Host "Installing: $Name" -ForegroundColor Green
     
     if (-not(Test-Path $SourceFile)) {
         Write-Warning "error: source file not found: $SourceFile"
@@ -392,15 +392,15 @@ function Install-Payload {
     else {
         $ArgList = $OptionParams
     }
-    $result = 0
     Write-Verbose "info: launcher... $SourceFile"
     Write-Verbose "info: arguments.. $ArgList"
     $time1 = Get-Date
+    $result = 0
     try {
         $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Stop
         if ((0,3010,1605,1641,1618,1707).Contains($p.ExitCode)) {
+            Write-TaskCompleted -KeyName $Name -Value $(Get-Date)
             $result = 0
-            Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
         }
         else {
             Write-Verbose "internal : exit code = $($p.ExitCode)"
@@ -423,7 +423,7 @@ function Install-Payload {
     }
     Get-TimeOffset -StartTime $time1
     $time2 = Get-TimeOffset -StartTime $time1
-    Write-Output "info: function runtime = $time2"
+    Write-Verbose "info: function runtime = $time2"
     Write-Output $result
 }
 
@@ -449,7 +449,7 @@ catch {
     break
 }
 
-Write-Output "------------------- BEGIN $(Get-Date) -------------------"
+Write-Verbose "------------------- BEGIN $(Get-Date) -------------------"
 Write-Verbose "info: alternate windows source = $AltSource"
 
 Write-Host "Creating Folders and data files" -ForegroundColor Green
@@ -533,7 +533,7 @@ foreach ($package in $packages) {
                             break
                         }
                         default {
-                            Write-Warning "not function mapping for: $PkgName"
+                            Write-Warning "There is no function mapping for: $PkgName"
                             break
                         }
                     } # switch
@@ -611,10 +611,10 @@ foreach ($package in $packages) {
 
 Write-Host "Processing finished at $(Get-Date)" -ForegroundColor Green
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
-Write-Output "info: finished at $(Get-Date) - total runtime = $RunTime2"
+Write-Verbose "info: finished at $(Get-Date) - total runtime = $RunTime2"
 if ((Test-PendingReboot) -and ($NoReboot)) {
-    Write-Host "REBOOT in 30 SECONDS - or press CTRL`+C to abort" -ForegroundColor Cyan
-    Start-Sleep -Seconds 30
-    Restart-Computer -Force
+    Write-Host "A REBOOT is REQUIRED" -ForegroundColor Cyan
+#    Start-Sleep -Seconds 30
+#    Restart-Computer -Force
 }
 Stop-Transcript
