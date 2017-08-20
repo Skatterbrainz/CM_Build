@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.1 - DS - 2017.08.18
+    1.1.1 - DS - 2017.08.20
     1.1.0 - DS - 2017.08.16
     1.0.0 - DS - 2017.08.14
     
@@ -260,9 +260,17 @@ function Add-ServerRoles {
         if ($AlternateSource -ne "") {
             try {
                 $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource -ErrorAction Stop
-                $result = $exitcode
+                if ($exitcode.ExitCode -eq 'Success') {
+                    $result = 0
+                }
+                else {
+                    Write-Verbose "error: installation of $FeatureCode failed"
+                    $result = -1
+                }
             }
             catch {
+                Write-Verbose "error: installation of $FeatureCode failed"
+                $_
                 $result = -1
             }
             Write-Output "info: $FeatureCode exitcode: $exitcode"
@@ -271,9 +279,17 @@ function Add-ServerRoles {
         else {
             try {
                 $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop
-                $result = $exitcode
+                if ($exitcode.ExitCode -eq 'Success') {
+                    $result = 0
+                }
+                else {
+                    Write-Verbose "error: installation of $FeatureCode failed"
+                    $result = -1
+                }
             }
             catch {
+                Write-Verbose "error: installation of $FeatureCode failed"
+                $_
                 $result = -1
             }
             Write-Output "info: $FeatureCode exitcode: $exitcode"
