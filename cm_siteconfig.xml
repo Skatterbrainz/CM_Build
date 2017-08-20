@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!--
-1.1.1 - DS - 2017.08.17 - still in dev/test
--->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <schedules>
@@ -12,9 +9,9 @@
         <discoveries comment="https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/set-cmdiscoverymethod">
             <discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="" />
             <!--<discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />-->
-            <discovery enabled="true" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
+            <discovery enabled="true" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
             <discovery enabled="true" name="ActiveDirectoryGroupDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15" />
-            <discovery enabled="true" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:LDAP://dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
+            <discovery enabled="true" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
             <discovery enabled="false" name="NetworkDiscovery" PollingSchedule="schDaily" />
             <discovery enabled="true" name="HeartbeatDiscovery" PollingSchedule="DEFAULT" />
         </discoveries>
