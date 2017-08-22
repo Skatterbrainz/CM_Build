@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!--
 comments...
-1.1.1 - DS - 2017.08.17 - added support for external serverroles xml file
+1.1.1 - DS - 2017.08.22 - added support for external serverroles xml file
     to use this, set the [package] type to "payload" and modify the associated 
     [payload] entry FILE element to the filename itself.  The XML file must reside
     in the same path as the -XmlFile referenced at the beginning.
@@ -15,18 +15,20 @@ comments...
     </references>
     <packages comment="Controls the order and links of execution">
         <package name="SERVERROLES" enabled="true" type="feature" comment="Server Roles and Features" note="set type to payload to read external xml file" />
+        <!-- undecided about continuing to address the following two - 1.1.1
         <package name="ADSCHEMA" enabled="false" type="function" comment="Extend AD Schema" />
         <package name="ADCONTAINER" enabled="false" type="function" comment="System Management AD container" />
-        <package name="ADK" enabled="true" type="payload" comment="Windows 10 ADK 1703" />
-        <package name="MDT" enabled="true" type="payload" comment="Microsoft Deployment Toolkit 8443" />
-        <package name="SQLSERVER" enabled="true" type="payload" comment="SQL Server 2016" />
-        <package name="SSMS" enabled="true" type="payload" comment="SQL Server Management Studio" />
-        <package name="SQLCONFIG" enabled="true" type="function" comment="Configure SQL Server" />
-        <package name="WSUS" enabled="true" type="feature" comment="WSUS Role" />
-        <package name="WSUSCONFIG" enabled="true" type="function" comment="WSUS Configuration" />
-        <package name="CONFIGMGR" enabled="true" type="payload" comment="Configuration Manager 1702" />
-        <package name="CMTOOLKIT" enabled="true" type="payload" comment="ConfigMgr Toolkit 2012 R2" />
-        <package name="RCTOOLS" enabled="true" type="payload" comment="Recast RightClick Tools" />
+        -->
+        <package name="ADK" enabled="true" type="payload" comment="Windows 10 ADK 1703" dependson="" />
+        <package name="MDT" enabled="true" type="payload" comment="Microsoft Deployment Toolkit 8443" dependson="" />
+        <package name="SQLSERVER" enabled="true" type="payload" comment="SQL Server 2016" dependson="" />
+        <package name="SSMS" enabled="true" type="payload" comment="SQL Server Management Studio" dependson="SQLSERVER" />
+        <package name="SQLCONFIG" enabled="true" type="function" comment="Configure SQL Server" dependson="SQLSERVER" />
+        <package name="WSUS" enabled="true" type="feature" comment="WSUS Role" dependson="SQLSERVER" />
+        <package name="WSUSCONFIG" enabled="true" type="function" comment="WSUS Configuration" dependson="WSUS" />
+        <package name="CONFIGMGR" enabled="true" type="payload" comment="Configuration Manager 1702" dependson="WSUSCONFIG" />
+        <package name="CMTOOLKIT" enabled="true" type="payload" comment="ConfigMgr Toolkit 2012 R2" dependson="CONFIGMGR" />
+        <package name="RCTOOLS" enabled="true" type="payload" comment="Recast RightClick Tools" dependson="CONFIGMGR" />
     </packages>
     <payloads comment="Describes execution details for each package">
         <payload name="SERVERROLES" path="Install-WindowsFeature" file="roles.xml" params="" comment="only used if the package type is payload, must reside in same path as cm_build.xml" />
@@ -47,7 +49,7 @@ comments...
         <detect name="SQLSERVER" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" value="" type="automatic" />
         <detect name="SSMS" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{510DB6E6-7CF0-4B25-A51E-3AED7E25D507}" value="" type="automatic" />
         <detect name="SQLCONFIG" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SQLCONFIG" type="synthetic" />
-        <detect name="WSUS" path="HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" value="" type="automatic" />
+        <detect name="WSUS" path="UpdateServices-DB" value="" type="feature" />
         <detect name="WSUSCONFIG" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="WSUSCONFIG" type="synthetic" />
         <detect name="CONFIGMGR" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SMS Primary Site" value="" type="automatic" />
         <detect name="CMTOOLKIT" path="C:\Program Files (x86)\ConfigMgr 2012 Toolkit R2\ToolkitHelp.docx" value="" type="automatic" />
@@ -171,4 +173,8 @@ comments...
         <feature name="SERVERROLES" comment="Prerequisite roles">BITS,BITS-IIS-Ext,NET-Framework-45-ASPNET,NET-Framework-Core,NET-Framework-Features,NET-WCF-HTTP-Activation45,RDC,RSAT,RSAT-Bits-Server,RSAT-Feature-Tools,WAS,WAS-Config-APIs,WAS-Process-Model,Web-App-Dev,Web-Asp-Net,Web-Asp-Net45,Web-Common-Http,Web-Default-Doc,Web-Dir-Browsing,Web-Filtering,Web-Health,Web-Http-Errors,Web-Http-Logging,Web-Http-Redirect,Web-Http-Tracing,Web-ISAPI-Ext,Web-ISAPI-Filter,Web-Log-Libraries,Web-Metabase,Web-Mgmt-Compat,Web-Mgmt-Console,Web-Mgmt-Tools,Web-Net-Ext,Web-Net-Ext45,Web-Performance,Web-Request-Monitor,Web-Security,Web-Server,Web-Stat-Compression,Web-Static-Content,Web-WebServer,Web-Windows-Auth,Web-WMI</feature>
         <feature name="WSUS" comment="WSUS role">UpdateServices-Services,UpdateServices-DB,UpdateServices-RSAT</feature>
     </features>
+    <regkeys comment="Custom registry keys">
+        <regkey name="ADK1703Fix" enabled="true" order="after" path="HKLM:\SYSTEM\CurrentControlSet\Services\WIMMount" value="ImagePath" data="system32\drivers\wimmount.sys" comment="https://blogs.technet.microsoft.com/mniehaus/2017/05/16/quick-workaround-for-adk-1703-issue" />
+        <regkey name="SAMPLE" enabled="true" order="before" path="HKLM:\SOFTWARE\CM_BUILD\TEST" value="V1" data="123" comment="Sample" />
+    </regkeys>
 </configuration>
