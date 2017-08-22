@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.1 - DS - 2017.08.20
+    1.1.1 - DS - 2017.08.22
     1.1.0 - DS - 2017.08.16
     1.0.0 - DS - 2017.08.14
     
@@ -36,7 +36,43 @@ param (
 
 $basekey = 'HKLM:\SOFTWARE\CM_BUILD'
 
+$tsFile = "$($env:TEMP)\cm_build$($env:COMPUTERNAME)_transaction.log"
+Write-Host "Transaction log: $tsFile" -ForegroundColor Green
+Write-Verbose "info: importing required modules"
+
+try {Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ErrorAction Stop}
+catch {}
+if (Get-Module -ListAvailable -Name PowerShellGet) {
+    Write-Verbose "info: PowerShellGet module is already installed"
+}
+else {
+    Write-Verbose "info: installing PowerShellGet module"
+    Install-Module -Name PowerShellGet
+}
+if (Get-Module -ListAvailable -Name dbatools) {
+    Write-Verbose "info: dbatools module is already installed"
+}
+else {
+    Write-Verbose "info: installing dbatools module"
+    Install-Module dbatools -SkipPublisherCheck -Force
+}
+
+Write-Verbose "info: defining internal functions"
+
 # begin-functions
+
+function Write-Log {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+            [ValidateSet('info','error','warning')]
+            [string] $Category,
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Message
+    )
+    Write-Verbose "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message"
+}
 
 function Get-TimeOffset {
     param (
@@ -55,7 +91,7 @@ function Test-Platform {
     $os = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty caption
     if (($os -like "*Windows Server 2012 R2*") -or ($os -like "*Windows Server 2016*")) {
         Write-Verbose "info: passed rule = operating system"
-        $mem = [math]::Round($(gwmi Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)/1GB,0)
+        $mem = [math]::Round($(Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)/1GB,0)
         if ($mem -ge 8) {
             Write-Verbose "info: passed rule = minimmum memory allocation"
             Write-Output $True
@@ -118,7 +154,7 @@ function Get-ConfigData {
             [ValidateNotNullOrEmpty()]
             [string] $XmlFile
     )
-    Write-Verbose "[function:get-configdata] loading xml data from: $XmlFile"
+    Write-Log -Category "info" -Message "[function:get-configdata] loading xml data from: $XmlFile"
     if (-not(Test-Path $XmlFile)) {
         Write-Warning "ERROR: configuration file not found: $XmlFile"
     }
@@ -133,44 +169,17 @@ function Get-ConfigData {
     }
 }
 
-function Set-CMBuildParams {
-    param ($DataSet)
-    Write-Host "Loading configuration data" -ForegroundColor Green
-    Set-Variable -Name project -Value $DataSet.configuration.project -Scope Script
-    Set-Variable -Name packages -Value $($DataSet.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}) -Scope Script
-    Set-Variable -Name payloads -Value $DataSet.configuration.payloads.payload -Scope Script
-    Set-Variable -Name features -Value $DataSet.configuration.features.feature -Scope Script
-    Set-Variable -Name detects -Value $DataSet.configuration.detections.detect -Scope Script
-    Set-Variable -Name folders -Value $DataSet.configuration.folders.folder -Scope Script
-    Set-Variable -Name files -Value $DataSet.configuration.files.file -Scope Script
-    Set-Variable -Name newfiles -Value $DataSet.configuration.files.file -Scope Script
-    Set-Variable -Name refs -Value $DataSet.configuration.references.reference -Scope Script
-    Set-Variable -Name AltSource -Value $($refs | Where-Object {$_.name -eq 'WindowsServer'} | Select-Object -ExpandProperty path) -Scope Script
-}
-function Show-CMBuildParams {
-    [CmdletBinding()]
-    param ()
-    Write-Verbose "info: project info....... $($project.comment)"
-    Write-Verbose "info: packages........... $($packages.count)"
-    Write-Verbose "info: payloads........... $($payloads.count)"
-    Write-Verbose "info: features........... $($features.count)"
-    Write-Verbose "info: detect rules....... $($detects.count)"
-    Write-Verbose "info: folders............ $($folders.count)"
-    Write-Verbose "info: files.............. $($newfiles.count)"
-    Write-Verbose "info: references......... $($refs.count)"    
-}
-
 function Set-NewFolders {
     [CmdletBinding()]
     param($Folders)
-    Write-Verbose "-----------------------------"    
-    Write-Verbose "[function: set-newfolders]"
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "[function: set-newfolders]"
     $result = $True
     foreach ($folder in $Folders) {
         $folderName = $folder.name
         foreach ($fn in $folderName.split(',')) {
             if (-not(Test-Path $fn)) {
-                Write-Verbose "info: creating folder: $fn"
+                Write-Log -Category "info" -Message "creating folder: $fn"
                 try {
                     New-Item -Path $fn -ItemType Directory -ErrorAction Stop | Out-Null
                     $WaitAfter = $True
@@ -181,22 +190,23 @@ function Set-NewFolders {
                 }
             }
             else {
-                Write-Verbose "info: folder exists: $fn"
+                Write-Log -Category "info" -Message "folder already exists: $fn"
             }
         }
     }
     if ($WaitAfter) {
-        Write-Verbose "info: pausing for 5 seconds"
+        Write-Log -Category "info" -Message "pausing for 5 seconds"
         Start-Sleep -Seconds 5
     }
+    Write-Log -Category "info" -Message "script is now continuing"
     Write-Output $result
 }
 
 function Set-NewFiles {
     [CmdletBinding()]
     param ($Files)
-    Write-Verbose "-----------------------------"
-    Write-Verbose "[function: set-newfiles]"
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "[function: set-newfiles]"
     $result = $True
     foreach ($fileSet in $Files) {
         $filename = $fileSet.name
@@ -204,13 +214,13 @@ function Set-NewFiles {
         $fullName = "$filePath\$filename"
         $fileComm = $fileSet.comment 
         $filekeys = $fileSet.keys.key
-        Write-Verbose "`tfilename: $fullName"
-        Write-Verbose "`tcomment: $fileComm"
+        Write-Log -Category "info" -Message "filename: $fullName"
+        Write-Log -Category "info" -Message "tcomment: $fileComm"
         if (-not (Test-Path $fullName)) {
-            Write-Verbose "info: creating new file: $fullName"
+            Write-Log -Category "info" -Message "creating new file: $fullName"
         }
         else {
-            Write-Verbose "info: overwriting file: $fullName"
+            Write-Log -Category "info" -Message "overwriting file: $fullName"
         }
         $data = ""
         foreach ($filekey in $filekeys) {
@@ -230,6 +240,7 @@ function Set-NewFiles {
         } # foreach
         $data | Out-File $fullname -Force
     } # foreach
+    Write-Log -Category "info" -Message "finished processing files"
     Write-Output $result
 }
 
@@ -247,63 +258,65 @@ function Add-ServerRoles {
         [parameter(Mandatory=$False)]
             [string] $LogFile = "roles.log"
     )
-    Write-Verbose "-----------------------------"
-    Write-Verbose "[function: add-serverroles]"
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "[function: add-serverroles]"
     $time1  = Get-Date
     $result = 0
     $FeaturesList | 
     Foreach-Object {
         $FeatureCode = $_
-        Write-Verbose "info: installing role or feature: $FeatureCode"
+        Write-Log -Category "info" -Message "installing feature: $FeatureCode"
         $time3 = Get-Date
 
         if ($AlternateSource -ne "") {
+            Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
-                $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource -ErrorAction Stop
-                if ($exitcode.ExitCode -eq 'Success') {
+                $output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource -ErrorAction Stop
+                $exitcode = $output.ExitCode
+                if (('NoChangeNeeded','Success').Contains("$exitcode")) {
                     $result = 0
                 }
                 else {
-                    Write-Verbose "error: installation of $FeatureCode failed"
+                    Write-Log -Category "error" -Message "installation of $FeatureCode failed with exit code: $exitcode"
                     $result = -1
                 }
             }
             catch {
-                Write-Verbose "error: installation of $FeatureCode failed"
+                Write-Log -Category "error" -Message "installation of $FeatureCode failed horribly!"
                 $_
                 $result = -1
             }
-            Write-Output "info: $FeatureCode exitcode: $exitcode"
-            #Write-Warning "error: $($error[0].Exception)"
+            Write-Log -Category "info" -Message "$FeatureCode exitcode: $exitcode"
         }
         else {
             try {
-                $exitcode = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop
-                if ($exitcode.ExitCode -eq 'Success') {
+                $output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop
+                $exitcode = $output.ExitCode
+                if (('NoChangeNeeded','Success').Contains("$exitcode")) {
                     $result = 0
                 }
                 else {
-                    Write-Verbose "error: installation of $FeatureCode failed"
+                    Write-Log -Category "error" -Message "installation of $FeatureCode failed with exit code: $exitcode"
                     $result = -1
                 }
             }
             catch {
-                Write-Verbose "error: installation of $FeatureCode failed"
+                Write-Log -Category "error" -Message "installation of $FeatureCode failed horribly!"
                 $_
                 $result = -1
             }
-            Write-Output "info: $FeatureCode exitcode: $exitcode"
-            #Write-Warning "error: $($error[0].Exception)"
+            Write-Log -Category "info" -Message "$FeatureCode exitcode: $exitcode"
         }
         $time4 = Get-TimeOffset -StartTime $time3
-        Write-Verbose "info: $FeatureCode runtime = $time4"
+        Write-Log -Category "info" -Message "$FeatureCode runtime = $time4"
     } # foreach-object
-    Write-Verbose "info: result = $result"
+
+    Write-Log -Category "info" -Message "result = $result"
     if ($result -eq 0) {
         Write-TaskCompleted -KeyName 'SERVERROLES' -Value $(Get-Date)
     }
     $time2 = Get-TimeOffset -StartTime $time1
-    Write-Verbose "info: function runtime = $time2"
+    Write-Log -Category "info" -Message "function runtime = $time2"
     Write-Output $result
 }
 
@@ -317,14 +330,23 @@ function Add-ServerRolesFile {
             [ValidateNotNullOrEmpty()]
             [string] $PackageFile
     )
-    Write-Verbose "[function: add-serverrolesfile]"
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "[function: add-serverrolesfile]"
     if (Test-Path $PackageFile) {
         if ($AltSource -ne "") {
+            Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
-                Write-Verbose "info: installing features from configuration file: $PackageFile using alternate source"
-                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "F:\CM_BUILD\$LogFile" -Source $AltSource -ErrorAction Stop | Out-Null
-                $result = 0
-                Write-TaskCompleted -KeyName $PackageName -Value $(Get-Date)
+                Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile using alternate source"
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "F:\CM_BUILD\$LogFile" -Source $AltSource -ErrorAction Stop
+                if (('NoChangeNeeded','Success').Contains($result.ExitCode)) {
+                    $result = 0
+                    Write-TaskCompleted -KeyName $PackageName -Value $(Get-Date)
+                    Write-Log -Category "info" -Message "installion was successful"
+                }
+                else {
+                    Write-Log -Category "error" -Message "failed to install features!"
+                    $result = -1
+                }
             }
             catch {
                 Write-Error $_
@@ -333,12 +355,14 @@ function Add-ServerRolesFile {
         }
         else {
             try {
-                Write-Verbose "info: installing features from configuration file: $PackageFile"
+                Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile"
                 $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop | Out-Null
                 $result = 0
                 Write-TaskCompleted -KeyName $PackageName -Value $(Get-Date)
+                Write-Log -Category "info" -Message "installion was successful"
             }
             catch {
+                Write-Log -Category "error" -Message "failed to install features!"
                 Write-Error $_
                 break
             }
@@ -358,11 +382,17 @@ function Set-WsusConfiguration {
         [ValidateNotNullOrEmpty()]
         [string] $UpdatesFolder
     )
-    Write-Verbose "[function: set-wsusconfiguration]"
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "[function: set-wsusconfiguration]"
     $time1 = Get-Date
+    Write-Log -Category "info" -Message "verifying WSUS role installation for SQL database connectivity"
+    if (-not ((Get-WindowsFeature UpdateServices-DB | Select-Object -ExpandProperty Installed) -eq $True)) {
+        Write-Log -Category "error" -Message "WSUS is not installed properly (aborting)"
+        break
+    }
     $sqlhost = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
-    Write-Verbose "INFO: wsus SQL_INSTANCE_NAME=$sqlhost"
-    Write-Verbose "INFO: wsus CONTENT_DIR=$UpdatesFolder"
+    Write-Log -Category "info" -Message "wsus SQL_INSTANCE_NAME=$sqlhost"
+    Write-Log -Category "info" -Message "wsus CONTENT_DIR=$UpdatesFolder"
     try {
         & 'C:\Program Files\Update Services\Tools\WsusUtil.exe' postinstall SQL_INSTANCE_NAME=$sqlhost CONTENT_DIR=$UpdatesFolder | Out-Null
         #Write-TaskCompleted -KeyName WSUSCONFIG -Value $(Get-Date)
@@ -372,7 +402,7 @@ function Set-WsusConfiguration {
         Write-Warning "ERROR: Unable to invoke WSUS post-install configuration"
     }
     $time2 = Get-TimeOffset -StartTime $time1
-    Write-Verbose "info: function runtime = $time2"
+    Write-Log -Category "info" -Message "function runtime = $time2"
     Write-Output $result
 }
 
@@ -382,38 +412,36 @@ function Set-SqlConfiguration {
         [parameter(Mandatory=$False)]
             [int] $MemRatio = 80
     )
+    Write-Verbose "----------------------------------------------------"
     Write-Verbose "[function: set-sqlconfiguration]"
-    Write-Verbose "info: MemRatio = $MemRatio"
+    Write-Log -Category "info" -Message "SQL MemRatio = $MemRatio"
     $time1 = Get-Date
     $dblRatio = $MemRatio * 0.01
-    Install-Module -Name PowerShellGet -Force
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    Install-Module dbatools -SkipPublisherCheck -Force
     $TotalMem = (Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)
     $actMax   = [math]::Round($TotalMem/1GB,0)
     $newMax   = [math]::Round(($TotalMem / 1MB)*$dblRatio,0)
     $curMax   = Get-DbaMaxMemory -SqlServer (&hostname)
-    Write-Verbose "info: total memory is $actMax GB"
-    Write-Verbose "info: recommended SQL max is $newMax GB"
-    Write-Verbose "info: current SQL max is $curMax GB"
+    Write-Log -Category "info" -Message "total memory is $actMax GB"
+    Write-Log -Category "info" -Message "recommended SQL max is $newMax GB"
+    Write-Log -Category "info" -Message "current SQL max is $curMax GB"
     if ($actMax -lt 7) {
-        Write-Verbose "warning: Server has $actMax GB of memory - SQL Config cannot be optimized"
-        Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
+        Write-Log -Category "warning" -Message "Server has $actMax GB of memory - SQL Config cannot be optimized"
+        #Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
         $result = 0
     }
     elseif ($curMax -ne $newMax) {
         try {
             Set-DbaMaxMemory -SqlServer (&hostname) -MaxMb $newMax
-            Write-Verbose "info: maximum memory allocation is now: $newMax"
+            Write-Log -Category "info" -Message "maximum memory allocation is now: $newMax"
             Write-TaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
             $result = 0
         }
         catch {
-            Write-Verbose "warning: unable to change memory allocation"
+            Write-Log -Category "warning" -Message "unable to change memory allocation"
         }
     }
     $time2 = Get-TimeOffset -StartTime $time1
-    Write-Verbose "info: function runtime = $time2"
+    Write-Log -Category "info" -Message "function runtime = $time2"
     Write-Output $result
 }
 
@@ -429,6 +457,7 @@ function Install-Payload {
         [parameter(Mandatory=$False)]
             [string] $OptionParams = ""
     )
+    Write-Verbose "----------------------------------------------------"
     Write-Verbose "[function: install-payload]"
     Write-Verbose "info: name = $Name"
     Write-Verbose "info: sourcefile = $SourceFile"
@@ -495,6 +524,93 @@ function Get-WsusUpdatesPath {
     }
     Write-Output $fpath
 }
+
+function Invoke-BPAtest {
+    [CmdletBinding()]
+    param ($FeatureCode)
+    Import-module BestPractices
+    switch ($FeatureCode) {
+        'WSUS' {
+            # ref: https://blogs.technet.microsoft.com/heyscriptingguy/2013/04/15/installing-wsus-on-windows-server-2012/
+            Invoke-BpaModel -ModelId Microsoft/Windows/UpdateServices
+            Get-BpaResult -ModelId Microsoft/Windows/UpdateServices |
+                Select-Object Title,Severity,Compliance | Format-List
+            break
+        }
+    }
+}
+
+function Set-Regkeys {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+            $DataSet,
+        [parameter(Mandatory=$True)]
+            [ValidateSet('before','after')]
+            [string] $Order
+    )
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "[function: set-regkeys]"
+    Write-Log -Category "info" -Message "keygroup order = $Order"
+
+    $keys = $DataSet | Where-Object {$_.enabled -eq 'true'}
+    foreach ($key in $keys) {
+        $regName = $key.name
+        $regOrder = $key.order
+        $reg = $null
+        if ($regOrder -eq $Order) {
+            $regPath = $key.path
+            $regVal  = $key.value
+            $regData = $key.data
+            switch ($regPath.substring(0,4)) {
+                'HKLM' {
+                    try {
+                        $reg = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine,'default')
+                        Write-Log -Category "info" -Message "opened registry hive $($regPath.Substring(0,4)) successfully"
+                    }
+                    catch {
+                        $_
+                    }
+                }
+            }
+            if ($reg) {
+                try {
+                    $keyset = $reg.OpenSubKey($regPath.Substring(6))
+                    $val = $keyset.GetValue($regVal)
+                    Write-Log -Category "info" -Message "current value = $val"
+                    if (!!(Get-Item -Path $regPath)) {
+                        Write-Log -Category "info" -Message "registry key path exists: $regPath"
+                    }
+                    else {
+                        Write-Log -Category "info" -Message "registry key path not found, creating: $regPath"
+                        New-Item -Path $regPath -Force | Out-Null
+                    }
+                    Write-Log -Category "info" -Message "adding/updating registry value: $regVal --> $regData"
+                    New-ItemProperty -Path $regPath -Name $regVal -Value $regData -PropertyType STRING -Force | Out-Null
+                    $keyset = $reg.OpenSubKey($regPath.Substring(6))
+                    $val = $keyset.GetValue($regVal)
+                    Write-Log -Category "info" -Message "registry value updated: $val"
+                }
+                catch {}
+            }
+        }
+    }
+}
+
+function Test-PackageStatus {
+    param (
+        [parameter(Mandatory=$False)]
+        [string] $PackageName = ""
+    )
+    $detRule = $detects | Where-Object {$_.name -eq $PackageName}
+    if (($detRule) -and ($detRule -ne "")) {
+        Write-Output (Test-Path $detRule)
+    }
+    else {
+        Write-Output $True
+    }
+}
+
 # end-functions
 
 $RunTime1 = Get-Date
@@ -502,12 +618,32 @@ Write-Output "info: begin process at $(Get-Date)"
 Write-TaskCompleted -KeyName 'START' -Value $(Get-Date)
 
 [xml]$xmldata = Get-ConfigData $XmlFile
-Set-CMBuildParams -DataSet $xmldata
-Show-CMBuildParams
+Write-Verbose "----------------------------------------------------"
+Write-Host "Loading configuration data" -ForegroundColor Green
+$project   = $xmldata.configuration.project
+$packages  = $xmldata.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}
+$payloads  = $xmldata.configuration.payloads.payload
+$features  = $xmldata.configuration.features.feature
+$detects   = $xmldata.configuration.detections.detect
+$folders   = $xmldata.configuration.folders.folder
+$files     = $xmldata.configuration.files.file
+$newfiles  = $xmldata.configuration.files.file
+$refs      = $xmldata.configuration.references.reference
+$AltSource = $refs | Where-Object {$_.name -eq 'WindowsServer'} | Select-Object -ExpandProperty path
+$regkeys   = $xmldata.configuration.regkeys.regkey | Where-Object {$_.enabled -eq 'true'}
+
+Write-Verbose "----------------------------------------------------"
+Write-Log -Category "info" -Message "project info....... $($project.comment)"
+Write-Log -Category "info" -Message "packages........... $($packages.count)"
+Write-Log -Category "info" -Message "payloads........... $($payloads.count)"
+Write-Log -Category "info" -Message "features........... $($features.count)"
+Write-Log -Category "info" -Message "detect rules....... $($detects.count)"
+Write-Log -Category "info" -Message "folders............ $($folders.count)"
+Write-Log -Category "info" -Message "files.............. $($newfiles.count)"
+Write-Log -Category "info" -Message "references......... $($refs.count)"    
+Write-Log -Category "info" -Message "registrykeys....... $($regkeys.count)"
 
 Set-Location $env:USERPROFILE
-$tsFile = "$($env:TEMP)\cm_build$($env:COMPUTERNAME)_transaction.log"
-Write-Host "Transaction log: $tsFile" -ForegroundColor Green
 
 try {
     Start-Transcript -Path $tsFile
@@ -532,7 +668,10 @@ if (-not (Set-NewFiles -Files $files)) {
 }
 
 Write-Host "Executing project configuration" -ForegroundColor Green
-Write-Verbose "-----------------------------"
+
+Set-Regkeys -DataSet $regkeys -Order "before"
+
+Write-Verbose "----------------------------------------------------"
 $continue = $True
 
 foreach ($package in $packages) {
@@ -547,6 +686,7 @@ foreach ($package in $packages) {
         $detRule = $detects  | Where-Object {$_.name -eq $pkgName}
         $detPath = $detRule.path
         $detType = $detRule.type
+        $depends = $package.dependson
 
         Write-Verbose "info: package name.... $pkgName"
         Write-Verbose "info: package type.... $pkgType"
@@ -555,16 +695,36 @@ foreach ($package in $packages) {
         Write-Verbose "info: payload file.... $pkgFile"
         Write-Verbose "info: payload args.... $pkgArgs"
         Write-Verbose "info: rule type....... $detType"
+        if (!(Test-PackageStatus -PackageName $dependson)) {
+            Write-Log -Category "error" -Message "dependency missing: $depends"
+            $continue = $False
+            break
+        }
         if (($detType -eq "") -or ($detPath -eq "") -or (-not($detPath))) {
             Write-Warning "error: detection rule is missing for $pkgName (aborting)"
             break
         }
-        if ($detType -eq 'synthetic') {
-            # example "HKLM:\SOFTWARE\CM_BUILD\PROCESS\WSUS"
-            $detPath = "$detPath\$pkgName"
+        $installed = $False
+        switch ($detType) {
+            'automatic' {
+                $installed = (Test-Path $detPath)
+                break
+            }
+            'synthetic' {
+                $detPath   = "$detPath\$pkgName"
+                $installed = (Test-Path $detPath)
+                break
+            }
+            'feature' {
+                try {
+                    $installed = ((Get-WindowsFeature $detPath -ErrorAction Stop | Select-Object -ExpandProperty Installed) -eq $True)
+                }
+                catch {}
+                break
+            }
         }
         Write-Verbose "info: detect rule..... $detPath"
-        if (Test-Path $detPath) {
+        if ($installed) {
             Write-Verbose "info: install state... INSTALLED"
         }
         else {
@@ -654,13 +814,15 @@ foreach ($package in $packages) {
                 }
             } # switch
         }
-        Write-Verbose "-----------------------------"
+        Write-Verbose "----------------------------------------------------"
     }
     else {
         Write-Warning "STOP! aborted at $(Get-Date)"
         break
     }
 } # foreach
+
+Set-Regkeys -DataSet $regkeys -Order "after"
 
 Write-Host "Processing finished at $(Get-Date)" -ForegroundColor Green
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
