@@ -34,32 +34,33 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
         [switch] $NoReboot
 )
-
+$ScriptVersion = '1.1.1.34'
 $basekey = 'HKLM:\SOFTWARE\CM_BUILD'
+$tsFile  = "$($env:TEMP)\cm_build_$($env:COMPUTERNAME)_transaction.log"
 $successcodes = (0,1003,3010,1605,1618,1641,1707)
 
-$tsFile = "$($env:TEMP)\cm_build_$($env:COMPUTERNAME)_transaction.log"
 Write-Host "Transaction log: $tsFile" -ForegroundColor Green
-Write-Verbose "info: importing required modules"
+Write-Verbose "info`tscript version = $ScriptVersion"
+Write-Verbose "info`timporting required modules"
 
 try {Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ErrorAction Stop}
 catch {}
 if (Get-Module -ListAvailable -Name PowerShellGet) {
-    Write-Verbose "info: PowerShellGet module is already installed"
+    Write-Verbose "info`tPowerShellGet module is already installed"
 }
 else {
-    Write-Verbose "info: installing PowerShellGet module"
+    Write-Verbose "info`tinstalling PowerShellGet module"
     Install-Module -Name PowerShellGet
 }
 if (Get-Module -ListAvailable -Name dbatools) {
-    Write-Verbose "info: dbatools module is already installed"
+    Write-Verbose "info`tdbatools module is already installed"
 }
 else {
-    Write-Verbose "info: installing dbatools module"
+    Write-Verbose "info`tinstalling dbatools module"
     Install-Module dbatools -SkipPublisherCheck -Force
 }
 
-Write-Verbose "info: defining internal functions"
+Write-Verbose "info`tdefining internal functions"
 
 # begin-functions
 
@@ -640,6 +641,7 @@ function Invoke-CMBuildPackage {
             [string] $PayloadArguments=""
     )
     Write-Log -Category "info" -Message "function: invoke-cmbuildpackage"
+    Write-Log -Category "info" -Message "package type = $PackageType"
     switch ($PackageType) {
         'feature' {
             Write-Log -Category "info" -Message "installation feature = $Name"
@@ -725,6 +727,7 @@ function Invoke-CMBuildPayload {
             break
         }
     } # switch
+    Write-Log -Category "info" -Message "function result = $result"
     Write-Output $x
 } # function
 
@@ -772,25 +775,40 @@ function Disable-InternetExplorerESC {
     Write-Log -Category "info" -Message "Disabling IE Enhanced Security Configuration."
     $AdminKey = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EF-4b3f-8CFC-4F3A74704073}"
     $UserKey  = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EF-4b3f-8CFC-4F3A74704073}"
-    try {
-        Set-ItemProperty -Path $AdminKey -Name "IsInstalled" -Value 0 -Force
-        Set-ItemProperty -Path $UserKey -Name "IsInstalled" -Value 0 -Force
-        Stop-Process -Name Explorer -Force
-        Write-Output 0
+    if ((Get-ItemProperty -Path $AdminKey -Name "IsInstalled" | Select-Object -ExpandProperty IsInstalled) -ne 0) {
+        try {
+            Set-ItemProperty -Path $AdminKey -Name "IsInstalled" -Value 0 -Force
+            Set-ItemProperty -Path $UserKey -Name "IsInstalled" -Value 0 -Force
+            Stop-Process -Name Explorer -Force
+            Write-Output 0
+        }
+        catch {Write-Output -1}
+        Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) has been disabled."
     }
-    catch {Write-Output -1}
-    Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) has been disabled."
+    else {
+        Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) is already disabled."
+    }
 }
+
 function Enable-InternetExplorerESC {
     Write-Verbose "----------------------------------------------------"
     Write-Log -Category "info" -Message "Enabling IE Enhanced Security Configuration."
     $AdminKey = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EF-4b3f-8CFC-4F3A74704073}"
     $UserKey  = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EF-4b3f-8CFC-4F3A74704073}"
-    Set-ItemProperty -Path $AdminKey -Name "IsInstalled" -Value 1 -Force
-    Set-ItemProperty -Path $UserKey -Name "IsInstalled" -Value 1 -Force
-    Stop-Process -Name Explorer -Force
-    Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) has been enabled."
+    if ((Get-ItemProperty -Path $AdminKey -Name "IsInstalled" | Select-Object -ExpandProperty IsInstalled) -ne 1) {
+        try {
+            Set-ItemProperty -Path $AdminKey -Name "IsInstalled" -Value 1 -Force
+            Set-ItemProperty -Path $UserKey -Name "IsInstalled" -Value 1 -Force
+            Stop-Process -Name Explorer -Force
+            Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) has been enabled."
+        }
+        catch {Write-Output -1}
+    }
+    else {
+        Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) is already enabled."
+    }
 }
+
 function Disable-UserAccessControl {
     Write-Verbose "----------------------------------------------------"
     Write-Log -Category "info" -Message "Disabling User Access Control (UAC)."
@@ -813,7 +831,7 @@ function Get-CMBuildInstallState {
     Write-Log -Category "info" -Message "[function: Get-CMBuildInstallState]"
     Write-Log -Category "info" -Message "detection type = $RuleType"
     Write-Log -Category "info" -Message "detection rule = $RuleData"
-    switch ($RuleType) {
+    switch ($RuleType.ToLower()) {
         'automatic' {
             $result = (Test-Path $RuleData)
             break
@@ -845,27 +863,29 @@ Set-CMBuildTaskCompleted -KeyName 'START' -Value $(Get-Date)
 Write-Verbose "----------------------------------------------------"
 Write-Host "Loading configuration data" -ForegroundColor Green
 $project   = $xmldata.configuration.project
-$packages  = $xmldata.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}
-$payloads  = $xmldata.configuration.payloads.payload
-$features  = $xmldata.configuration.features.feature
-$detects   = $xmldata.configuration.detections.detect
-$folders   = $xmldata.configuration.folders.folder
-$files     = $xmldata.configuration.files.file
-$newfiles  = $xmldata.configuration.files.file
-$refs      = $xmldata.configuration.references.reference
-$AltSource = $refs | Where-Object {$_.name -eq 'WindowsServer'} | Select-Object -ExpandProperty path
-$regkeys   = $xmldata.configuration.regkeys.regkey | Where-Object {$_.enabled -eq 'true'}
+#$packages  = $xmldata.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}
+#$payloads  = $xmldata.configuration.payloads.payload
+#$features  = $xmldata.configuration.features.feature
+#$detects   = $xmldata.configuration.detections.detect
+#$folders   = $xmldata.configuration.folders.folder
+#$files     = $xmldata.configuration.files.file
+#$newfiles  = $xmldata.configuration.files.file
+#$refs      = $xmldata.configuration.references.reference
+$AltSource = $xmldata.configuration.references.reference | 
+    Where-Object {$_.name -eq 'WindowsServer'} | 
+        Select-Object -ExpandProperty path
+#$regkeys   = $xmldata.configuration.regkeys.regkey | Where-Object {$_.enabled -eq 'true'}
 
 Write-Verbose "----------------------------------------------------"
 Write-Log -Category "info" -Message "project info....... $($project.comment)"
-Write-Log -Category "info" -Message "packages........... $($packages.count)"
-Write-Log -Category "info" -Message "payloads........... $($payloads.count)"
-Write-Log -Category "info" -Message "features........... $($features.count)"
-Write-Log -Category "info" -Message "detect rules....... $($detects.count)"
-Write-Log -Category "info" -Message "folders............ $($folders.count)"
-Write-Log -Category "info" -Message "files.............. $($newfiles.count)"
-Write-Log -Category "info" -Message "references......... $($refs.count)"    
-Write-Log -Category "info" -Message "registrykeys....... $($regkeys.count)"
+#Write-Log -Category "info" -Message "packages........... $($packages.count)"
+#Write-Log -Category "info" -Message "payloads........... $($payloads.count)"
+#Write-Log -Category "info" -Message "features........... $($features.count)"
+#Write-Log -Category "info" -Message "detect rules....... $($detects.count)"
+#Write-Log -Category "info" -Message "folders............ $($folders.count)"
+#Write-Log -Category "info" -Message "files.............. $($newfiles.count)"
+#Write-Log -Category "info" -Message "references......... $($refs.count)"    
+#Write-Log -Category "info" -Message "registrykeys....... $($regkeys.count)"
 
 Set-Location $env:USERPROFILE
 
@@ -882,11 +902,11 @@ Write-Verbose "info: alternate windows source = $AltSource"
 
 Write-Host "Creating Folders and data files" -ForegroundColor Green
 
-if (-not (Set-CMBuildFolders -Folders $folders)) {
+if (-not (Set-CMBuildFolders -Folders $xmldata.configuration.folders.folder)) {
     Write-Warning "error: failed to create folders (aborting)"
     break
 }
-if (-not (Set-CMBuildFiles -Files $files)) {
+if (-not (Set-CMBuildFiles -Files $xmldata.configuration.files.file)) {
     Write-Warning "error: failed to create files (aborting)"
     break
 }
@@ -895,24 +915,25 @@ Write-Host "Executing project configuration" -ForegroundColor Green
 
 Disable-InternetExplorerESC | Out-Null
 
-Invoke-CMBuildRegKeys -DataSet $regkeys -Order "before" | Out-Null
+Invoke-CMBuildRegKeys -DataSet $xmldata.configuration.regkeys.regkey -Order "before" | Out-Null
 
 Write-Verbose "----------------------------------------------------"
 $continue = $True
 
-foreach ($package in $packages) {
+foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}) {
     if ($continue) {
-        $pkgName = $package.name
-        $pkgType = $package.type 
-        $pkgComm = $package.comment 
-        $payload = $payloads | Where-Object {$_.name -eq $pkgName}
-        $pkgSrc  = $payload.path 
-        $pkgFile = $payload.file
-        $pkgArgs = $payload.params
-        $detRule = $detects  | Where-Object {$_.name -eq $pkgName}
-        $detPath = $detRule.path
-        $detType = $detRule.type
-        $depends = $package.dependson
+        $pkgName  = $package.name
+        $pkgType  = $package.type 
+        $pkgComm  = $package.comment 
+        $payloads = $xmldata.configuration.payloads.payload
+        $payload  = $payloads | Where-Object {$_.name -eq $pkgName}
+        $pkgSrc   = $payload.path 
+        $pkgFile  = $payload.file
+        $pkgArgs  = $payload.params
+        $detRule  = $xmldata.configuration.detections.detect | Where-Object {$_.name -eq $pkgName}
+        $detPath  = $detRule.path
+        $detType  = $detRule.type
+        $depends  = $package.dependson
 
         Write-Log -Category "info" -Message "package name.... $pkgName"
         Write-Log -Category "info" -Message "package type.... $pkgType"
@@ -937,7 +958,8 @@ foreach ($package in $packages) {
         }
         else {
             Write-Log -Category "info" -Message "install state... NOT INSTALLED"
-            Invoke-CMBuildPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
+            $x = Invoke-CMBuildPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
+            if ($x -ne 0) {$continue = $False; break}
         }
         Write-Verbose "----------------------------------------------------"
     }
@@ -947,7 +969,7 @@ foreach ($package in $packages) {
     }
 } # foreach
 
-Invoke-CMBuildRegKeys -DataSet $regkeys -Order "after"
+Invoke-CMBuildRegKeys -DataSet $xmldata.configuration.regkeys.regkey -Order "after"
 
 Write-Host "Processing finished at $(Get-Date)" -ForegroundColor Green
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
