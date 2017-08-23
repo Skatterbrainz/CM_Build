@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.1 - DS - 2017.08.22
+    1.1.1 - DS - 2017.08.23
     1.1.0 - DS - 2017.08.16
     1.0.0 - DS - 2017.08.14
     
@@ -36,7 +36,7 @@ param (
 
 $basekey = 'HKLM:\SOFTWARE\CM_BUILD'
 
-$tsFile = "$($env:TEMP)\cm_build$($env:COMPUTERNAME)_transaction.log"
+$tsFile = "$($env:TEMP)\cm_build_$($env:COMPUTERNAME)_transaction.log"
 Write-Host "Transaction log: $tsFile" -ForegroundColor Green
 Write-Verbose "info: importing required modules"
 
@@ -271,7 +271,7 @@ function Add-ServerRoles {
         if ($AlternateSource -ne "") {
             Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
-                $output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource -ErrorAction Stop
+                $output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource
                 $exitcode = $output.ExitCode
                 if (('NoChangeNeeded','Success').Contains("$exitcode")) {
                     $result = 0
@@ -284,13 +284,13 @@ function Add-ServerRoles {
             catch {
                 Write-Log -Category "error" -Message "installation of $FeatureCode failed horribly!"
                 $_
-                $result = -1
+                $result = -2
             }
             Write-Log -Category "info" -Message "$FeatureCode exitcode: $exitcode"
         }
         else {
             try {
-                $output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop
+                $output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile"
                 $exitcode = $output.ExitCode
                 if (('NoChangeNeeded','Success').Contains("$exitcode")) {
                     $result = 0
@@ -303,7 +303,7 @@ function Add-ServerRoles {
             catch {
                 Write-Log -Category "error" -Message "installation of $FeatureCode failed horribly!"
                 $_
-                $result = -1
+                $result = -2
             }
             Write-Log -Category "info" -Message "$FeatureCode exitcode: $exitcode"
         }
@@ -328,7 +328,9 @@ function Add-ServerRolesFile {
             [string] $PackageName,
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
-            [string] $PackageFile
+            [string] $PackageFile,
+        [parameter(Mandatory=$False)]
+            [string] $LogFile = "rolesfile.log"
     )
     Write-Verbose "----------------------------------------------------"
     Write-Log -Category "info" -Message "[function: add-serverrolesfile]"
@@ -602,6 +604,7 @@ function Test-PackageStatus {
         [parameter(Mandatory=$False)]
         [string] $PackageName = ""
     )
+    Write-Log -Category "info" -Message "[function: test-packagestatus]"
     $detRule = $detects | Where-Object {$_.name -eq $PackageName}
     if (($detRule) -and ($detRule -ne "")) {
         Write-Output (Test-Path $detRule)
@@ -609,6 +612,37 @@ function Test-PackageStatus {
     else {
         Write-Output $True
     }
+}
+
+function Disable-InternetExplorerESC {
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "Disabling IE Enhanced Security Configuration."
+    $AdminKey = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EF-4b3f-8CFC-4F3A74704073}"
+    $UserKey  = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EF-4b3f-8CFC-4F3A74704073}"
+    try {
+        Set-ItemProperty -Path $AdminKey -Name "IsInstalled" -Value 0 -Force
+        Set-ItemProperty -Path $UserKey -Name "IsInstalled" -Value 0 -Force
+        Stop-Process -Name Explorer -Force
+        Write-Output 0
+    }
+    catch {Write-Output -1}
+    Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) has been disabled."
+}
+function Enable-InternetExplorerESC {
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "Enabling IE Enhanced Security Configuration."
+    $AdminKey = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EF-4b3f-8CFC-4F3A74704073}"
+    $UserKey  = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EF-4b3f-8CFC-4F3A74704073}"
+    Set-ItemProperty -Path $AdminKey -Name "IsInstalled" -Value 1 -Force
+    Set-ItemProperty -Path $UserKey -Name "IsInstalled" -Value 1 -Force
+    Stop-Process -Name Explorer -Force
+    Write-Log -Category "info" -Message "IE Enhanced Security Configuration (ESC) has been enabled."
+}
+function Disable-UserAccessControl {
+    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "Disabling User Access Control (UAC)."
+    Set-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "ConsentPromptBehaviorAdmin" -Value 00000000 -Force
+    Write-Log -Category "info" -Message "User Access Control (UAC) has been disabled."
 }
 
 # end-functions
@@ -668,6 +702,8 @@ if (-not (Set-NewFiles -Files $files)) {
 }
 
 Write-Host "Executing project configuration" -ForegroundColor Green
+
+Disable-InternetExplorerESC
 
 Set-Regkeys -DataSet $regkeys -Order "before"
 
@@ -790,7 +826,7 @@ foreach ($package in $packages) {
                         }
                         'SERVERROLES' {
                             $runFile = "$((Get-ChildItem $xmlfile).DirectoryName)\$pkgFile"
-                            $x = Add-ServerRolesFile -PackageName $pkgName -PackageFile $pkgFile
+                            $x = Add-ServerRolesFile -PackageName $pkgName -PackageFile $runFile
                             Write-Verbose "info: exit code = $x"
                             break
                         }

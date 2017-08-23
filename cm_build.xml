@@ -14,7 +14,7 @@ comments...
         <reference name="Windows10" type="AltSource" path="\\FS1\apps\sources\SXS" file="" comment="Windows 10 x64 enterprise" />
     </references>
     <packages comment="Controls the order and links of execution">
-        <package name="SERVERROLES" enabled="true" type="feature" comment="Server Roles and Features" note="set type to payload to read external xml file" />
+        <package name="SERVERROLES" enabled="true" type="payload" comment="Server Roles and Features" note="set type to payload to read external xml file" />
         <!-- undecided about continuing to address the following two - 1.1.1
         <package name="ADSCHEMA" enabled="false" type="function" comment="Extend AD Schema" />
         <package name="ADCONTAINER" enabled="false" type="function" comment="System Management AD container" />
@@ -24,7 +24,7 @@ comments...
         <package name="SQLSERVER" enabled="true" type="payload" comment="SQL Server 2016" dependson="" />
         <package name="SSMS" enabled="true" type="payload" comment="SQL Server Management Studio" dependson="SQLSERVER" />
         <package name="SQLCONFIG" enabled="true" type="function" comment="Configure SQL Server" dependson="SQLSERVER" />
-        <package name="WSUS" enabled="true" type="feature" comment="WSUS Role" dependson="SQLSERVER" />
+        <package name="WSUS" enabled="true" type="payload" comment="WSUS Role" dependson="SQLSERVER" />
         <package name="WSUSCONFIG" enabled="true" type="function" comment="WSUS Configuration" dependson="WSUS" />
         <package name="CONFIGMGR" enabled="true" type="payload" comment="Configuration Manager 1702" dependson="WSUSCONFIG" />
         <package name="CMTOOLKIT" enabled="true" type="payload" comment="ConfigMgr Toolkit 2012 R2" dependson="CONFIGMGR" />
@@ -41,6 +41,7 @@ comments...
         <payload name="CONFIGMGR" path="\\FS1\apps\MS\CM1702\SMSSETUP\BIN\X64" file="setup.exe" params="/script F:\CM_BUILD\cmsetup.ini" comment="" />
         <payload name="CMTOOLKIT" path="\\FS1\apps\MS\TOOLS" file="ConfigMgrTools.msi" params="/qb! /norestart" comment="" />
         <payload name="RCTOOLS" path="\\FS1\apps\MS\TOOLS" file="Recast_RCT_Latest.msi" params="/qb! /norestart" comment="" />
+        <payload name="WSUS" path="Install-WindowsFeature" file="wsus.xml" params="" comment="only used if the package type is payload" />
     </payloads>
     <detections comment="Describe evidence to indicate payload completion">
         <detect name="SERVERROLES" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SERVERROLES" type="synthetic" />
@@ -134,7 +135,7 @@ comments...
                 <key name="__SECTION1" value="Identification" />
                 <key name="Action" value="InstallPrimarySite" />
                 <key name="__SECTION2" value="Options" />
-                <key name="ProductID" value="EVAL" />
+                <key name="ProductID" value="BXH69-M62YX-QQD6R-3GPWX-8WMFY" />
                 <key name="SiteCode" value="P01" />
                 <key name="SiteName" value="Primary Site 1" />
                 <key name="SMSInstallDir" value="E:\ConfigMgr" />
