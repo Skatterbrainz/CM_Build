@@ -1,24 +1,13 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!--
-comments...
-1.1.1 - DS - 2017.08.22 - added support for external serverroles xml file
-    to use this, set the [package] type to "payload" and modify the associated 
-    [payload] entry FILE element to the filename itself.  The XML file must reside
-    in the same path as the -XmlFile referenced at the beginning.
-    To switch back to internal function handling, set the [package] type to "feature"
--->
+<!-- Version 1.1.1 - DS - 2017.08.23 -->
 <configuration>
-    <project comment="Contoso SCCM primary site server build for CM02.contoso.com, 1.1.1 by DS 2017-08-17" />
+    <project comment="Contoso SCCM primary site server build for CM02.contoso.com, 1.1.1 by DS 2017-08-23" />
     <references>
         <reference name="WindowsServer" type="AltSource" path="\\FS1\apps\sources\2016\sources\sxs" file="" comment="Windows Server 2016 install media" />
         <reference name="Windows10" type="AltSource" path="\\FS1\apps\sources\SXS" file="" comment="Windows 10 x64 enterprise" />
     </references>
     <packages comment="Controls the order and links of execution">
-        <package name="SERVERROLES" enabled="true" type="payload" comment="Server Roles and Features" note="set type to payload to read external xml file" />
-        <!-- undecided about continuing to address the following two - 1.1.1
-        <package name="ADSCHEMA" enabled="false" type="function" comment="Extend AD Schema" />
-        <package name="ADCONTAINER" enabled="false" type="function" comment="System Management AD container" />
-        -->
+        <package name="SERVERROLES" enabled="true" type="feature" comment="Server Roles and Features" note="set type to payload to read external xml file" />
         <package name="ADK" enabled="true" type="payload" comment="Windows 10 ADK 1703" dependson="" />
         <package name="MDT" enabled="true" type="payload" comment="Microsoft Deployment Toolkit 8443" dependson="" />
         <package name="SQLSERVER" enabled="true" type="payload" comment="SQL Server 2016" dependson="" />
@@ -135,7 +124,7 @@ comments...
                 <key name="__SECTION1" value="Identification" />
                 <key name="Action" value="InstallPrimarySite" />
                 <key name="__SECTION2" value="Options" />
-                <key name="ProductID" value="BXH69-M62YX-QQD6R-3GPWX-8WMFY" />
+                <key name="ProductID" value="xxxxx-xxxxx-xxxxx-xxxxx-xxxxx" />
                 <key name="SiteCode" value="P01" />
                 <key name="SiteName" value="Primary Site 1" />
                 <key name="SMSInstallDir" value="E:\ConfigMgr" />
