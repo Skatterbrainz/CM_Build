@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.1 - DS - 2017.08.23
+    1.1.1 - DS - 2017.08.24
     1.1.0 - DS - 2017.08.16
     1.0.0 - DS - 2017.08.14
     
@@ -34,7 +34,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
         [switch] $NoReboot
 )
-$ScriptVersion = '1.1.1.40'
+$ScriptVersion = '1.1.1.42'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 
@@ -948,10 +948,10 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
         $installed = $False
         $installed = Get-CMBuildInstallState -PackageName $pkgName -RuleType $detType -RuleData $detPath
         if ($installed) {
-            Write-Log -Category "info" -Message "install state... INSTALLED"
+            Write-Log -Category "info" -Message "install state... $pkgName is INSTALLED"
         }
         else {
-            Write-Log -Category "info" -Message "install state... NOT INSTALLED"
+            Write-Log -Category "info" -Message "install state... $pkgName is NOT INSTALLED"
             $x = Invoke-CMBuildPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
             if ($x -ne 0) {$continue = $False; break}
         }
