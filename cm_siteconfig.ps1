@@ -12,7 +12,7 @@
 .PARAMETER NoCheck
     [switch](optional) Skip platform validation restrictions
 .NOTES
-    1.1.1 - DS - 2017.08.23
+    1.1.9 - DS - 2017.08.24
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -30,7 +30,21 @@ param (
         [switch] $ForceBoundaries
 )
 $basekey = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.1.1.8'
+$ScriptVersion = '1.1.9'
+
+function Write-Log {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+            [ValidateSet('info','error','warning')]
+            [string] $Category,
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Message
+    )
+    Write-Verbose "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message"
+    "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
+}
 
 $RunTime1 = Get-Date
 Set-Location "$($env:USERPROFILE)\Documents"
