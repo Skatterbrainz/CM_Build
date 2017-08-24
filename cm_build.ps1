@@ -12,9 +12,9 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.1 - DS - 2017.08.24
-    1.1.0 - DS - 2017.08.16
-    1.0.0 - DS - 2017.08.14
+    1.1.42 - DS - 2017.08.24
+    1.1.0  - DS - 2017.08.16
+    1.0.0  - DS - 2017.08.14
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -34,7 +34,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
         [switch] $NoReboot
 )
-$ScriptVersion = '1.1.1.42'
+$ScriptVersion = '1.1.42'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 
@@ -53,7 +53,7 @@ function Write-Log {
             [string] $Message
     )
     Write-Verbose "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message"
-    "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" | Out-File -FilePath $logFile -Append -Force
+    "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
 }
 
 $ScriptPath   = Get-ScriptDirectory
@@ -775,7 +775,7 @@ function Invoke-CMBuildFunction {
         }
         'WSUSCONFIG' {
             Write-Host "$Comment" -ForegroundColor Green
-            $fpath = Get-WsusUpdatesPath -FolderSet $folders
+            $fpath = Get-WsusUpdatesPath -FolderSet $xmldata.configuration.folders.folder
             if (-not($fpath)) {
                 $result = -1
                 break
