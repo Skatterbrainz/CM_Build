@@ -12,7 +12,7 @@
 .PARAMETER NoCheck
     [switch](optional) Skip platform validation restrictions
 .NOTES
-    1.1.1 - DS - 2017.08.19
+    1.1.1 - DS - 2017.08.23
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -30,6 +30,7 @@ param (
         [switch] $ForceBoundaries
 )
 $basekey = 'HKLM:\SOFTWARE\CM_SITECONFIG'
+$ScriptVersion = '1.1.1.8'
 
 $RunTime1 = Get-Date
 Set-Location "$($env:USERPROFILE)\Documents"
@@ -368,7 +369,53 @@ function Set-Boundaries {
             Write-Verbose "info: boundary [$bName] is not assigned to a boundary group"
         }
     } # foreach
-} # function
+}
+
+function Set-CMSiteServerRoles {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)] $DataSet
+    )
+    Write-Verbose "function: set-cmsiteserverroles"
+    foreach ($siterole in $DataSet.configuration.cmsite.sitesystemroles | Where-Object {$_.enabled -eq 'true'}) {
+        $roleName = $siterole.name
+        Write-Verbose "role: $roleName"
+        switch ($RoleName) {
+            'aisync' {
+                try {
+                    $x = Set-CMAssetIntelligenceSynchronizationPoint -Enable $True -EnableSynchronization $True -PassThru
+                    if ($x) {
+                        foreach ($opt in $siterole.roleoptions.roleoption) {
+                            $optionName = $opt.name
+                            Write-Verbose "option: $optionName"
+                            Set-CMAssetIntelligenceClass -EnableReportingClass $optionName | Out-Null
+                        }
+                        $result = $True
+                    }
+                }
+                catch { Write.Error $_ }
+                break
+            }
+            # next rolename...
+        } # switch
+    } # foreach
+    Write-Output $result
+}
+
+function Set-AIClasses {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        $DataSet
+    )
+    Write-Verbose "----------------------------------------------------"
+    Write-Host "Configuring Asset Intelligence classes" -ForegroundColor Green
+    foreach ($aiclass in $DataSet.cmsite.aiclasses.aiclass) {
+        $cname = $aiclass.name
+        Write-Verbose "enable class: $cname"
+        Set-CMAssetIntelligenceClass -EnableReportingClass $cname | Out-Null
+    }
+}
 
 # --------------------------------------------------------------------
 
@@ -410,6 +457,8 @@ Set-BoundaryGroups -DataSet $cmdata
 if ((-not($AutoBoundaries)) -or ($ForceBoundaries)) {
     Set-Boundaries -DataSet $cmdata
 }
+Set-CMSiteServerRoles -DataSet $cmdata
+Set-AIClasses -DataSet $cmdata
 
 Write-Verbose "info: restore working path to user profile"
 Set-Location -Path $env:USERPROFILE
