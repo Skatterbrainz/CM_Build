@@ -34,36 +34,14 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
         [switch] $NoReboot
 )
-$ScriptVersion = '1.1.1.34'
-$basekey = 'HKLM:\SOFTWARE\CM_BUILD'
-$tsFile  = "$($env:TEMP)\cm_build_$($env:COMPUTERNAME)_transaction.log"
-$successcodes = (0,1003,3010,1605,1618,1641,1707)
+$ScriptVersion = '1.1.1.40'
+$basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
+$RunTime1 = Get-Date
 
-Write-Host "Transaction log: $tsFile" -ForegroundColor Green
-Write-Verbose "info`tscript version = $ScriptVersion"
-Write-Verbose "info`timporting required modules"
-
-try {Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ErrorAction Stop}
-catch {}
-if (Get-Module -ListAvailable -Name PowerShellGet) {
-    Write-Verbose "info`tPowerShellGet module is already installed"
+function Get-ScriptDirectory {
+    $Invocation = (Get-Variable MyInvocation -Scope 1).Value
+    Split-Path $Invocation.MyCommand.Path
 }
-else {
-    Write-Verbose "info`tinstalling PowerShellGet module"
-    Install-Module -Name PowerShellGet
-}
-if (Get-Module -ListAvailable -Name dbatools) {
-    Write-Verbose "info`tdbatools module is already installed"
-}
-else {
-    Write-Verbose "info`tinstalling dbatools module"
-    Install-Module dbatools -SkipPublisherCheck -Force
-}
-
-Write-Verbose "info`tdefining internal functions"
-
-# begin-functions
-
 function Write-Log {
     [CmdletBinding()]
     param (
@@ -75,7 +53,49 @@ function Write-Log {
             [string] $Message
     )
     Write-Verbose "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message"
+    "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" | Out-File -FilePath $logFile -Append -Force
 }
+
+$ScriptPath   = Get-ScriptDirectory
+$successcodes = (0,1003,3010,1605,1618,1641,1707)
+$LogsFolder   = "$ScriptPath\Logs"
+if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
+$tsFile  = "$LogsFolder\cm_build_$($env:COMPUTERNAME)_transaction.log"
+$logFile = "$LogsFolder\cm_build_$($env:COMPUTERNAME)_details.log"
+
+try {
+    Start-Transcript -Path $tsFile
+}
+catch {
+    Write-Error $error[0]
+    break
+}
+
+Write-Log -Category "info" -Message "------------------- BEGIN $(Get-Date) -------------------"
+Write-Log -Category "info" -Message "script version = $ScriptVersion"
+Write-Log -Category "info" -Message "importing required modules"
+
+try {Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ErrorAction Stop}
+catch {}
+if (Get-Module -ListAvailable -Name PowerShellGet) {
+    Write-Log -Category "info" -Message "PowerShellGet module is already installed"
+}
+else {
+    Write-Log -Category "info" -Message "installing PowerShellGet module"
+    Install-Module -Name PowerShellGet
+}
+if (Get-Module -ListAvailable -Name dbatools) {
+    Write-Log -Category "info" -Message "dbatools module is already installed"
+}
+else {
+    Write-Log -Category "info" -Message "installing dbatools module"
+    Install-Module dbatools -SkipPublisherCheck -Force
+}
+
+Clear-Host
+Write-Log -Category "info" -Message "defining internal functions"
+
+# begin-functions
 
 function Get-TimeOffset {
     param (
@@ -90,13 +110,13 @@ function Get-TimeOffset {
 
 function Test-Platform {
     param ()
-    Write-Verbose "[function: test-platform]"
+    Write-Log -Category "info" -Message "function: test-platform"
     $os = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty caption
     if (($os -like "*Windows Server 2012 R2*") -or ($os -like "*Windows Server 2016*")) {
-        Write-Verbose "info: passed rule = operating system"
+        Write-Log -Category "info" -Message "passed rule = operating system"
         $mem = [math]::Round($(Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)/1GB,0)
         if ($mem -ge 8) {
-            Write-Verbose "info: passed rule = minimmum memory allocation"
+            Write-Log -Category "info" -Message "passed rule = minimmum memory allocation"
             Write-Output $True
         }
         else {
@@ -118,7 +138,7 @@ function Set-CMBuildTaskCompleted {
             [ValidateNotNullOrEmpty()]
             [string] $Value
     )
-    Write-Verbose "[function: Set-CMBuildTaskCompleted]"
+    Write-Log -Category "info" -Message "function: Set-CMBuildTaskCompleted"
     try {
         New-Item -Path $basekey -ErrorAction SilentlyContinue | Out-Null
         New-Item -Path $basekey\PROCESSED -ErrorAction SilentlyContinue | Out-Null
@@ -129,10 +149,10 @@ function Set-CMBuildTaskCompleted {
     }
     try {
         New-Item -Path $basekey\PROCESSED\$KeyName -Value $Value -ErrorAction SilentlyContinue | Out-Null
-        Write-Verbose "INFO: writing registry key $KeyName"
+        Write-Log -Category "info" -Message "writing registry key $KeyName"
     }
     catch {
-        Write-Verbose "ERROR: failed to write to registry!"
+        Write-Log -Category "error" -Message "failed to write to registry!"
     }
 }
 
@@ -157,6 +177,7 @@ function Get-CMBuildConfigData {
             [ValidateNotNullOrEmpty()]
             [string] $XmlFile
     )
+    Write-Host "Loading configuration data" -ForegroundColor Green
     Write-Log -Category "info" -Message "[function:Get-CMBuildConfigData] loading xml data from: $XmlFile"
     if (-not(Test-Path $XmlFile)) {
         Write-Warning "ERROR: configuration file not found: $XmlFile"
@@ -175,7 +196,8 @@ function Get-CMBuildConfigData {
 function Set-CMBuildFolders {
     [CmdletBinding()]
     param($Folders)
-    Write-Verbose "----------------------------------------------------"
+    Write-Host "Configuring folders" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "[function: Set-CMBuildFolders]"
     $result = $True
     foreach ($folder in $Folders) {
@@ -208,7 +230,8 @@ function Set-CMBuildFolders {
 function Set-CMBuildFiles {
     [CmdletBinding()]
     param ($Files)
-    Write-Verbose "----------------------------------------------------"
+    Write-Host "Configuring files" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "[function: Set-CMBuildFiles]"
     $result = $True
     foreach ($fileSet in $Files) {
@@ -259,9 +282,10 @@ function Install-CMBuildServerRoles {
         [parameter(Mandatory=$False)]
             [string] $AlternateSource = "",
         [parameter(Mandatory=$False)]
-            [string] $LogFile = "roles.log"
+            [string] $LogFile = "serverroles.log"
     )
-    Write-Verbose "----------------------------------------------------"
+    Write-Host "Installing Windows Server Roles and Features" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "[function: Install-CMBuildServerRoles]"
     $time1  = Get-Date
     $result = 0
@@ -273,8 +297,7 @@ function Install-CMBuildServerRoles {
         if ($AlternateSource -ne "") {
             Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
-                $output   = Install-WindowsFeature -Name $FeatureCode -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource
-                #$output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile" -Source $AlternateSource
+                $output   = Install-WindowsFeature -Name $FeatureCode -LogPath "$LogsFolder\$LogFile" -Source $AlternateSource
                 $exitcode = $output.ExitCode.Value__
                 if ($successcodes.Contains($exitcode)) {
                     $result = 0
@@ -293,8 +316,7 @@ function Install-CMBuildServerRoles {
         }
         else {
             try {
-                $output   = Install-WindowsFeature -Name $FeatureCode -LogPath "F:\CM_BUILD\$LogFile"
-                #$output   = Install-WindowsFeature -Name $FeatureCode -IncludeManagementTools -LogPath "F:\CM_BUILD\$LogFile"
+                $output   = Install-WindowsFeature -Name $FeatureCode -LogPath "$LogsFolder\$LogFile"
                 $exitcode = $output.ExitCode.Value__
                 if ($successcodes.Contains($exitcode)) {
                     $result = 0
@@ -322,7 +344,7 @@ function Install-CMBuildServerRoles {
     $time2 = Get-TimeOffset -StartTime $time1
     Write-Log -Category "info" -Message "function runtime = $time2"
     Write-Output $result
-} # function
+}
 
 function Install-CMBuildServerRolesFile {
     [CmdletBinding()]
@@ -334,16 +356,17 @@ function Install-CMBuildServerRolesFile {
             [ValidateNotNullOrEmpty()]
             [string] $PackageFile,
         [parameter(Mandatory=$False)]
-            [string] $LogFile = "rolesfile.log"
+            [string] $LogFile = "serverrolesfile.log"
     )
-    Write-Verbose "----------------------------------------------------"
+    Write-Host "Installing Windows Server Roles and Features" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "[function: Install-CMBuildServerRolesfile]"
     if (Test-Path $PackageFile) {
         if ($AltSource -ne "") {
             Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
                 Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile using alternate source"
-                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "F:\CM_BUILD\$LogFile" -Source $AltSource -ErrorAction Stop
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -Source $AltSource -ErrorAction Stop
                 if ($successcodes.Contains($result.ExitCode.Value__)) {
                     $result = 0
                     Set-CMBuildTaskCompleted -KeyName $PackageName -Value $(Get-Date)
@@ -363,7 +386,7 @@ function Install-CMBuildServerRolesFile {
         else {
             try {
                 Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile"
-                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "F:\CM_BUILD\$LogFile" -ErrorAction Stop | Out-Null
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -ErrorAction Stop | Out-Null
                 if ($successcodes.Contains($result.ExitCode.Value__)) {
                     $result = 0
                     Set-CMBuildTaskCompleted -KeyName $PackageName -Value $(Get-Date)
@@ -396,7 +419,7 @@ function Set-CMBuildWsusConfiguration {
         [ValidateNotNullOrEmpty()]
         [string] $UpdatesFolder
     )
-    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "[function: Set-CMBuildWsusConfiguration]"
     $time1 = Get-Date
     Write-Log -Category "info" -Message "verifying WSUS role installation for SQL database connectivity"
@@ -425,8 +448,8 @@ function Set-CMBuildSqlConfiguration {
         [parameter(Mandatory=$False)]
             [int] $MemRatio = 80
     )
-    Write-Verbose "----------------------------------------------------"
-    Write-Verbose "[function: Set-CMBuildSqlConfiguration]"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function: Set-CMBuildSqlConfiguration"
     Write-Log -Category "info" -Message "SQL MemRatio = $MemRatio"
     $time1 = Get-Date
     $dblRatio = $MemRatio * 0.01
@@ -469,7 +492,7 @@ function Install-CMBuildPayload {
         [parameter(Mandatory=$False)]
             [string] $OptionParams = ""
     )
-    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function: Install-CMBuildPayload"
     Write-Log -Category "info" -Message "payload name..... $Name"
     Write-Log -Category "info" -Message "sourcefile....... $SourceFile"
@@ -562,7 +585,8 @@ function Invoke-CMBuildRegKeys {
             [ValidateSet('before','after')]
             [string] $Order
     )
-    Write-Verbose "----------------------------------------------------"
+    Write-Host "Configuring registry keys" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "[function: Invoke-CMBuildRegKeys]"
     Write-Log -Category "info" -Message "keygroup order = $Order"
 
@@ -729,7 +753,7 @@ function Invoke-CMBuildPayload {
     } # switch
     Write-Log -Category "info" -Message "function result = $result"
     Write-Output $x
-} # function
+} 
 
 function Invoke-CMBuildFunction {
     [CmdletBinding()]
@@ -838,6 +862,7 @@ function Get-CMBuildInstallState {
         }
         'synthetic' {
             $detPath = "$RuleData\$PackageName"
+            Write-Log -Category "info" -Message "detection rule = $detPath"
             $result  = (Test-Path $detPath)
             break
         }
@@ -855,52 +880,20 @@ function Get-CMBuildInstallState {
 
 # end-functions
 
-$RunTime1 = Get-Date
-Write-Output "info: begin process at $(Get-Date)"
+[xml]$xmldata = Get-CMBuildConfigData $XmlFile
+Write-Log -Category "info" -Message "----------------------------------------------------"
 Set-CMBuildTaskCompleted -KeyName 'START' -Value $(Get-Date)
 
-[xml]$xmldata = Get-CMBuildConfigData $XmlFile
-Write-Verbose "----------------------------------------------------"
-Write-Host "Loading configuration data" -ForegroundColor Green
 $project   = $xmldata.configuration.project
-#$packages  = $xmldata.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}
-#$payloads  = $xmldata.configuration.payloads.payload
-#$features  = $xmldata.configuration.features.feature
-#$detects   = $xmldata.configuration.detections.detect
-#$folders   = $xmldata.configuration.folders.folder
-#$files     = $xmldata.configuration.files.file
-#$newfiles  = $xmldata.configuration.files.file
-#$refs      = $xmldata.configuration.references.reference
 $AltSource = $xmldata.configuration.references.reference | 
     Where-Object {$_.name -eq 'WindowsServer'} | 
         Select-Object -ExpandProperty path
-#$regkeys   = $xmldata.configuration.regkeys.regkey | Where-Object {$_.enabled -eq 'true'}
-
-Write-Verbose "----------------------------------------------------"
-Write-Log -Category "info" -Message "project info....... $($project.comment)"
-#Write-Log -Category "info" -Message "packages........... $($packages.count)"
-#Write-Log -Category "info" -Message "payloads........... $($payloads.count)"
-#Write-Log -Category "info" -Message "features........... $($features.count)"
-#Write-Log -Category "info" -Message "detect rules....... $($detects.count)"
-#Write-Log -Category "info" -Message "folders............ $($folders.count)"
-#Write-Log -Category "info" -Message "files.............. $($newfiles.count)"
-#Write-Log -Category "info" -Message "references......... $($refs.count)"    
-#Write-Log -Category "info" -Message "registrykeys....... $($regkeys.count)"
+Write-Log -Category "info" -Message "alternate windows source = $AltSource"
 
 Set-Location $env:USERPROFILE
 
-try {
-    Start-Transcript -Path $tsFile
-}
-catch {
-    Write-Error $error[0]
-    break
-}
-
-Write-Verbose "------------------- BEGIN $(Get-Date) -------------------"
-Write-Verbose "info: alternate windows source = $AltSource"
-
-Write-Host "Creating Folders and data files" -ForegroundColor Green
+Write-Log -Category "info" -Message "----------------------------------------------------"
+Write-Log -Category "info" -Message "project info....... $($project.comment)"
 
 if (-not (Set-CMBuildFolders -Folders $xmldata.configuration.folders.folder)) {
     Write-Warning "error: failed to create folders (aborting)"
@@ -914,10 +907,10 @@ if (-not (Set-CMBuildFiles -Files $xmldata.configuration.files.file)) {
 Write-Host "Executing project configuration" -ForegroundColor Green
 
 Disable-InternetExplorerESC | Out-Null
-
 Invoke-CMBuildRegKeys -DataSet $xmldata.configuration.regkeys.regkey -Order "before" | Out-Null
 
-Write-Verbose "----------------------------------------------------"
+Write-Log -Category "info" -Message "beginning package execution"
+Write-Log -Category "info" -Message "----------------------------------------------------"
 $continue = $True
 
 foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}) {
@@ -925,8 +918,7 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
         $pkgName  = $package.name
         $pkgType  = $package.type 
         $pkgComm  = $package.comment 
-        $payloads = $xmldata.configuration.payloads.payload
-        $payload  = $payloads | Where-Object {$_.name -eq $pkgName}
+        $payload  = $xmldata.configuration.payloads.payload | Where-Object {$_.name -eq $pkgName}
         $pkgSrc   = $payload.path 
         $pkgFile  = $payload.file
         $pkgArgs  = $payload.params
@@ -942,6 +934,7 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
         Write-Log -Category "info" -Message "payload file.... $pkgFile"
         Write-Log -Category "info" -Message "payload args.... $pkgArgs"
         Write-Log -Category "info" -Message "rule type....... $detType"
+
         if (!(Test-CMBuildPackage -PackageName $dependson)) {
             Write-Log -Category "error" -Message "dependency missing: $depends"
             $continue = $False
@@ -949,6 +942,7 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
         }
         if (($detType -eq "") -or ($detPath -eq "") -or (-not($detPath))) {
             Write-Log -Category "error" -Message "detection rule is missing for $pkgName (aborting)"
+            $continue = $False
             break
         }
         $installed = $False
@@ -961,10 +955,10 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
             $x = Invoke-CMBuildPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
             if ($x -ne 0) {$continue = $False; break}
         }
-        Write-Verbose "----------------------------------------------------"
+        Write-Log -Category "info" -Message "----------------------------------------------------"
     }
     else {
-        Write-Warning "STOP! aborted at $(Get-Date)"
+        Write-Warning "STOP! aborted at step [$pkgName] $(Get-Date)"
         break
     }
 } # foreach
