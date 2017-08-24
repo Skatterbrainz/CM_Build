@@ -15,23 +15,37 @@
             <discovery enabled="false" name="NetworkDiscovery" PollingSchedule="schDaily" />
             <discovery enabled="true" name="HeartbeatDiscovery" PollingSchedule="DEFAULT" />
         </discoveries>
-        <boundarygroups>
+        <boundarygroups comment="Configure Boundary Groups">
             <boundarygroup name="NA-US-VA-Norfolk" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Norfolk" />
             <boundarygroup name="NA-US-VA-VB" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
             <boundarygroup name="NA-US-CA-Fremont" SiteSystemServer="" LinkType="" comment="Fremont" />
             <boundarygroup name="NA-US-NY-NewYork" SiteSystemServer="" LinkType="" comment="New York" />
         </boundarygroups>
-        <boundaries>
+        <boundaries comment="Configure Site Boundaries if not set to AD discovery-automatic">
             <boundary name="NA-US-VA-Norfolk-Servers" type="IPRange" value="192.168.0.10-192.168.0.99" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
             <boundary name="NA-US-VA-Norfolk-Workstations" type="IPRange" value="192.168.0.100-192.168.0.150" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
             <boundary name="NA-US-NY-NewYork-Servers" type="IPRange" value="192.168.2.10-192.168.2.99" boundarygroup="NA-US-NY-NewYork" comment="New York" />
         </boundaries>
-        <clientoptions>
+        <clientoptions comment="Configure Default Client Push Installation settings">
             <CMClientPushInstallation EnableAutomaticClientPushInstallation="false" EnableSystemTypeConfiguationManager="false" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
         </clientoptions>
-        <misc>
-            <CMAssetIntelligenceClass EnableAllReportingClass="true" />
-        </misc>
+        <sitesystemroles>
+            <sitesystemrole name="aisync" enabled="true" comment="Asset Intelligence Synchronization Point">
+                <roleoptions comment="Configure Asset Intelligence Classes">
+                    <roleoption name="SMS_AutoStartSoftware" />
+                    <roleoption name="SMS_BrowserHelperObject" />
+                    <roleoption name="SMS_InstalledExecutable" />
+                    <roleoption name="SMS_InstalledSoftware" />
+                    <roleoption name="SMS_SoftwareShortcut" />
+                    <roleoption name="SMS_SoftwareTag" />
+                    <roleoption name="SMS_SystemConsoleUsage" />
+                    <roleoption name="SMS_SystemConsoleUser" />
+                    <roleoption name="SoftwareLicensingProduct" />
+                    <roleoption name="SoftwareLicensingService" />
+                    <roleoption name="Win32_USBDevice" />
+                </roleoptions>
+            </sitesystemrole>
+        </sitesystemroles>
         <siteservers>
             <siteserver name="FS1.contoso.com" roles="DP,SUP" comment="" />
             <siteserver name="FS2.contoso.com" roles="DP" comment="" />
