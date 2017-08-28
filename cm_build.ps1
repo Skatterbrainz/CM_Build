@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.1.42 - DS - 2017.08.24
+    1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
     1.0.0  - DS - 2017.08.14
     
@@ -34,7 +34,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
         [switch] $NoReboot
 )
-$ScriptVersion = '1.1.42'
+$ScriptVersion = '1.1.43'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 
@@ -206,7 +206,7 @@ function Set-CMBuildFolders {
             if (-not(Test-Path $fn)) {
                 Write-Log -Category "info" -Message "creating folder: $fn"
                 try {
-                    New-Item -Path $fn -ItemType Directory -ErrorAction Stop | Out-Null
+                    New-Item -Path $fn -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
                     $WaitAfter = $True
                 }
                 catch {
@@ -366,7 +366,7 @@ function Install-CMBuildServerRolesFile {
             Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
                 Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile using alternate source"
-                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -Source $AltSource -ErrorAction Stop
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -Source $AltSource -ErrorAction Continue
                 if ($successcodes.Contains($result.ExitCode.Value__)) {
                     $result = 0
                     Set-CMBuildTaskCompleted -KeyName $PackageName -Value $(Get-Date)
@@ -386,7 +386,7 @@ function Install-CMBuildServerRolesFile {
         else {
             try {
                 Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile"
-                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -ErrorAction Stop | Out-Null
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -ErrorAction Continue | Out-Null
                 if ($successcodes.Contains($result.ExitCode.Value__)) {
                     $result = 0
                     Set-CMBuildTaskCompleted -KeyName $PackageName -Value $(Get-Date)
@@ -520,7 +520,7 @@ function Install-CMBuildPayload {
     $time1 = Get-Date
     $result = 0
     try {
-        $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Stop
+        $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Continue
         if ((0,3010,1605,1641,1618,1707).Contains($p.ExitCode)) {
             Write-Log -Category "info" -Message "aggregating a success code."
             Set-CMBuildTaskCompleted -KeyName $Name -Value $(Get-Date)
