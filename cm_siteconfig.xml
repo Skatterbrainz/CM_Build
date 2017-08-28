@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- Version 1.1.1.9 - DS - 2017-08-27 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <schedules>
@@ -46,9 +47,56 @@
                 </roleoptions>
             </sitesystemrole>
         </sitesystemroles>
-        <siteservers>
-            <siteserver name="FS1.contoso.com" roles="DP,SUP" comment="" />
-            <siteserver name="FS2.contoso.com" roles="DP" comment="" />
-        </siteservers>
+        <folders comment="Console Folders to create">
+            <folder name="Deploy Applications" path="DeviceCollection" comment="" />
+            <folder name="Deploy Updates" path="DeviceCollection" comment="" />
+            <folder name="Inventory Hardware" path="DeviceCollection" comment="" />
+            <folder name="Inventory Software" path="DeviceCollection" comment="" />
+            <folder name="Inventory Organization" path="UserCollection" comment="" />
+            <folder name="Deploy Applications" path="UserCollection" comment="" />
+            <folder name="Production" path="TaskSequence" comment="" />
+            <folder name="Testing" path="TaskSequence" comment="" />
+            <folder name="WinPE" path="DriverPackage" comment="" />
+            <folder name="HP" path="DriverPackage" comment="" />
+            <folder name="EliteBook.9470m" path="DriverPackage/HP" comment="" />
+            <folder name="ZBook.15uG2" path="DriverPackage/HP" comment="" />
+            <folder name="Windows Desktop" path="OperatingSystemImage" comment="" />
+            <folder name="Windows Server" path="OperatingSystemImage" comment="" />
+            <folder name="Contoso" path="BootImage" comment="" />
+            <folder name="Google" path="Application" comment="" />
+            <folder name="Microsoft" path="Application" comment="" />
+            <!--
+            Valid Folder Paths...
+            Application
+            BootImage
+            ConfigurationBaseline
+            ConfigurationItem
+            DeviceCollection
+            Driver
+            DriverPackage
+            OperatingSystemImage
+            OperatingSystemInstaller
+            Package
+            Query
+            SmsProvider
+            SoftwareMetering
+            SoftwareUpdate
+            TaskSequence
+            UserCollection
+            UserStateMigration
+            VirtualHardDisk
+            -->
+        </folders>
+        <queries comment="Custom queries">
+            <query name="Contoso - Serial, MAC and Hostname" comment="Serial Number, MAC address and Hostname for all Devices" class="SMS_R_System" expression="select distinct SMS_R_System.Name, SMS_G_System_SYSTEM_ENCLOSURE.SerialNumber, SMS_G_System_NETWORK_ADAPTER.MACAddress, SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.IPEnabled from  SMS_R_System inner join SMS_G_System_SYSTEM_ENCLOSURE on SMS_G_System_SYSTEM_ENCLOSURE.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_NETWORK_ADAPTER on SMS_G_System_NETWORK_ADAPTER.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_NETWORK_ADAPTER_CONFIGURATION on SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.ResourceID = SMS_R_System.ResourceId where SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.IPEnabled = 1 and SMS_G_System_NETWORK_ADAPTER.MACAddress not like '' order by SMS_R_System.Name" />
+            <query name="Contoso - Windows Server Features" comment="Windows Server Feature Names" class="SMS_R_System" expression="select distinct SMS_G_System_SERVER_FEATURE.Name from  SMS_R_System inner join SMS_G_System_SERVER_FEATURE on SMS_G_System_SERVER_FEATURE.ResourceID = SMS_R_System.ResourceId order by SMS_G_System_SERVER_FEATURE.Name" />
+        </queries>
+        <osimages comment="">
+            <osimage name="Windows 10 x64 Ent 1703" path="\\FS1\apps\sources\w10" comment="" />
+            <osimage name="Windows Server 2016 Data Center" path="\\FS1\apps\sources\2016" comment="" />
+        </osimages>
+        <collections comment="Custom Collections">
+            <collection name="Users - Research Engineers" type="User" folder="/By Job Title" description="Users by Job Title: Research Engineers" ruletype="query" rule="" />
+        </collections>
     </cmsite>
 </configuration>
