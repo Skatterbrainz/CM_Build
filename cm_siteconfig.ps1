@@ -12,7 +12,7 @@
 .PARAMETER NoCheck
     [switch](optional) Skip platform validation restrictions
 .NOTES
-    1.1.9 - DS - 2017.08.24
+    1.1.20 - DS - 2017.08.28
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -36,20 +36,16 @@ function Get-ScriptDirectory {
 }
 
 $basekey = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.1.9'
+$ScriptVersion = '1.1.20'
 $ScriptPath   = Get-ScriptDirectory
 $LogsFolder   = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
 $tsFile  = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
 $logFile = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
 
-try {
-    Start-Transcript -Path $tsFile -Force
-}
-catch {
-    Write-Error "Failed to open transcript log file"
-    break
-}
+try {stop-transcript -ErrorAction SilentlyContinue} catch {}
+try {Start-Transcript -Path $tsFile -Force} catch {}
+Write-Output "------------------- BEGIN $(Get-Date) -------------------"
 
 function Write-Log {
     [CmdletBinding()]
@@ -195,8 +191,14 @@ function Set-CMSiteDiscoveryMethods {
             'ActiveDirectoryForestDiscovery' {
                 Write-Log -Category "info" -Message "FOREST DISCOVERY"
                 try {
-                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $SubnetBoundaries -ErrorAction SilentlyContinue
-                    Write-Log -Category "info" -Message "AD forest discovery configured successfully"
+                    if ($AutoBoundaries) {
+                        Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $True -ErrorAction SilentlyContinue
+                        Write-Log -Category "info" -Message "AD forest discovery configured successfully: with subnet boundary option"
+                    }
+                    else {
+                        Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue
+                        Write-Log -Category "info" -Message "AD forest discovery configured successfully"
+                    }
                 }
                 catch {}
                 break
@@ -450,7 +452,7 @@ function Set-CMSiteAIClasses {
         [parameter(Mandatory=$True)]
         $DataSet
     )
-    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Asset Intelligence classes" -ForegroundColor Green
     foreach ($aiclass in $DataSet.configuration.cmsite.aiclasses.aiclass) {
         $cname = $aiclass.name
@@ -468,33 +470,33 @@ function Set-CMSiteConfigFolders {
         [parameter(Mandatory=$True)]
             $DataSet
     )
+    Write-Host "Configuring console folders" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function set-cmsitefolders"
     $result = $true
     foreach ($folder in $DataSet.configuration.cmsite.folders.folder) {
         $folderName = $folder.name
         $folderPath = $folder.path
         try {
-            New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -Force
+            New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
             Write-Log -Category "info" -Message "folder created: $folderName"
         }
         catch {
-            Write-Log -Category "error" -Message "folder failed: $folderName"
-            $_
-            $result = $False
-            break
+            Write-Log -Category "warning" -Message "folder already exists: $folderName"
         }
     } # foreach
     Write-Output $result
 }
 
-function Set-CMSiteQueries {
+function Import-CMSiteQueries {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "function set-cmsitequeries"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function Import-CMSiteQueries"
     $result = $True
     foreach ($query in $DataSet.configuration.cmsite.queries.query) {
         $queryName = $query.name
@@ -502,7 +504,7 @@ function Set-CMSiteQueries {
         $queryType = $query.class
         $queryExp  = $query.expression
         try {
-            New-CMQuery -Name $queryName -Expression $queryExp -Comment $queryComm -TargetClassName $queryType
+            New-CMQuery -Name $queryName -Expression $queryExp -Comment $queryComm -TargetClassName $queryType | Out-Null
             Write-Log -Category "info" -Message "query created: $queryName"
         }
         catch {
@@ -512,22 +514,150 @@ function Set-CMSiteQueries {
             break
         }
     } # foreach
+    Write-Log -Category "info" -Message "finished importing custom queries"
     Write-Output $result
+}
+
+function Import-CMSiteOSImages {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function: import-cmsiteosimages"
+    $result = $True
+    foreach ($image in $DataSet.configuration.cmsite.osimages.osimage) {
+        $imageName = $image.name
+        $imagePath = $image.path
+        $imageDesc = $image.comment
+        $oldLoc = Get-Location
+        Set-Location c:
+        if (Test-Path $imagePath) {
+            Set-Location $oldLoc
+            Write-Log -Category "info" -Message "image name: $imageName"
+            try {
+                New-CMOperatingSystemImage -Name $imageName -Path $imagePath -Description $imageDesc | Out-Null
+                Write-Log -Category "info" -Message "imported successfully"
+            }
+            catch {
+                Write-Log -Category "error" -Message "failed to import: $imageName"
+                $_
+                $result = $False
+                break
+            }
+        }
+        else {
+            Set-Location $oldLoc
+            Write-Log -Category "error" -Message "failed to locate: $imagePath"
+        }
+    }
+    Write-Log -Category "info" -Message "finished importing os images"
+    Write-Output $result
+}
+
+function Import-CMSiteOSInstallers {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function: import-CMSiteOSInstallers"
+    $result = $True
+    foreach ($inst in $DataSet.configuration.cmsite.osinstallers.osinstaller) {
+        $instName = $inst.name
+        $instPath = $inst.path
+        $instDesc = $inst.comment
+        $instVer  = $inst.version
+        $oldLoc   = Get-Location
+        Set-Location c:
+        if (Test-Path $instPath) {
+            Set-Location $oldLoc
+            Write-Log -Category "info" -Message "installer name: $instName"
+            try {
+                New-CMOperatingSystemInstaller -Name $instName -Path $instPath -Description $instDesc -Version $instVer -ErrorAction SilentlyContinue | Out-Null
+                Write-Log -Category "info" -Message "imported successfully"
+            }
+            catch {
+                Write-Log -Category "error" -Message "failed to import: $instName"
+                $_
+                $result = $False
+                break
+            }
+        }
+        else {
+            Set-Location $oldLoc
+            Write-Log -Category "error" -Message "failed to locate: $instPath"
+        }
+    }
+    Write-Log -Category "info" -Message "finished importing os installers"
+    Write-Output $result
+}
+
+function Import-CMSiteCollections {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        $DataSet
+    )
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function: import-CMSiteCollections"
+    $result = $True
+    foreach ($collection in $DataSet.configuration.cmsite.collections.collection) {
+        <#
+        collection:
+        name="Users - Title - Research Analysts" 
+        type="User" 
+        comment="Users by Job Title: Research Analyst" 
+        parent="All Users" 
+        folder="UserCollection" 
+        ruletype="query" 
+        rule="select ....."
+        #>
+        $collName = $collection.name
+        $collType = $collection.type
+        $collComm = $collection.comment
+        $collBase = $collection.parent
+        $collPath = $collection.folder
+        $collRuleType = $collection.ruletype
+        $collRuleText = $collection.rule
+        try {
+            $coll = New-CMCollection -Name $collName -CollectionType $collType -Comment $collComm -LimitingCollectionName $collBase -ErrorAction SilentlyContinue
+            if ($coll) {
+                Write-Log -Category "info" -Message "collection created: $collName"
+                Write-Log -Category "info" -Message "moving object to folder: $collPath"
+                $coll | Move-CMObject -FolderPath $collPath | Out-Null
+                switch ($collRuleType) {
+                    'direct' {
+                        Write-Log -Category "info" -Message "associating direct membership rule"
+                        break
+                    }
+                    'query' {
+                        Write-Log -Category "info" -Message "associating query membership rule"
+                        Add-CMUserCollectionQueryMembershipRule -CollectionName $collName -RuleName "1" -QueryExpression $collRuleText
+                        break
+                    }
+                } # switch
+            }
+            Write-Log -Category "info" -Message "collection has been configured successfully."
+        }
+        catch {
+            if ($_.ToString() -eq 'An object with the specified name already exists.') {
+                Write-Log -Category "info" -Message "collection already exists"
+            }
+            else {
+                Write-Log -Category "error" -Message "collection failed and spewed chunks everywhere :("
+            }
+        }
+    } # foreach
 }
 
 # --------------------------------------------------------------------
 
 Set-Location $env:USERPROFILE
-$tsFile = "$($env:TEMP)\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
-Write-Log -Category "info" -Message "transaction log = $tsFile"
-try {
-    Start-Transcript -Path $tsFile -ErrorAction SilentlyContinue
-}
-catch {
-    Write-Warning "unable to start transcript"
-}
-
-Write-Output "------------------- BEGIN $(Get-Date) -------------------"
 
 Write-Log -Category "info" -Message "loading xml data"
 [xml]$xmldata = Get-Content $XmlFile
@@ -554,27 +684,76 @@ Set-Location "$sitecode`:"
 $Site = Get-CMSite -SiteCode $sitecode
 Write-Log -Category "info" -Message "site version = $($site.Version)"
 
-Set-CMSiteADForest -DataSet $xmldata
-Set-CMSiteDiscoveryMethods -DataSet $xmldata
-#Invoke-CMSystemDiscovery 
-Set-CMSiteBoundaryGroups -DataSet $xmldata
-if ((-not($AutoBoundaries)) -or ($ForceBoundaries)) {
-    Set-Boundaries -DataSet $xmldata
-}
-Set-CMSiteServerRoles -DataSet $xmldata
-Set-CMSiteAIClasses -DataSet $xmldata
-
-if (Set-CMSiteConfigFolders -SiteCode $sitecode -DataSet $xmldata) {
-    Write-Host "Console folders have been created" -ForegroundColor Green
-}
-else {
-    Write-Warning "Failed to create console folders"
-}
-if (Set-CMSiteQueries -DataSet $cmdata) {
-    Write-Host "Custom Queries have been created" -ForegroundColor Green
-}
-else {
-    Write-Warning "Failed to create custom queries"
+foreach ($control in $xmldata.configuration.cmsite.control.ci | Where-Object {$_.enabled -eq 'true'}) {
+    $controlCode = $control.name
+    switch ($controlCode) {
+        'ADFOREST' {
+            Set-CMSiteADForest -DataSet $xmldata
+            break
+        }
+        'DISCOVERY' {
+            Set-CMSiteDiscoveryMethods -DataSet $xmldata
+            #Invoke-CMSystemDiscovery
+            break
+        }
+        'BOUNDARYGROUPS' {
+            Set-CMSiteBoundaryGroups -DataSet $xmldata
+            break
+        }
+        'BOUNDARIES' {
+            if ((-not($AutoBoundaries)) -or ($ForceBoundaries)) {
+                Set-Boundaries -DataSet $xmldata
+            }
+            break
+        }
+        'SITEROLES' {
+            Set-CMSiteServerRoles -DataSet $xmldata
+            Set-CMSiteAIClasses -DataSet $xmldata
+            break
+        }
+        'CLIENTSETTINGS' {
+            break
+        }
+        'CLIENTINSTALL' {
+            break
+        }
+        'FOLDERS' {
+            if (Set-CMSiteConfigFolders -SiteCode $sitecode -DataSet $xmldata) {
+                Write-Host "Console folders have been created" -ForegroundColor Green
+            }
+            else {
+                Write-Warning "Failed to create console folders"
+            }
+            break
+        }
+        'DPGROUPS' {
+            break
+        }
+        'QUERIES' {
+            if (Import-CMSiteQueries -DataSet $xmldata) {
+                Write-Host "Custom Queries have been created" -ForegroundColor Green
+            }
+            else {
+                Write-Warning "Failed to create custom queries"
+            }
+            break
+        }
+        'COLLECTIONS' {
+            Import-CMSiteCollections -DataSet $xmldata
+            break
+        }
+        'OSIMAGES' {
+            Import-CMSiteOSImages -DataSet $xmldata
+            break
+        }
+        'OSINSTALLERS' {
+            Import-CMSiteOSInstallers -DataSet $xmldata
+            break
+        }
+        'TASKS' {
+            break
+        }
+    }
 }
 
 Write-Log -Category "info" -Message "---------------------------------------------------"
