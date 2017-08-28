@@ -29,8 +29,27 @@ param (
     [parameter(Mandatory=$False)]
         [switch] $ForceBoundaries
 )
+
+function Get-ScriptDirectory {
+    $Invocation = (Get-Variable MyInvocation -Scope 1).Value
+    Split-Path $Invocation.MyCommand.Path
+}
+
 $basekey = 'HKLM:\SOFTWARE\CM_SITECONFIG'
 $ScriptVersion = '1.1.9'
+$ScriptPath   = Get-ScriptDirectory
+$LogsFolder   = "$ScriptPath\Logs"
+if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
+$tsFile  = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
+$logFile = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
+
+try {
+    Start-Transcript -Path $tsFile -Force
+}
+catch {
+    Write-Error "Failed to open transcript log file"
+    break
+}
 
 function Write-Log {
     [CmdletBinding()]
@@ -43,10 +62,12 @@ function Write-Log {
             [string] $Message
     )
     Write-Verbose "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message"
-    "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
+    #"$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
 }
 
 $RunTime1 = Get-Date
+Write-Log -Category "info" -Message "Script version.... $ScriptVersion"
+
 Set-Location "$($env:USERPROFILE)\Documents"
 if (-not(Test-Path $XmlFile)) {
     Write-Warning "unable to locate input file: $XmlFile"
@@ -75,15 +96,21 @@ function Get-CMModule {
     Write-Verbose "Importing ConfigurationManager module"
     if (-not(Get-Module ConfigurationManager)) {
         Write-Output "Importing the ConfigurationManager powershell module"
-        Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" 
+        try {
+            Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" 
+            Write-Output $True
+        }
+        catch {}
+    }
+    else {
+        Write-Output $True
     }
 }
 
-function Set-DiscoveryMethods {
+function Set-CMSiteDiscoveryMethods {
     [CmdletBinding()]
     param ($DataSet)
-
-    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     <#
     Write-Verbose "info: defining one-year time span values"
     $StartDate = Get-Date -f "yyyy/M/dd 00:00:00"
@@ -105,15 +132,15 @@ function Set-DiscoveryMethods {
     }
     #>
     Write-Host "Configuring Discovery Methods" -ForegroundColor Green
-    $disc = $DataSet.discoveries.discovery | ? {$_.enabled -eq 'true'}
+    $disc = $DataSet.configuration.cmsite.discoveries.discovery | ? {$_.enabled -eq 'true'}
     foreach ($dm in $disc) {
         $discName = $dm.name
-        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-        Write-Verbose "info: discovery method = $discName"
+        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+        Write-Log -Category "info" -Message "discovery method = $discName"
         $dmx = $disc | Where-Object {$_.name -eq $discName}
         $options = $dmx.options
         if ($options) {
-            Write-Verbose "info: additional options are specified"
+            Write-Log -Category "info" -Message "additional options are specified"
             $ADContainer      = ""
             $ADAttributes     = $null
             $SubnetBoundaries = $False
@@ -127,7 +154,7 @@ function Set-DiscoveryMethods {
             foreach ($option in $options.Split('|')) {
                 $optset = $option.Split(':')
                 if ($optset.length -eq 2) {
-                    Write-Verbose "`tinfo: (option) name= $($optset[0]) ... value= $($optset[1])"
+                    Write-Log -Category "info" -Message "(option) name= $($optset[0]) ... value= $($optset[1])"
                     switch ($optset[0]) {
                         'ADContainer' {
                             $ADContainer = $optset[1]
@@ -159,27 +186,27 @@ function Set-DiscoveryMethods {
                     } # switch
                 }
                 else {
-                    Write-Verbose "`toption: name= $optset ... value= True"
+                    Write-Log -Category "info" -Message "option: name= $optset ... value= True"
                 }
             } # foreach
         } # if
         
         switch ($discName) {
             'ActiveDirectoryForestDiscovery' {
-                Write-Verbose "info: FOREST DISCOVERY"
+                Write-Log -Category "info" -Message "FOREST DISCOVERY"
                 try {
                     Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $SubnetBoundaries -ErrorAction SilentlyContinue
-                    Write-Verbose "info: AD forest discovery configured successfully"
+                    Write-Log -Category "info" -Message "AD forest discovery configured successfully"
                 }
                 catch {}
                 break
             }
             'ActiveDirectorySystemDiscovery' {
-                Write-Verbose "info: SYSTEM DISCOVERY"
+                Write-Log -Category "info" -Message "SYSTEM DISCOVERY"
                 if ($FilterPassword1 -and $FilterLogon1) {
                     try {
                         Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredLogon $FilterLogon1 -TimeSinceLastLogonDays $FilterLogon2 -EnableFilteringExpiredPassword $FilterPassword1 -TimeSinceLastPasswordUpdateDays $FilterPassword2 -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Verbose "info: AD system discovery configured successfully (A)"
+                        Write-Log -Category "info" -Message "AD system discovery configured successfully (A)"
                     }
                     catch {
                         $_
@@ -188,7 +215,7 @@ function Set-DiscoveryMethods {
                 elseif ($FilterPassword1) {
                     try {
                         Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredPassword $FilterPassword1 -TimeSinceLastPasswordUpdateDays $FilterPassword2 -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Verbose "info: AD system discovery configured successfully (B)"
+                        Write-Log -Category "info" -Message "AD system discovery configured successfully (B)"
                     }
                     catch {
                         $_
@@ -197,7 +224,7 @@ function Set-DiscoveryMethods {
                 elseif ($FilterLogon1) {
                     try {
                         Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredLogon $FilterLogon1 -TimeSinceLastLogonDays $FilterLogon2 -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Verbose "info: AD system discovery configured successfully (C)"
+                        Write-Log -Category "info" -Message "AD system discovery configured successfully (C)"
                     }
                     catch {
                         $_
@@ -206,7 +233,7 @@ function Set-DiscoveryMethods {
                 else {
                     try {
                         Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Verbose "info: AD system discovery configured successfully (D)"
+                        Write-Log -Category "info" -Message "AD system discovery configured successfully (D)"
                     }
                     catch {
                         $_
@@ -215,12 +242,12 @@ function Set-DiscoveryMethods {
                 break
             }
             'ActiveDirectoryUserDiscovery' {
-                Write-Verbose "info: USER DISCOVERY"
+                Write-Log -Category "info" -Message "USER DISCOVERY"
                 if ($ADAttributes -ne $null) {
-                    Write-Verbose "info: assigning custom AD attributes"
+                    Write-Log -Category "info" -Message "assigning custom AD attributes"
                     try {
                         Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -Recursive -AddAdditionalAttribute $ADAttributes -ErrorAction SilentlyContinue | Out-Null
-                        Write-Verbose "info: AD user discovery configured successfully (A)"
+                        Write-Log -Category "info" -Message "AD user discovery configured successfully (A)"
                     }
                     catch {
                         $_
@@ -229,7 +256,7 @@ function Set-DiscoveryMethods {
                 else {
                     try {
                         Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Verbose "info: AD user discovery configured successfully (B)"
+                        Write-Log -Category "info" -Message "AD user discovery configured successfully (B)"
                     }
                     catch {
                         $_
@@ -238,10 +265,10 @@ function Set-DiscoveryMethods {
                 break
             }
             'ActiveDirectoryGroupDiscovery' {
-                Write-Verbose "info: GROUP DISCOVERY"
+                Write-Log -Category "info" -Message "GROUP DISCOVERY"
                 try {
                     Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -Enabled $True -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays 90 -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays 90 -ErrorAction SilentlyContinue | Out-Null
-                    Write-Output "info: AD group discovery configured successfully"
+                    Write-Log -Category "info" -Message "info: AD group discovery configured successfully"
                 }
                 catch {}
                 break
@@ -250,19 +277,20 @@ function Set-DiscoveryMethods {
     } # foreach
 } # function
 
-function Set-ADForest {
+function Set-CMSiteADForest {
     [CmdletBinding()]
     param ($DataSet)
-    $adforest = $DataSet.forest
-    Write-Verbose "----------------------------------------------------"
+    $adforest = $DataSet.configuration.cmsite.forest
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring AD Forest" -ForegroundColor Green
     try {
         New-CMActiveDirectoryForest -ForestFqdn "$adforest" -EnableDiscovery $True -ErrorAction SilentlyContinue
+        Write-Log -Category "info" -Message "active directory forest has been configured: $adforest"
         Write-Output $True
     }
     catch {
         if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-            Write-Verbose "info: AD forest $adforest already defined"
+            Write-Log -Category "info" -Message "AD forest $adforest already defined"
             Write-Output $True
         }
         else {
@@ -271,31 +299,31 @@ function Set-ADForest {
     }
 }
 
-function Set-BoundaryGroups {
+function Set-CMSiteBoundaryGroups {
     [CmdletBinding()]
     param ($DataSet)
-    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site Boundary Groups" -ForegroundColor Green
-    $bglist = $DataSet.boundarygroups.boundarygroup
+    $bglist = $DataSet.configuration.cmsite.boundarygroups.boundarygroup
     foreach ($bg in $bglist) {
         $bgName = $bg.name
         $bgComm = $bg.comment
         $bgServer = $bg.SiteSystemServer
         $bgLink   = $bg.LinkType
-        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - -"
-        Write-Verbose "info: boundary group name = $bgName"
+        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
+        Write-Log -Category "info" -Message "boundary group name = $bgName"
         if ($bgServer) {
             $bgSiteServer = @{$bgServer = $bgLink}
-            Write-Verbose "info: site server assigned: $bgServer ($bgLink)"
+            Write-Log -Category "info" -Message "site server assigned: $bgServer ($bgLink)"
             try {
                 New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -AddSiteSystemServer $bgSiteServer -ErrorAction SilentlyContinue | Out-Null
-                Write-Verbose "info: boundary group $bgName created"
+                Write-Log -Category "info" -Message "boundary group $bgName created"
             }
             catch {
-                Write-Verbose "info: boundary group $bgName already exists."
+                Write-Log -Category "info" -Message "boundary group $bgName already exists."
                 try {
                     Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -AddSiteSystemServer $bgSiteServer -ErrorAction SilentlyContinue | Out-Null
-                    Write-Verbose "info: boundary group $bgName has been updated"
+                    Write-Log -Category "info" -Message "boundary group $bgName has been updated"
                 }
                 catch {
                     Write-Error $_
@@ -303,84 +331,84 @@ function Set-BoundaryGroups {
             }
         }
         else {
-            Write-Verbose "info: boundary group $bgName does not have an assigned site server."
+            Write-Log -Category "info" -Message "boundary group $bgName does not have an assigned site server."
             try {
                 New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -ErrorAction SilentlyContinue | Out-Null
-                Write-Verbose "info: boundary group $bgName created"
+                Write-Log -Category "info" -Message "boundary group $bgName created"
             }
             catch {
-                Write-Verbose "info: boundary group $bgName already exists."
+                Write-Log -Category "info" -Message "boundary group $bgName already exists."
                 try {
                     Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -ErrorAction SilentlyContinue | Out-Null
-                    Write-Verbose "info: boundary group $bgName has been updated"
+                    Write-Log -Category "info" -Message "boundary group $bgName has been updated"
                 }
                 catch {
                     Write-Error $_
                 }
             }
-        }
-    }
+        } # if
+    } # foreach
 }
 
 function Set-Boundaries {
     [CmdletBinding()]
     param ($DataSet)
-    Write-Verbose "----------------------------------------------------"
+    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site Boundaries" -ForegroundColor Green
-    $blist = $DataSet.boundaries.boundary
+    $blist = $DataSet.configuration.cmsite.boundaries.boundary
     foreach ($bx in $blist) {
         $bName = $bx.name
         $bType = $bx.type
         $bData = $bx.value
         $bGrp  = $bx.boundarygroup
         $bComm = $bx.comment
-        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - -"
-        Write-Verbose "info: boundary name = $bName"
-        Write-Verbose "info: comment = $bComm"
-        Write-Verbose "info: data = $bData"
-        Write-Verbose "info: type = $bType"
-        Write-Verbose "info: boundary group = $bGrp"
+        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
+        Write-Log -Category "info" -Message "boundary name = $bName"
+        Write-Log -Category "info" -Message "comment = $bComm"
+        Write-Log -Category "info" -Message "data = $bData"
+        Write-Log -Category "info" -Message "type = $bType"
+        Write-Log -Category "info" -Message "boundary group = $bGrp"
         try {
             $bx = New-CMBoundary -Name $bName -Type IPRange -Value $bData -ErrorAction Stop
-            Write-Verbose "info: boundary [$bName] created"
+            Write-Log -Category "info" -Message "boundary [$bName] created"
         }
         catch {
-            Write-Verbose "info: boundary [$bName] already exists"
+            Write-Log -Category "info" -Message "boundary [$bName] already exists"
             try {
                 $bx = Get-CMBoundary -BoundaryName $bName -ErrorAction Stop
-                Write-Verbose "info: getting boundary information for $bName"
+                Write-Log -Category "info" -Message "getting boundary information for $bName"
                 $bID = $bx.BoundaryID
-                Write-Verbose "info: boundary [$bName] identifier = $bID"
+                Write-Log -Category "info" -Message "boundary [$bName] identifier = $bID"
             }
             catch {
-                Write-Verbose "error: unable to create or update boundary: $bName"
+                Write-Log -Category "error" -Message "unable to create or update boundary: $bName"
                 $bID = $null
                 break
             }
         }
         if ($bID -and $bGrp) {
-            Write-Verbose "info: assigning boundary [$bName] to boundary group: $bGrp"
+            Write-Log -Category "info" -Message "assigning boundary [$bName] to boundary group: $bGrp"
             try {
                 $bg = Get-CMBoundaryGroup -Name $bGrp -ErrorAction Stop
                 $bgID = $bg.GroupID
-                Write-Verbose "info: boundary group identifier = $bgID"
+                Write-Log -Category "info" -Message "boundary group identifier = $bgID"
             }
             catch {
-                Write-Verbose "error: unable to obtain boundary group [$bGrp]"
+                Write-Log -Category "error" -Message "unable to obtain boundary group [$bGrp]"
                 $bgID = $null
             }
             if ($bgID) {
                 try {
                     Add-CMBoundaryToGroup -BoundaryId $bx.BoundaryID -BoundaryGroupId $bg.GroupID
-                    Write-Verbose "info: boundary ($bName) added to boundary group ($bGrp)"
+                    Write-Log -Category "info" -Message "boundary ($bName) added to boundary group ($bGrp)"
                 }
                 catch {
-                    Write-Verbose "error: oops?"
+                    Write-Log -Category "error" -Message "oops?"
                 }
             }
         }
         else {
-            Write-Verbose "info: boundary [$bName] is not assigned to a boundary group"
+            Write-Log -Category "info" -Message "oundary [$bName] is not assigned to a boundary group"
         }
     } # foreach
 }
@@ -390,10 +418,10 @@ function Set-CMSiteServerRoles {
     param (
         [parameter(Mandatory=$True)] $DataSet
     )
-    Write-Verbose "function: set-cmsiteserverroles"
+    Write-Log -Category "info" -Message "function: set-cmsiteserverroles"
     foreach ($siterole in $DataSet.configuration.cmsite.sitesystemroles | Where-Object {$_.enabled -eq 'true'}) {
         $roleName = $siterole.name
-        Write-Verbose "role: $roleName"
+        Write-Log -Category "info" -Message "role: $roleName"
         switch ($RoleName) {
             'aisync' {
                 try {
@@ -401,7 +429,7 @@ function Set-CMSiteServerRoles {
                     if ($x) {
                         foreach ($opt in $siterole.roleoptions.roleoption) {
                             $optionName = $opt.name
-                            Write-Verbose "option: $optionName"
+                            Write-Log -Category "info" -Message "option: $optionName"
                             Set-CMAssetIntelligenceClass -EnableReportingClass $optionName | Out-Null
                         }
                         $result = $True
@@ -416,7 +444,7 @@ function Set-CMSiteServerRoles {
     Write-Output $result
 }
 
-function Set-AIClasses {
+function Set-CMSiteAIClasses {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -424,18 +452,74 @@ function Set-AIClasses {
     )
     Write-Verbose "----------------------------------------------------"
     Write-Host "Configuring Asset Intelligence classes" -ForegroundColor Green
-    foreach ($aiclass in $DataSet.cmsite.aiclasses.aiclass) {
+    foreach ($aiclass in $DataSet.configuration.cmsite.aiclasses.aiclass) {
         $cname = $aiclass.name
         Write-Verbose "enable class: $cname"
         Set-CMAssetIntelligenceClass -EnableReportingClass $cname | Out-Null
     }
 }
 
+function Set-CMSiteConfigFolders {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $SiteCode,
+        [parameter(Mandatory=$True)]
+            $DataSet
+    )
+    Write-Log -Category "info" -Message "function set-cmsitefolders"
+    $result = $true
+    foreach ($folder in $DataSet.configuration.cmsite.folders.folder) {
+        $folderName = $folder.name
+        $folderPath = $folder.path
+        try {
+            New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -Force
+            Write-Log -Category "info" -Message "folder created: $folderName"
+        }
+        catch {
+            Write-Log -Category "error" -Message "folder failed: $folderName"
+            $_
+            $result = $False
+            break
+        }
+    } # foreach
+    Write-Output $result
+}
+
+function Set-CMSiteQueries {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
+    Write-Log -Category "info" -Message "function set-cmsitequeries"
+    $result = $True
+    foreach ($query in $DataSet.configuration.cmsite.queries.query) {
+        $queryName = $query.name
+        $queryComm = $query.comment
+        $queryType = $query.class
+        $queryExp  = $query.expression
+        try {
+            New-CMQuery -Name $queryName -Expression $queryExp -Comment $queryComm -TargetClassName $queryType
+            Write-Log -Category "info" -Message "query created: $queryName"
+        }
+        catch {
+            Write-Log -Category "error" -Message "query failed: $queryName"
+            $_
+            $result = $False
+            break
+        }
+    } # foreach
+    Write-Output $result
+}
+
 # --------------------------------------------------------------------
 
 Set-Location $env:USERPROFILE
 $tsFile = "$($env:TEMP)\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
-Write-Verbose "info: transaction log = $tsFile"
+Write-Log -Category "info" -Message "transaction log = $tsFile"
 try {
     Start-Transcript -Path $tsFile -ErrorAction SilentlyContinue
 }
@@ -445,39 +529,61 @@ catch {
 
 Write-Output "------------------- BEGIN $(Get-Date) -------------------"
 
-Write-Verbose "info: loading xml data"
+Write-Log -Category "info" -Message "loading xml data"
 [xml]$xmldata = Get-Content $XmlFile
-$cmdata   = $xmldata.configuration.cmsite
-$sitecode = $cmdata.sitecode
-Write-Verbose "info: site code = $sitecode"
+$sitecode = $xmldata.configuration.cmsite.sitecode
+if (($sitecode -eq "") -or (-not($sitecode))) {
+    Write-Warning "unable to load XML data from $xmlFile"
+    break
+}
+Write-Log -Category "info" -Message "site code = $sitecode"
 
 if ($sitecode -eq "") {
     Write-Warning "site code could not be obtained"
     break
 }
-Get-CMModule
+if (-not (Get-CMModule)) {
+    Write-Warning "failed to load ConfigurationManager powershell module"
+    break
+}
 
 # Set the current location to be the site code.
-Write-Verbose "info: mounting CM Site provider_ $sitecode`:"
+Write-Log -Category "info" -Message "mounting CM Site provider_ $sitecode`:"
 Set-Location "$sitecode`:" 
 
 $Site = Get-CMSite -SiteCode $sitecode
-Write-Verbose "info: site version = $($site.Version)"
+Write-Log -Category "info" -Message "site version = $($site.Version)"
 
-Set-ADForest -DataSet $cmdata
-Set-DiscoveryMethods -DataSet $cmdata
+Set-CMSiteADForest -DataSet $xmldata
+Set-CMSiteDiscoveryMethods -DataSet $xmldata
 #Invoke-CMSystemDiscovery 
-Set-BoundaryGroups -DataSet $cmdata
+Set-CMSiteBoundaryGroups -DataSet $xmldata
 if ((-not($AutoBoundaries)) -or ($ForceBoundaries)) {
-    Set-Boundaries -DataSet $cmdata
+    Set-Boundaries -DataSet $xmldata
 }
-Set-CMSiteServerRoles -DataSet $cmdata
-Set-AIClasses -DataSet $cmdata
+Set-CMSiteServerRoles -DataSet $xmldata
+Set-CMSiteAIClasses -DataSet $xmldata
 
-Write-Verbose "info: restore working path to user profile"
+if (Set-CMSiteConfigFolders -SiteCode $sitecode -DataSet $xmldata) {
+    Write-Host "Console folders have been created" -ForegroundColor Green
+}
+else {
+    Write-Warning "Failed to create console folders"
+}
+if (Set-CMSiteQueries -DataSet $cmdata) {
+    Write-Host "Custom Queries have been created" -ForegroundColor Green
+}
+else {
+    Write-Warning "Failed to create custom queries"
+}
+
+Write-Log -Category "info" -Message "---------------------------------------------------"
+Write-Log -Category "info" -Message "restore working path to user profile"
 Set-Location -Path $env:USERPROFILE
 
-Write-Host "Completed : $(Get-Date)" -ForegroundColor Green
+Write-Host "------------------- BEGIN $(Get-Date) -------------------" -ForegroundColor Green
+Write-Host "---------------- COMPLETED $(Get-Date) ------------------" -ForegroundColor Green
 $time2 = Get-TimeOffset -StartTime $RunTime1
-Write-Verbose "info: total runtime (hh:mm:ss) = $time2"
+Write-Log -Category "info" -Message "total runtime (hh:mm:ss) = $time2"
+
 Stop-Transcript
