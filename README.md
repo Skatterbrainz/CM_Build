@@ -1,11 +1,16 @@
 # CM_Build and CM_SiteConfig
 ConfigMgr Site Server installer and Site Configuration scripts
 
-## Revision History
-* 1.0.0  - 2017.08.14 - initial release
-* 1.1.0  - 2017.08.16 - redesigned XML structure, process logic and code factoring
-* 1.1.43 - 2017.08.28 - [cm_build] added support for Add-ServerRoles to use external XML file, bug fixes
-* 1.1.20 - 2017.08.28 - [cm_siteconfig] added while still in development
+## CM_Build Revision History
+* 1.1.43 - 2017.08.28 - bug fixes, verbose output, enhanced features
+* 1.1.42 - 2017.08.24 - bug fixes
+* 1.1.00 - 2017.08.17 - redesigned XML schema and powershell code framework
+* 1.0.00 - 2017.08.16 - initial release
+
+## CM_SiteConfig Revision History
+* 1.1.20 - 2017.08.28 - redesigned XML schema and powershell code framework
+* 1.1.10 - 2017.08.24 - added folders, queries
+* 1.1.00 - 2017.08.17 - added to repository
 
 Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
