@@ -4,18 +4,18 @@ ConfigMgr Site Server installer and Site Configuration scripts
 ## Revision History
 * 1.0.0 - 2017.08.14 - initial release
 * 1.1.0 - 2017.08.16 - redesigned XML structure, process logic and code factoring
-* 1.1.1 - 2017.08.xx - [cm_build] added support for Add-ServerRoles to use external XML file, bug fixes
-  [cm_siteconfig] added to folder
+* 1.1.43 - 2017.08.28 - [cm_build] added support for Add-ServerRoles to use external XML file, bug fixes
+* 1.1.18 - 2017.08.28 - [cm_siteconfig] added while still in development
 
 Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
 ### CM_Build Usage
 
 * cm_build.ps1 -xmlfile .\cm_build.xml [-NoCheck] [-NoReboot] [-Verbose] [-WhatIf]
-* -xmlfile [filepath]
-* -NoCheck (skip platform validation)
-* -NoReboot (suppress reboots)
-* a transcript log is created in the runtime folder
+  * -xmlfile [filepath]
+  * -NoCheck (skip platform validation)
+  * -NoReboot (suppress reboots)
+  * a transcript log is created in the runtime folder
 
 ## CM_Build System Requirements
 
@@ -72,4 +72,3 @@ Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MD
 ## CM_SiteConfig Examples
 
 * .\cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml -Verbose
-
