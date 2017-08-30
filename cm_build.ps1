@@ -12,6 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
+    1.2.01 - DS - 2017.08.30
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
     1.0.0  - DS - 2017.08.14
@@ -34,9 +35,10 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
         [switch] $NoReboot
 )
-$ScriptVersion = '1.1.43'
+$ScriptVersion = '1.2.01'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
+$HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 
 function Get-ScriptDirectory {
     $Invocation = (Get-Variable MyInvocation -Scope 1).Value
@@ -84,6 +86,13 @@ else {
     Write-Log -Category "info" -Message "installing PowerShellGet module"
     Install-Module -Name PowerShellGet
 }
+if (Get-Module -ListAvailable -Name SqlServer) {
+    Write-Log -Category "info" -Message "SqlServer module is already installed"
+}
+else {
+    Write-Log -Category "info" -Message "installing SqlServer module"
+    Install-Module SqlServer -Force
+}
 if (Get-Module -ListAvailable -Name dbatools) {
     Write-Log -Category "info" -Message "dbatools module is already installed"
 }
@@ -92,7 +101,7 @@ else {
     Install-Module dbatools -SkipPublisherCheck -Force
 }
 
-Clear-Host
+#Clear-Host
 Write-Log -Category "info" -Message "defining internal functions"
 
 # begin-functions
@@ -442,39 +451,120 @@ function Set-CMBuildWsusConfiguration {
     Write-Output $result
 }
 
+function Get-TotalMemory {
+    [math]::Round((Get-WmiObject -Class Win32_PhysicalMemory | 
+        Select-Object -ExpandProperty Capacity | 
+            Measure-Object -Sum).sum/1gb,0)
+}
+
 function Set-CMBuildSqlConfiguration {
     [CmdletBinding()]
     param(
-        [parameter(Mandatory=$False)]
-            [int] $MemRatio = 80
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function: Set-CMBuildSqlConfiguration"
-    Write-Log -Category "info" -Message "SQL MemRatio = $MemRatio"
     $time1 = Get-Date
-    $dblRatio = $MemRatio * 0.01
-    $TotalMem = (Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)
-    $actMax   = [math]::Round($TotalMem/1GB,0)
-    $newMax   = [math]::Round(($TotalMem / 1MB)*$dblRatio,0)
-    $curMax   = Get-DbaMaxMemory -SqlServer (&hostname)
-    Write-Log -Category "info" -Message "total memory is $actMax GB"
-    Write-Log -Category "info" -Message "recommended SQL max is $newMax GB"
-    Write-Log -Category "info" -Message "current SQL max is $curMax GB"
-    if ($actMax -lt 7) {
-        Write-Log -Category "warning" -Message "Server has $actMax GB of memory - SQL Config cannot be optimized"
-        $result = 0
-    }
-    elseif ($curMax -ne $newMax) {
-        try {
-            Set-DbaMaxMemory -SqlServer (&hostname) -MaxMb $newMax
-            Write-Log -Category "info" -Message "maximum memory allocation is now: $newMax"
-            Set-CMBuildTaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
-            $result = 0
-        }
-        catch {
-            Write-Log -Category "warning" -Message "unable to change memory allocation"
-        }
-    }
+    $result = 0
+    foreach ($sqlopt in $DataSet.configuration.sqloptions.sqloption | Where-Object {$_.enabled -eq 'true'}) {
+        $optName = $sqlopt.name
+        $optData = $sqlopt.param
+        $optDB   = $sqlopt.db
+        $optComm = $sqlopt.comment
+        Write-Log -Category "info" -Message "option name..... $optName"
+        Write-Log -Category "info" -Message "option db....... $optDB"
+        Write-Log -Category "info" -Message "option param.... $optData"
+        Write-Log -Category "info" -Message "option comment.. $optComm"
+        switch ($optName) {
+            'SqlServerMemoryMax' {
+                Write-Log -Category "info" -Message "SQL - configuring = maximum memory limit"
+                if ($optData.EndsWith("%")) {
+                    Write-Log -Category "info" -Message "SQL - configuring relative memory limit"
+                    [int]$MemRatio = $optData.Replace("%","")
+                    $dblRatio = $MemRatio * 0.01
+                    # convert total memory GB to MB
+                    $actMax   = Get-TotalMemory
+                    $newMax   = $actMax * $dblRatio
+                    $curMax   = [math]::Round((Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB/1024,0)
+                    Write-Log -Category "info" -Message "SQL - total memory (GB)....... $actMax"
+                    Write-Log -Category "info" -Message "SQL - recommended max (GB).... $newMax"
+                    Write-Log -Category "info" -Message "SQL - current max (GB)........ $curMax"
+                    if ($curMax -eq $newMax) {
+                        Write-Log -Category "info" -Message "SQL - current max is already set"
+                        $result = 0
+                    }
+                    elseif (($actMax - $newMax) -le 4) {
+                        Write-Log -Category "warning" -Message "SQL - recommended max would not allow 4GB for OS (skipping)"
+                        $result = 0
+                    } 
+                    else {
+                        # convert GB to MB for cmdlet
+                        $newMax = [math]::Round($newMax * 1024,0)
+                        Write-Log -Category "info" -Message "SQL - adjusting max memory to $newMax MB"
+                        try {
+                            Set-SqlMaxMemory -SqlInstance $HostFullName -MaxMB $newMax | Out-Null
+                            Write-Log -Category "info" -Message "SQL - maximum memory allocation is now: $newMax"
+                            Set-CMBuildTaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
+                            $result = 0
+                        }
+                        catch {
+                            Write-Log -Category "error" -Message "SQL - failed to change memory allocation!"
+                        }
+                    }
+                }
+                else {
+                    Write-Log -Category "info" -Message "configuring static memory limit"
+                    $curMax =  (Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB
+                    try {
+                        Set-SqlMaxMemory -SqlInstance $HostFullName -MaxMb [int]$optData -Silent | Out-Null
+                    }
+                    catch {
+                        Write-Log -Category "error" -Message "failed to set max memory"
+                    }
+                }
+                break
+            }
+            'SetDBRecoveryModel' {
+                Write-Log -Category "info" -Message "SQL - configuring = database recovery model"
+                try {
+                    $db = Get-SqlDatabase -ServerInstance $HostFullName -Name $optDB
+                }
+                catch {
+                    $db = $null
+                }
+                if ($db) {
+                    $curModel = $db.RecoveryModel
+                    Write-Log -Category "info" -Message "SQL - current recovery model.... $curModel"
+                    if ($curModel -ne $optData) {
+                        if ($optData -eq 'FULL') {
+                            try {
+                                $db.RecoveryModel = [Microsoft.SqlServer.Management.Smo.RecoveryModel]::Full;
+                                $db.Alter();
+                                Write-Log -Category "info" -Message "SQL - successfully configured for $optData"
+                            }
+                            catch {
+                                Write-Log -Category "error" -Message "SQL - failed to configure for $optData"
+                                $result = $False
+                            }
+                        }
+                        else {
+                            try {
+                                $db.RecoveryModel = [Microsoft.SqlServer.Management.Smo.RecoveryModel]::Simple;
+                                $db.Alter();
+                                Write-Log -Category "info" -Message "SQL - successfully configured for $optData"
+                            }
+                            catch {
+                                Write-Log -Category "error" -Message "SQL - failed to configure for $optData"
+                                $result = $False
+                            }
+                        }
+                    } # if
+                } # if
+            }
+        } # switch
+    } # foreach
     $time2 = Get-TimeOffset -StartTime $time1
     Write-Log -Category "info" -Message "function runtime = $time2"
     Write-Output $result
@@ -768,7 +858,7 @@ function Invoke-CMBuildFunction {
     switch ($Name) {
         'SQLCONFIG' {
             Write-Host "$Comment" -ForegroundColor Green
-            $result = Set-CMBuildSqlConfiguration
+            $result = Set-CMBuildSqlConfiguration -DataSet $xmldata
             Write-Verbose "info: exit code = $result"
             Set-CMBuildTaskCompleted -KeyName $Name -Value $(Get-Date)
             break
