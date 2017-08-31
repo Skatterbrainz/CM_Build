@@ -12,7 +12,7 @@
 .PARAMETER NoCheck
     [switch](optional) Skip platform validation restrictions
 .NOTES
-    1.1.20 - DS - 2017.08.28
+    1.2.01 - DS - 2017.08.30
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -36,7 +36,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.1.20'
+$ScriptVersion = '1.2.01'
 $ScriptPath   = Get-ScriptDirectory
 $LogsFolder   = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
@@ -45,7 +45,7 @@ $logFile = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
 
 try {stop-transcript -ErrorAction SilentlyContinue} catch {}
 try {Start-Transcript -Path $tsFile -Force} catch {}
-Write-Output "------------------- BEGIN $(Get-Date) -------------------"
+Write-Host "------------------- BEGIN $(Get-Date) -------------------" -ForegroundColor Green
 
 function Write-Log {
     [CmdletBinding()]
@@ -420,27 +420,24 @@ function Set-CMSiteServerRoles {
     param (
         [parameter(Mandatory=$True)] $DataSet
     )
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Host "Configuring Site System Roles" -ForegroundColor Green
     Write-Log -Category "info" -Message "function: set-cmsiteserverroles"
     foreach ($siterole in $DataSet.configuration.cmsite.sitesystemroles | Where-Object {$_.enabled -eq 'true'}) {
         $roleName = $siterole.name
-        Write-Log -Category "info" -Message "role: $roleName"
+        Write-Log -Category "info" -Message "configuring site system role: $roleName"
         switch ($RoleName) {
-            'aisync' {
+            'aisp' {
                 try {
                     $x = Set-CMAssetIntelligenceSynchronizationPoint -Enable $True -EnableSynchronization $True -PassThru
-                    if ($x) {
-                        foreach ($opt in $siterole.roleoptions.roleoption) {
-                            $optionName = $opt.name
-                            Write-Log -Category "info" -Message "option: $optionName"
-                            Set-CMAssetIntelligenceClass -EnableReportingClass $optionName | Out-Null
-                        }
-                        $result = $True
-                    }
+                    if ($x) { Set-CMSiteAIClasses -DataSet $DataSet }
                 }
                 catch { Write.Error $_ }
                 break
             }
+            # ---------------- 
             # next rolename...
+            # ----------------
         } # switch
     } # foreach
     Write-Output $result
@@ -452,13 +449,43 @@ function Set-CMSiteAIClasses {
         [parameter(Mandatory=$True)]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Asset Intelligence classes" -ForegroundColor Green
-    foreach ($aiclass in $DataSet.configuration.cmsite.aiclasses.aiclass) {
-        $cname = $aiclass.name
-        Write-Verbose "enable class: $cname"
-        Set-CMAssetIntelligenceClass -EnableReportingClass $cname | Out-Null
-    }
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function: Set-CMSiteAIClasses"
+    $result = $True
+    foreach ($srole in $DataSet.configuration.cmsite.sitesystemroles.sitesystemrole | Where-Object {$_.name -eq 'aisp'}) {
+        foreach ($roleopt in $srole.roleoptions.roleoption) {
+            $optName = $roleopt.name
+            switch ($optName) {
+                'EnableAllReportingClass' {
+                    try {
+                        Set-CMAssetIntelligenceClass -EnableAllReportingClass | Out-Null
+                        Write-Log -Category "info" -Message "set option: $optName"
+                    }
+                    catch {
+                        Write-Log -Category "error" -Message "failed to set option: $optName"
+                        $Result = $False
+                    }
+                    break
+                }
+                'EnableReportingClass' {
+                    foreach ($rclass in $optData.Split(",")) {
+                        try {
+                            Set-CMAssetIntelligenceClass -EnableReportingClass $rClass | Out-Null
+                            Write-Log -Category "info" -Message "set option: $rClass"
+                        }
+                        catch {
+                            Write-Log -Category "error" -Message "failed to set option: $rClass"
+                            $result = $False
+                        }
+                    }
+                    break
+                }
+            } # switch
+        } # foreach
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
+    Write-Output $result
 }
 
 function Set-CMSiteConfigFolders {
@@ -470,8 +497,8 @@ function Set-CMSiteConfigFolders {
         [parameter(Mandatory=$True)]
             $DataSet
     )
-    Write-Host "Configuring console folders" -ForegroundColor Green
     Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Host "Configuring console folders" -ForegroundColor Green
     Write-Log -Category "info" -Message "function set-cmsitefolders"
     $result = $true
     foreach ($folder in $DataSet.configuration.cmsite.folders.folder) {
@@ -484,6 +511,7 @@ function Set-CMSiteConfigFolders {
         catch {
             Write-Log -Category "warning" -Message "folder already exists: $folderName"
         }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Output $result
 }
@@ -496,6 +524,7 @@ function Import-CMSiteQueries {
         $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Host "Importing custom Queries" -ForegroundColor Green
     Write-Log -Category "info" -Message "function Import-CMSiteQueries"
     $result = $True
     foreach ($query in $DataSet.configuration.cmsite.queries.query) {
@@ -513,6 +542,7 @@ function Import-CMSiteQueries {
             $result = $False
             break
         }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category "info" -Message "finished importing custom queries"
     Write-Output $result
@@ -526,6 +556,7 @@ function Import-CMSiteOSImages {
         $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Host "Importing OS images" -ForegroundColor Green
     Write-Log -Category "info" -Message "function: import-cmsiteosimages"
     $result = $True
     foreach ($image in $DataSet.configuration.cmsite.osimages.osimage) {
@@ -552,7 +583,8 @@ function Import-CMSiteOSImages {
             Set-Location $oldLoc
             Write-Log -Category "error" -Message "failed to locate: $imagePath"
         }
-    }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
     Write-Log -Category "info" -Message "finished importing os images"
     Write-Output $result
 }
@@ -565,6 +597,7 @@ function Import-CMSiteOSInstallers {
         $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Host "Importing OS upgrade installers" -ForegroundColor Green
     Write-Log -Category "info" -Message "function: import-CMSiteOSInstallers"
     $result = $True
     foreach ($inst in $DataSet.configuration.cmsite.osinstallers.osinstaller) {
@@ -592,7 +625,8 @@ function Import-CMSiteOSInstallers {
             Set-Location $oldLoc
             Write-Log -Category "error" -Message "failed to locate: $instPath"
         }
-    }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
     Write-Log -Category "info" -Message "finished importing os installers"
     Write-Output $result
 }
@@ -607,16 +641,6 @@ function Import-CMSiteCollections {
     Write-Log -Category "info" -Message "function: import-CMSiteCollections"
     $result = $True
     foreach ($collection in $DataSet.configuration.cmsite.collections.collection) {
-        <#
-        collection:
-        name="Users - Title - Research Analysts" 
-        type="User" 
-        comment="Users by Job Title: Research Analyst" 
-        parent="All Users" 
-        folder="UserCollection" 
-        ruletype="query" 
-        rule="select ....."
-        #>
         $collName = $collection.name
         $collType = $collection.type
         $collComm = $collection.comment
@@ -652,7 +676,411 @@ function Import-CMSiteCollections {
                 Write-Log -Category "error" -Message "collection failed and spewed chunks everywhere :("
             }
         }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
+}
+
+function Set-CMSiteMaintenanceTasks {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+            $DataSet
+    )
+    Write-Host "Configuring site maintenance tasks" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function set-CMSiteMaintenanceTasks"
+    $result = $true
+    foreach ($mtask in $DataSet.configuration.cmsite.mtasks.mtask) {
+        $mtName = $mtask.name
+        $mtEnab = $mtask.enabled
+        $mtOpts = $mtask.options
+        if ($mtEnab -eq 'true') {
+            Write-Log -Category "info" -Message "enabling task: $mtName"
+            try {
+                Set-CMSiteMaintenanceTask -MaintenanceTaskName $mtName -Enabled $True -SiteCode $sitecode | Out-Null
+                Write-Log -Category "info" -Message "enabled task: $mtName"
+            }
+            catch {
+                Write-Error $_
+                $result = $False
+                break
+            }
+        }
+        else {
+            Write-Log -Category "info" -Message "disabling task: $mtName"
+            try {
+                Set-CMSiteMaintenanceTask -MaintenanceTaskName $mtName -Enabled $False -SiteCode $sitecode | Out-Null
+                Write-Log -Category "info" -Message "disabled task: $mtName"
+            }
+            catch {
+                Write-Error $_
+                $result = $False
+                break
+            }
+        }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
+    Write-Output $result
+}
+
+function Import-CMSiteAppCategories {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        $DataSet
+    )
+    Write-Host "Configuring application categories" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function Set-CMSiteAppCategories"
+    $result = $true
+    foreach ($cat in $DataSet.configuration.cmsite.appcategories.appcategory | Where-Object {$_.enabled -eq 'true'}) {
+        $catName = $cat.name
+        $catComm = $cat.comment
+        try {
+            New-CMCategory -CategoryType AppCategories -Name $catName -ErrorAction SilentlyContinue | Out-Null
+            Write-Log -Category "info" -Message "category created: $catName"
+        }
+        catch {
+            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
+                Write-Log -Category "info" -Message "category already exists: $catName"
+            }
+            else {
+            }
+        }
+    }
+    Write-Output $result
+}
+
+<#
+function Import-CMSiteApplications {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        $DataSet
+    )
+    Write-Host "Configuring applications" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function set-CMSiteApplications"
+    $result = $true
+
+    foreach ($appn in $xmldata.configuration.cmsite.applications.application | Where-Object {$_.enabled -eq 'true'}) {
+        $appName = $appn.name 
+        $appPub  = $appn.publisher
+        $appVer  = $appn.version 
+        $appComm = $appn.comment 
+        $appKeys = $appn.keywords 
+        Write-Log -Category "info" -Message "creating application: $appName"
+        try {
+            $app = New-CMApplication -Name $appName -LocalizedApplicationName $appName -Publisher $appPub -Description $appComm -SoftwareVersion $appVer
+            Write-Log -Category "info" -Message "application created: $appName"
+        }
+        catch {
+            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
+                Write-Log -Category "info" -Message "$appName already exists"
+                $app = Get-CMApplication -Name $appName
+            }
+            else {
+                Write-Log -Category "error" -Message "failed to create $appName"
+                Write-Error $_
+                $app = $null
+            }
+        }
+        if ($app) {
+            if ($appKeys -ne "") {
+                Write-Log -Category "info" -Message "updating keywords list"
+                $app | Set-CMApplication -Keyword $appKeys
+            }
+            Write-Log -Category "info" -Message "creating deployment types..."
+            foreach ($depType in $appn.deptypes.deptype) {
+                $depName = $depType.name
+                $depFile = $depType.source 
+                $depOpts = $depType.options 
+                $depComm = $depType.comment
+                Write-Log -Category "info" -Message "deployment type: $depname"
+                if ($depOpts -eq 'auto') {
+                    Write-Log -Category "info" -Message "installer type: msi"
+                    try {
+                        Add-CMDeploymentType -ApplicationName $appName -AutoIdentifyFromInstallationFile -ForceForUnknownPublisher $true -InstallationFileLocation $depFile -MsiInstaller -DeploymentTypeName $depName
+                    }
+                    catch {
+                        if ($_.Exception.Message -like '*same name already exists.') {
+                            Write-Log -Category "info" -Message "deployment type already exists"
+                        }
+                        else {
+                            Write-Error $_
+                        }
+                    }
+                }
+                else {
+                    Write-Log -Category "info" -Message "installer type: script"
+                    $filepath = Split-Path $depFile
+                    try {
+                        Add-CMDeploymentType -ApplicationName $appName -DeploymentTypeName $depName -ForceForUnknownPublisher $true -InstallationCommandLine $depFile -ContentLocation $filepath
+                    }
+                    catch {
+                        if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
+                            Write-Log -Category "info" -Message "deployment type already exists"
+                        }
+                        else {
+                            Write-Error $_
+                        }
+                    }
+                }
+            } # foreach
+        } # if
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
+    Write-Output $result
+}
+#>
+
+function Import-CMSiteApplications {
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param (
+        $DataSet
+    )
+    Write-Host "Importing applications" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function Import-CMSiteApplications"
+    $result = $true
+    $PSDefaultParameterValues =@{"get-cimclass:namespace"="Root\SMS\site_$sitecode";"get-cimclass:computername"="$hostname";"get-cimInstance:computername"="$hostname";"get-ciminstance:namespace"="Root\SMS\site_$sitecode"}
+    foreach ($appSet in $DataSet.configuration.cmsite.applications.application | Where-Object {$_.enabled -eq 'true'}) {
+        # APPLICATION
+        # name="7-Zip" 
+        # enabled="true" 
+        # publisher="7-Zip" 
+        # version="16.04" 
+        # categories="General" 
+        # comment="File compression utility" 
+        # keywords="file,zip,utility,archive,compression"
+
+        $appName = $appSet.name 
+        $appComm = $appSet.comment
+        $appPub  = $appSet.publisher
+        $appVer  = $appSet.version
+        $appCats = $appSet.categories
+        $appKeys = $appSet.keywords
+        $appFolder = $appSet.folder
+
+        Write-Log -Category "info" -Message "app name......... $appName"
+        Write-Log -Category "info" -Message "app publisher.... $appPub"
+        Write-Log -Category "info" -Message "app comment...... $appComm"
+        Write-Log -Category "info" -Message "app version...... $appVer"
+        Write-Log -Category "info" -Message "app categories... $appCats"
+        Write-Log -Category "info" -Message "app keywords..... $appKeys"
+        Write-Log -Category "info" -Message "app folder....... $appFolder"
+
+        try {
+            $app = New-CMApplication -Name "$appName" -Description "appComm" -SoftwareVersion "1.0" -AutoInstall $true -Publisher $appPub -ErrorAction SilentlyContinue
+            Write-Log -Category "info" -Message "application created successfully"
+        }
+        catch {
+            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
+                Write-Log -Category "info" -Message "Application already defined"
+                $app = Get-CMApplication -Name $appName
+            }
+            else {
+                Write-Error $_.Exception.Message
+                $app = $null
+            }
+        }
+        if ($app) {
+            if ($appKeys -ne "") {
+                Write-Log -Category "info" -Message "updating keywords list"
+                $app | Set-CMApplication -Keyword $appKeys
+            }
+            foreach ($depType in $appSet.deptypes.deptype) {
+                # DEPLOYMENT TYPE:
+                # name="x64 installer" 
+                # source="\\contoso.com\software\Apps\Notepad++\7.5\npp.7.5.installer.x64.exe" 
+                # options="/s" 
+                # uninstall="C:\Program Files\Notepad++\uninstall.exe" 
+                # detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion(ge)7.5" 
+                # requires="" 
+                # comment="64-bit installer" />
+
+                $depName   = $depType.name
+                $depSource = $depType.source
+                $depOpts   = $depType.options
+                $depData   = $depType.detect
+                $uninst    = $depType.uninstall
+                $depComm   = $depType.comment
+                $reqts     = $depType.requires
+                $depCPU    = $depType.platform
+                $depPath   = Split-Path -Path $depSource
+                $depFile   = Split-Path -Path $depSource -Leaf
+                $program   = "$depFile $depOpts"
+
+                Write-Log -Category "info" -Message "dep name........ $depName"
+                Write-Log -Category "info" -Message "dep comment..... $depComm"
+                Write-Log -Category "info" -Message "dep Source...... $depSource"
+                Write-Log -Category "info" -Message "dep options..... $depOpts"
+                Write-Log -Category "info" -Message "dep detect...... $depData"
+                Write-Log -Category "info" -Message "dep uninstall... $uninst"
+                Write-Log -Category "info" -Message "dep reqts....... $reqts"
+                Write-Log -Category "info" -Message "dep path........ $depPath"
+                Write-Log -Category "info" -Message "dep file........ $depFile"
+                Write-Log -Category "info" -Message "dep program..... $program"
+                Write-Log -Category "info" -Message "dep platform.... $depCPU"
+
+                if ($depOpts -eq 'auto') {
+                    Write-Log -Category "info" -Message "installer type: msi"
+                    try {
+                        if ($depCPU -eq '32') {
+                            Add-CMDeploymentType -ApplicationName $appName -AutoIdentifyFromInstallationFile -ForceForUnknownPublisher $true -InstallationFileLocation $depSource -MsiInstaller -DeploymentTypeName $depName -Force32BitInstaller $True
+                        }
+                        else {
+                            Add-CMDeploymentType -ApplicationName $appName -AutoIdentifyFromInstallationFile -ForceForUnknownPublisher $true -InstallationFileLocation $depSource -MsiInstaller -DeploymentTypeName $depName
+                        }
+                        Write-Log -Category "info" -Message "deployment type created"
+                    }
+                    catch {
+                        if ($_.Exception.Message -like '*same name already exists.') {
+                            Write-Log -Category "info" -Message "deployment type already exists"
+                        }
+                        else {
+                            Write-Error $_
+                        }
+                    }
+                }
+                else {
+                    if ($depData.StartsWith("registry")) {
+                        # registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5
+                        $depDetect  = $depData.Split(":")[1]
+                        $depRuleSet = $depDetect.Split(",")
+                        $ruleKey    = $depRuleSet[0] # "HKLM:\...."
+                        $ruleKey    = $ruleKey.Substring(5)
+                        $ruleVal    = $depRuleSet[1] # "DisplayVersion"
+                        $ruleChk    = $depRuleSet[2] # "-ge"
+                        $ruleData   = $depRuleSet[3] # "7.5"
+                    }
+                    $scriptDetection = @"
+try {
+    $Reg = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, "default")
+    $key = $reg.OpenSubKey("$ruleKey")
+    $val = $key.GetValue("$ruleVal")
+    if ($val $ruleChk "$ruleData") {Write-Host 'Installed'}
+}
+catch {}
+"@
+                    Write-Log -Category "info" -Message "rule: $scriptDetection"
+
+                    $DeploymentTypeHash = @{
+                        ManualSpecifyDeploymentType = $true
+                        ApplicationName = "$appName"
+                        DeploymentTypeName = "$DepName"
+                        DetectDeploymentTypeByCustomScript = $true
+                        ScriptInstaller = $true
+                        ScriptType = 'PowerShell'
+                        ScriptContent =$scriptDetection
+                        AdministratorComment = "$depComm"
+                        ContentLocation = "$depPath"
+                        InstallationProgram = "$program"
+                        UninstallProgram = "$uninst"
+                        RequiresUserInteraction = $false
+                        InstallationBehaviorType = 'InstallForSystem'
+                        InstallationProgramVisibility = 'Hidden'
+                    }
+
+                    Write-Log -Category "info" -Message "Adding Deployment Type"
+
+                    try {
+                        if ($depCPU -eq '32') {
+                            Add-CMDeploymentType @DeploymentTypeHash -EnableBranchCache $True -Force32BitInstaller $True
+                        }
+                        else {
+                            Add-CMDeploymentType @DeploymentTypeHash -EnableBranchCache $True
+                        }
+                        Write-Log -Category "info" -Message "deployment type created"
+                    }
+                    catch {
+                        if ($_.Exception.Message -like '*same name already exists.') {
+                            Write-Log -Category "info" -Message "deployment type already exists"
+                        }
+                        else {
+                            Write-Error $_
+                        }
+                    }
+                } # if
+                if ($appFolder) {
+                    Write-Log -Category "info" -Message "Moving application object to folder: $appFolder"
+                    $app = Get-CMApplication -Name $appName
+                    $app | Move-CMObject -FolderPath "Application\$appFolder" | Out-Null
+                }
+            } # foreach - deployment type
+            Write-Log -Category "info" -Message "-------------------------------------------------"
+        } # if
+    } # foreach - application
+    Write-Output $result
+}
+
+function Set-CMSiteAccounts {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        $DataSet
+    )
+    Write-Host "Configuring accounts" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function set-CMSiteAccounts"
+    $result = $true
+    foreach ($acct in $DataSet.configuration.cmsite.accounts.account | Where-Object {$_.enabled -eq 'true'}) {
+        $acctName = $acct.name
+        $acctPwd  = $acct.password
+        $pwd = ConvertTo-SecureString -String $acctPwd -AsPlainText -Force
+        Write-Log -Category "info" -Message "adding account: $acctName"
+        try {
+            New-CMAccount -UserName $acctName -Password $pwd -SiteCode $sitecode | Out-Null
+            Write-Log -Category info -Message "account created successfully"
+        }
+        catch {
+            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
+                Write-Log -Category warning -Message "account already exists"
+            }
+            else {
+                Write-Log -Category error -Message "Oh shit. They gonna fry yo ass now!"
+                Write-Log -Category error -Message $_.Exception.Message
+                Write-Error $_
+                $Result = $False
+            }
+        }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
+    Write-Output $result
+}
+
+function Import-CMSiteDPGroups {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
+    Write-Host "Configuring distribution point groups" -ForegroundColor Green
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function set-CMSiteDPGroups"
+    $result = $true
+    foreach ($dpgroup in $DataSet.configuration.cmsite.dpgroups.dpgroup | Where-Object {$_.enabled -eq 'true'}) {
+        $dpgName = $dpgroup.name
+        $dpgComm = $dpgroup.comment
+        try {
+            New-CMDistributionPointGroup -Name $dpgName -Description $dpgComm | Out-Null
+            Write-Log -Category info -Message "dp group created: $dpgName"
+        }
+        catch {
+            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
+                Write-Log -Category info -Message "dp group already exists"
+            }
+            else {
+                Write-Log -Category error -Message "Oh shit. You gonna be drinking some drano now!"
+                Write-Log -Category error -Message $_.Exception.Message
+                Write-Error $_
+                $Result = $False
+            }
+        }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
+    Write-Output $result
 }
 
 # --------------------------------------------------------------------
@@ -687,28 +1115,32 @@ Write-Log -Category "info" -Message "site version = $($site.Version)"
 foreach ($control in $xmldata.configuration.cmsite.control.ci | Where-Object {$_.enabled -eq 'true'}) {
     $controlCode = $control.name
     switch ($controlCode) {
+        'ACCOUNTS' {
+            Set-CMSiteAccounts -DataSet $xmldata | Out-Null
+            break
+        }
         'ADFOREST' {
-            Set-CMSiteADForest -DataSet $xmldata
+            Set-CMSiteADForest -DataSet $xmldata | Out-Null
             break
         }
         'DISCOVERY' {
-            Set-CMSiteDiscoveryMethods -DataSet $xmldata
+            Set-CMSiteDiscoveryMethods -DataSet $xmldata | Out-Null
             #Invoke-CMSystemDiscovery
             break
         }
         'BOUNDARYGROUPS' {
-            Set-CMSiteBoundaryGroups -DataSet $xmldata
+            Set-CMSiteBoundaryGroups -DataSet $xmldata | Out-Null
             break
         }
         'BOUNDARIES' {
             if ((-not($AutoBoundaries)) -or ($ForceBoundaries)) {
-                Set-Boundaries -DataSet $xmldata
+                Set-Boundaries -DataSet $xmldata | Out-Null
             }
             break
         }
         'SITEROLES' {
-            Set-CMSiteServerRoles -DataSet $xmldata
-            Set-CMSiteAIClasses -DataSet $xmldata
+            Set-CMSiteServerRoles -DataSet $xmldata | Out-Null
+            Set-CMSiteAIClasses -DataSet $xmldata | Out-Null
             break
         }
         'CLIENTSETTINGS' {
@@ -727,6 +1159,7 @@ foreach ($control in $xmldata.configuration.cmsite.control.ci | Where-Object {$_
             break
         }
         'DPGROUPS' {
+            Import-CMSiteDPGroups -DataSet $xmldata | Out-Null
             break
         }
         'QUERIES' {
@@ -739,18 +1172,27 @@ foreach ($control in $xmldata.configuration.cmsite.control.ci | Where-Object {$_
             break
         }
         'COLLECTIONS' {
-            Import-CMSiteCollections -DataSet $xmldata
+            Import-CMSiteCollections -DataSet $xmldata | Out-Null
             break
         }
         'OSIMAGES' {
-            Import-CMSiteOSImages -DataSet $xmldata
+            Import-CMSiteOSImages -DataSet $xmldata | Out-Null
             break
         }
         'OSINSTALLERS' {
-            Import-CMSiteOSInstallers -DataSet $xmldata
+            Import-CMSiteOSInstallers -DataSet $xmldata | Out-Null
             break
         }
-        'TASKS' {
+        'MTASKS' {
+            Set-CMSiteMaintenanceTasks -DataSet $xmldata | Out-Null
+            break
+        }
+        'APPCATEGORIES' {
+            Import-CMSiteAppCategories -DataSet $xmldata | Out-Null
+            break
+        }
+        'APPLICATIONS' {
+            Import-CMSiteApplications -DataSet $xmldata | Out-Null
             break
         }
     }
@@ -760,7 +1202,6 @@ Write-Log -Category "info" -Message "-------------------------------------------
 Write-Log -Category "info" -Message "restore working path to user profile"
 Set-Location -Path $env:USERPROFILE
 
-Write-Host "------------------- BEGIN $(Get-Date) -------------------" -ForegroundColor Green
 Write-Host "---------------- COMPLETED $(Get-Date) ------------------" -ForegroundColor Green
 $time2 = Get-TimeOffset -StartTime $RunTime1
 Write-Log -Category "info" -Message "total runtime (hh:mm:ss) = $time2"
