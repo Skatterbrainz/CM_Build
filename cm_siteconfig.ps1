@@ -9,10 +9,10 @@
     [string](optional) Path and Name of XML input file
 .PARAMETER ForceBoundaries
     [switch](optional) Force custom site boundaries
-.PARAMETER NoCheck
-    [switch](optional) Skip platform validation restrictions
+.PARAMETER Detailed
+    [switch](optional) Display verbose output without using -Verbose
 .NOTES
-    1.2.01 - DS - 2017.08.30
+    1.2.02 - DS - 2017.08.31
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -21,13 +21,15 @@
     .\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Verbose
 #>
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess=$True)]
 param (
     [parameter(Mandatory=$True, HelpMessage="Path and name of XML input file")]
         [ValidateNotNullOrEmpty()]
         [string] $XmlFile,
-    [parameter(Mandatory=$False)]
-        [switch] $ForceBoundaries
+    [parameter(Mandatory=$False, HelpMessage="Force custom site boundary creation from XML file")]
+        [switch] $ForceBoundaries,
+    [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
+        [switch] $Detailed
 )
 
 function Get-ScriptDirectory {
@@ -36,7 +38,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.01'
+$ScriptVersion = '1.2.02'
 $ScriptPath   = Get-ScriptDirectory
 $LogsFolder   = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
@@ -57,7 +59,9 @@ function Write-Log {
             [ValidateNotNullOrEmpty()]
             [string] $Message
     )
-    Write-Verbose "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message"
+    if ($Detailed) {
+        Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" -ForegroundColor Cyan
+    }
     #"$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
 }
 
