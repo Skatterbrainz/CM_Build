@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.1.20 - DS - 2017-08-28 -->
+<!-- Version 1.2.01 - DS - 2017-08-30 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
+            <ci name="ACCOUNTS" enabled="true" />
             <ci name="ADFOREST" enabled="true" />
             <ci name="DISCOVERY" enabled="true" />
             <ci name="BOUNDARIES" enabled="false" />
@@ -16,7 +17,9 @@
             <ci name="COLLECTIONS" enabled="true" />
             <ci name="OSIMAGES" enabled="true" />
             <ci name="OSINSTALLERS" enabled="true" />
-            <ci name="TASKS" enabled="false" />
+            <ci name="MTASKS" enabled="true" />
+            <ci name="APPCATEGORIES" enabled="true" />
+            <ci name="APPLICATIONS" enabled="true" />
         </control>
         <schedules>
             <schedule name="sch15min" unit="minutes" value="15" />
@@ -47,25 +50,16 @@
             <CMClientPushInstallation EnableAutomaticClientPushInstallation="false" EnableSystemTypeConfiguationManager="false" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
         </clientoptions>
         <dpgroups comment="Distribution Point Groups">
-            <dpgroup name="All Distribution Points" comment="All DP servers throughout the organization" />
-            <dpgroup name="Virginia DPs" comment="DP servers in Virginia" />
-            <dpgroup name="California DPs" comment="DP servers in California" />
-            <dpgroup name="Azure DPs" comment="DP servers in Azure" />
+            <dpgroup name="All Distribution Points" enabled="true" comment="All DP servers throughout the organization" />
+            <dpgroup name="Virginia DPs" enabled="true" comment="DP servers in Virginia" />
+            <dpgroup name="California DPs" enabled="true" comment="DP servers in California" />
+            <dpgroup name="Azure DPs" enabled="true" comment="DP servers in Azure" />
         </dpgroups>
         <sitesystemroles>
-            <sitesystemrole name="aisync" enabled="true" comment="Asset Intelligence Synchronization Point">
+            <sitesystemrole name="aisp" enabled="true" comment="Asset Intelligence Synchronization Point">
                 <roleoptions comment="Configure Asset Intelligence Classes">
-                    <roleoption name="SMS_AutoStartSoftware" />
-                    <roleoption name="SMS_BrowserHelperObject" />
-                    <roleoption name="SMS_InstalledExecutable" />
-                    <roleoption name="SMS_InstalledSoftware" />
-                    <roleoption name="SMS_SoftwareShortcut" />
-                    <roleoption name="SMS_SoftwareTag" />
-                    <roleoption name="SMS_SystemConsoleUsage" />
-                    <roleoption name="SMS_SystemConsoleUser" />
-                    <roleoption name="SoftwareLicensingProduct" />
-                    <roleoption name="SoftwareLicensingService" />
-                    <roleoption name="Win32_USBDevice" />
+                    <roleoption name="EnableAllReportingClass" params="" />
+                    <!-- <roleoption name="EnableReportingClass" params="" /> -->
                 </roleoptions>
             </sitesystemrole>
         </sitesystemroles>
@@ -87,6 +81,7 @@
             <folder name="Contoso" path="BootImage" comment="" />
             <folder name="Google" path="Application" comment="" />
             <folder name="Microsoft" path="Application" comment="" />
+            <folder name="Utilities" path="Application" comment="" />
             <!--
             Valid Folder Paths...
             Application
@@ -141,9 +136,93 @@
             <collection name="Clients - Workstations - HP" type="Device" comment="HP workstation clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Hewlett-Packard' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
             <collection name="Clients - Workstations - Lenovo" type="Device" comment="Lenovo workstation clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Lenovo' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
         </collections>
+        <appcategories comment="">
+            <appcategory name="IT" enabled="true" comment="" />
+            <appcategory name="Developer" enabled="true" comment="" />
+            <appcategory name="Engineering" enabled="true" comment="" />
+            <appcategory name="Finance" enabled="true" comment="" />
+            <appcategory name="Sales" enabled="true" comment="" />
+        </appcategories>
         <applications comment="Applications">
-            <application name="7-Zip 16.04" publisher="7-Zip" version="16.04" source="\\FS1\apps\" params="/qb!" comment="" />
-            <application name="Notepad++ 7.5" publisher="Notepad++" version="7.5" source="\\FS1\apps\" params="/s" comment="" />
+            <application name="7-Zip" enabled="true" publisher="7-Zip" version="16.04" categories="General" comment="File compression utility" folder="Utilities" keywords="file,zip,utility,archive,compression">
+                <deptypes comment="Deployment Types">
+                    <deptype name="x64 installer" platform="64" source="\\contoso.com\software\apps\7-zip\1701\7z1701-x64.msi" options="auto" comment="64-bit installer" />
+                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\7-zip\1701\7z1701.msi" options="auto" comment="32-bit installer" />
+                </deptypes>
+            </application>
+            <application name="Notepad++ 7.5" enabled="true" publisher="Notepad++" version="7.5" categories="Developer,Engineering" comment="Text and Code editor" folder="Utilities" keywords="editor,text,code,programming,script">
+                <deptypes comment="Deployment Types">
+                    <deptype name="x64 installer" platform="64" source="\\contoso.com\software\Apps\Notepad++\7.5\npp.7.5.installer.x64.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="64-bit installer" />
+                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\Apps\Notepad++\7.5\npp.7.5.installer.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="32-bit installer" />
+                </deptypes>
+            </application>
+            <application name="Microsoft RDC Manager" enabled="true" publisher="Microsoft" version="2.7" categories="IT,Developer" comment="Remote Desktop Connection Manager" folder="Microsoft" keywords="remote,rdc,rdp,desktop">
+                <deptypes comment="Deployment Types">
+                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\Microsoft\RDCman\rdcman.msi" options="auto" comment="32-bit installer" />
+                </deptypes>
+            </application>
+            <application name="Google Earth" enabled="true" publisher="Google" version="7.1" categories="Developer" comment="Mapping and visualization" folder="Google" keywords="google,earth,maps,model,3d">
+                <deptypes comment="Deployment Types">
+                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\Google\Earth\GoogleEarth7.1.5.1557.msi" options="auto" comment="32-bit installer" />
+                </deptypes>
+            </application>
+            <!--
+            <application name="" enabled="true" publisher="" version="" categories="" comment="" folder="" keywords="">
+                <deptypes comment="Deployment Types">
+                    <deptype name="" platform="[32/64]" source="" options="[auto/other..]" comment="" />
+                </deptypes>
+            </application>
+            -->
         </applications>
+        <mtasks comment="">
+            <mtask name="Backup SMS Site Server" enabled="false" options="F:\BACKUPS" />
+            <mtask name="Rebuild Indexes" enabled="false" options="" />
+            <mtask name="Monitor Keys" enabled="true" options="" />
+            <mtask name="Delete Aged Inventory History" enabled="true" options="" />
+            <mtask name="Delete Aged Status Messages" enabled="true" options="" />
+            <mtask name="Delete Aged Discovery Data" enabled="true" options="" />
+            <mtask name="Delete Aged Collected Files" enabled="true" options="" />
+            <mtask name="Delete Aged Metering Data" enabled="true" options="" />
+            <mtask name="Delete Aged Metering Summary Data" enabled="true" options="" />
+            <mtask name="Summarize File Usage Metering Data" enabled="true" options="" />
+            <mtask name="Summarize Monthly Usage Metering Data" enabled="true" options="" />
+            <mtask name="Clear Undiscovered Clients" enabled="true" options="" />
+            <mtask name="Delete Inactive Client Discovery Data" enabled="true" options="" />
+            <mtask name="Delete Obsolete Client Discovery Data" enabled="true" options="" />
+            <mtask name="Delete Aged Computer Association Data" enabled="true" options="" />
+            <mtask name="Evaluate Provisioned AMT Computer Certificates" enabled="true" options="" />
+            <mtask name="Delete Obsolete Alerts" enabled="true" options="" />
+            <mtask name="Delete Aged Application Revisions" enabled="true" options="" />
+            <mtask name="Delete Aged Log Data" enabled="true" options="" />
+            <mtask name="Delete Aged Client Download History" enabled="true" options="" />
+            <mtask name="Delete Aged Replication Data" enabled="true" options="" />
+            <mtask name="Delete Aged Replication Summary Data" enabled="true" options="" />
+            <mtask name="Delete Aged Application Request Data" enabled="true" options="" />
+            <mtask name="Delete Aged Exchange Partnership" enabled="true" options="" />
+            <mtask name="Delete Aged Device Wipe Record" enabled="true" options="" />
+            <mtask name="Delete Obsolete Forest Discovery Sites And Subnets" enabled="true" options="" />
+            <mtask name="Check Application Title with Inventory Information" enabled="true" options="" />
+            <mtask name="Summarize Installed Software Data" enabled="true" options="" />
+            <mtask name="Delete Aged Enrolled Devices" enabled="true" options="" />
+            <mtask name="Delete Aged Threat Data" enabled="true" options="" />
+            <mtask name="Delete Aged EP Health Status History Data" enabled="true" options="" />
+            <mtask name="Delete Aged Client Operations" enabled="true" options="" />
+            <mtask name="Delete Aged User Device Affinity Data" enabled="true" options="" />
+            <mtask name="Delete Aged Delete Detection Data" enabled="true" options="" />
+            <mtask name="Delete Aged Notification Task History" enabled="true" options="" />
+            <mtask name="Delete Aged Notification Server History" enabled="true" options="" />
+            <mtask name="Delete Aged Unknown Computers" enabled="true" options="" />
+            <mtask name="Delete Aged Distribution Point Usage Stats" enabled="true" options="" />
+            <mtask name="Delete Aged Passcode Records" enabled="true" options="" />
+            <mtask name="Update Application Available Targeting" enabled="true" options="" />
+            <mtask name="Delete Expired MDM Bulk Enroll Package Records" enabled="true" options="" />
+            <mtask name="Delete Orphaned Client Deployment State Records" enabled="true" options="" />
+            <mtask name="Delete Aged Console Connection Data" enabled="true" options="" />
+            <mtask name="Delete Aged Cloud Management Gateway Traffic Data" enabled="true" options="" />
+        </mtasks>
+        <accounts comment="">
+            <account name="CONTOSO\sccmadmin" enabled="true" password="Jj09340934" comment="For client push installations to DCs" />
+            <account name="CONTOSO\cm-clientinstall" enabled="true" password="P@ssW0rd!" comment="For client push installations in general" />
+        </accounts>
     </cmsite>
 </configuration>
