@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.02 - DS - 2017-09-01 -->
+<!-- Version 1.2.02 - DS - 2017-08-31 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
@@ -52,7 +52,8 @@
         <clientsettings comment="Client Settings">
             <clientsetting name="Workstations" comment="Workstation Client Settings" type="Device" priority="1">
                 <settings>
-                    <setting name="ComputerAgent" enabled="true" options="AddPortalToTrustedSiteList,AllowPortalToHaveElevatedTrust,BrandingTitle=Contoso IT,EnableThirdPartyOrchestration,FinalReminderMinutesInterval=52,InitialReminderHoursInterval=6,InstallRestriction=OnlyAdministrators,PortalUrl=http://cm02.contoso.com,PowerShellExecutionPolicy=Bypass,SuspendBitLocker=Always" />
+                    <setting name="BITS" enabled="true" options="EnableBitsMaxBandwidth" />
+                    <setting name="ComputerAgent" enabled="true" options="AddPortalToTrustedSiteList,AllowPortalToHaveElevatedTrust,BrandingTitle=Contoso IT,EnableThirdPartyOrchestration,FinalReminderMinutesInterval=25,InitialReminderHoursInterval=6,InstallRestriction=OnlyAdministrators,PortalUrl=http://cm02.contoso.com,PowerShellExecutionPolicy=Bypass,SuspendBitLocker=Always" />
                     <setting name="ComputerRestart" enabled="false" />
                     <setting name="EndpointProtection" enabled="false" />
                     <setting name="HardwareInventory" enabled="false" />
