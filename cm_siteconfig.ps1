@@ -9,8 +9,8 @@
     [string](optional) Path and Name of XML input file
 .PARAMETER ForceBoundaries
     [switch](optional) Force custom site boundaries
-.PARAMETER Detailed
-    [switch](optional) Display verbose output without using -Verbose
+.PARAMETER NoCheck
+    [switch](optional) Skip platform validation restrictions
 .NOTES
     1.2.02 - DS - 2017.08.31
     
@@ -841,6 +841,8 @@ function Import-CMSiteApplications {
 function Import-CMSiteApplications {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
         $DataSet
     )
     Write-Host "Importing applications" -ForegroundColor Green
@@ -949,6 +951,7 @@ function Import-CMSiteApplications {
                 }
                 else {
                     if ($depData.StartsWith("registry")) {
+                        Write-Log -Category "info" -Message "detection type: registry"
                         # registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5
                         $depDetect  = $depData.Split(":")[1]
                         $depRuleSet = $depDetect.Split(",")
@@ -957,35 +960,63 @@ function Import-CMSiteApplications {
                         $ruleVal    = $depRuleSet[1] # "DisplayVersion"
                         $ruleChk    = $depRuleSet[2] # "-ge"
                         $ruleData   = $depRuleSet[3] # "7.5"
-                    }
-                    $scriptDetection = @"
+                        $scriptDetection = @"
 try {
-    $Reg = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, "default")
-    $key = $reg.OpenSubKey("$ruleKey")
-    $val = $key.GetValue("$ruleVal")
-    if ($val $ruleChk "$ruleData") {Write-Host 'Installed'}
+    `$Reg = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, "default")
+    `$key = `$reg.OpenSubKey("$ruleKey")
+    `$val = `$key.GetValue("$ruleVal")
+    if (`$val $ruleChk "$ruleData") {Write-Host 'Installed'}
 }
 catch {}
 "@
-                    Write-Log -Category "info" -Message "rule: $scriptDetection"
-
-                    $DeploymentTypeHash = @{
-                        ManualSpecifyDeploymentType = $true
-                        ApplicationName = "$appName"
-                        DeploymentTypeName = "$DepName"
-                        DetectDeploymentTypeByCustomScript = $true
-                        ScriptInstaller = $true
-                        ScriptType = 'PowerShell'
-                        ScriptContent =$scriptDetection
-                        AdministratorComment = "$depComm"
-                        ContentLocation = "$depPath"
-                        InstallationProgram = "$program"
-                        UninstallProgram = "$uninst"
-                        RequiresUserInteraction = $false
-                        InstallationBehaviorType = 'InstallForSystem'
-                        InstallationProgramVisibility = 'Hidden'
                     }
-
+                    elseif ($depData.StartsWith("file")) {
+                        Write-Log -Category "info" -Message "detection type: file"
+                        $depDetect  = $depData.Split(":")[1]
+                        $depRuleSet = $depDetect.Split(",")
+                        $ruleKey    = $depRuleSet[0] # "\Program Files\Something\file.exe"
+                        $ruleKey    = 'C:'+$ruleKey  # "C:\Program Files\Something\file.exe"
+                        $ruleVal    = $null
+                        $ruleChk    = $null
+                        $ruleData   = $null
+                        $scriptDetection = "if (Test-Path `"$ruleKey`") { Write-Host 'Installed' }"
+                    }
+                    Write-Log -Category "info" -Message "rule: $scriptDetection"
+                    if ($uninst.length -gt 0) {
+                        $DeploymentTypeHash = @{
+                            ManualSpecifyDeploymentType = $true
+                            ApplicationName = "$appName"
+                            DeploymentTypeName = "$DepName"
+                            DetectDeploymentTypeByCustomScript = $true
+                            ScriptInstaller = $true
+                            ScriptType = 'PowerShell'
+                            ScriptContent =$scriptDetection
+                            AdministratorComment = "$depComm"
+                            ContentLocation = "$depPath"
+                            InstallationProgram = "$program"
+                            UninstallProgram = "$uninst"
+                            RequiresUserInteraction = $false
+                            InstallationBehaviorType = 'InstallForSystem'
+                            InstallationProgramVisibility = 'Hidden'
+                        }
+                    }
+                    else {
+                        $DeploymentTypeHash = @{
+                            ManualSpecifyDeploymentType = $true
+                            ApplicationName = "$appName"
+                            DeploymentTypeName = "$DepName"
+                            DetectDeploymentTypeByCustomScript = $true
+                            ScriptInstaller = $true
+                            ScriptType = 'PowerShell'
+                            ScriptContent =$scriptDetection
+                            AdministratorComment = "$depComm"
+                            ContentLocation = "$depPath"
+                            InstallationProgram = "$program"
+                            RequiresUserInteraction = $false
+                            InstallationBehaviorType = 'InstallForSystem'
+                            InstallationProgramVisibility = 'Hidden'
+                        }
+                    }
                     Write-Log -Category "info" -Message "Adding Deployment Type"
 
                     try {
