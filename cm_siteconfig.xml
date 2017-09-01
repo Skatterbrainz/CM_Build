@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.01 - DS - 2017-08-30 -->
+<!-- Version 1.2.02 - DS - 2017-08-31 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
@@ -164,6 +164,11 @@
             <application name="Google Earth" enabled="true" publisher="Google" version="7.1" categories="Developer" comment="Mapping and visualization" folder="Google" keywords="google,earth,maps,model,3d">
                 <deptypes comment="Deployment Types">
                     <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\Google\Earth\GoogleEarth7.1.5.1557.msi" options="auto" comment="32-bit installer" />
+                </deptypes>
+            </application>
+            <application name="VLC Player" enabled="true" publisher="VideoLAN" version="2.2.6" categories="General" comment="Media player" folder="Utilities" keywords="vlc,video,audio,media,player">
+                <deptypes comment="Deployment Types">
+                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\vlc_player\vlc-2.2.6-win32.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="32-bit installer" />
                 </deptypes>
             </application>
             <!--
