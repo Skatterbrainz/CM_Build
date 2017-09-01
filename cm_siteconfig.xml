@@ -250,7 +250,6 @@
             <mtask name="Delete Aged Cloud Management Gateway Traffic Data" enabled="true" options="" />
         </mtasks>
         <accounts comment="">
-            <account name="CONTOSO\sccmadmin" enabled="true" password="Jj09340934" comment="For client push installations to DCs" />
             <account name="CONTOSO\cm-clientinstall" enabled="true" password="P@ssW0rd!" comment="For client push installations in general" />
         </accounts>
     </cmsite>
