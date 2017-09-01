@@ -9,8 +9,10 @@
     [string](optional) Path and Name of XML input file
 .PARAMETER ForceBoundaries
     [switch](optional) Force custom site boundaries
-.PARAMETER NoCheck
-    [switch](optional) Skip platform validation restrictions
+.PARAMETER Detailed
+    [switch](optional) Verbose output without using -Verbose
+.PARAMETER Override
+    [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
     1.2.02 - DS - 2017.08.31
     
@@ -29,7 +31,9 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Force custom site boundary creation from XML file")]
         [switch] $ForceBoundaries,
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
-        [switch] $Detailed
+        [switch] $Detailed,
+    [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
+        [switch] $Override
 )
 
 function Get-ScriptDirectory {
@@ -132,6 +136,8 @@ function Set-CMSiteDiscoveryMethods {
     }
     #>
     Write-Host "Configuring Discovery Methods" -ForegroundColor Green
+    $result = $True
+    $Time1  = Get-Date
     $disc = $DataSet.configuration.cmsite.discoveries.discovery | ? {$_.enabled -eq 'true'}
     foreach ($dm in $disc) {
         $discName = $dm.name
@@ -281,6 +287,8 @@ function Set-CMSiteDiscoveryMethods {
             }
         } # switch
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Output $result
 } # function
 
 function Set-CMSiteADForest {
@@ -289,6 +297,8 @@ function Set-CMSiteADForest {
     $adforest = $DataSet.configuration.cmsite.forest
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring AD Forest" -ForegroundColor Green
+    $result = $True
+    $Time1  = Get-Date
     try {
         New-CMActiveDirectoryForest -ForestFqdn "$adforest" -EnableDiscovery $True -ErrorAction SilentlyContinue
         Write-Log -Category "info" -Message "active directory forest has been configured: $adforest"
@@ -301,8 +311,11 @@ function Set-CMSiteADForest {
         }
         else {
             Write-Error $_
+            $result = $false
         }
     }
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Output $result
 }
 
 function Set-CMSiteBoundaryGroups {
@@ -310,6 +323,8 @@ function Set-CMSiteBoundaryGroups {
     param ($DataSet)
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site Boundary Groups" -ForegroundColor Green
+    $result = $True
+    $Time1  = Get-Date
     $bglist = $DataSet.configuration.cmsite.boundarygroups.boundarygroup
     foreach ($bg in $bglist) {
         $bgName = $bg.name
@@ -350,17 +365,25 @@ function Set-CMSiteBoundaryGroups {
                 }
                 catch {
                     Write-Error $_
+                    $result = $false
                 }
             }
         } # if
     } # foreach
+    Write-Output $result
 }
 
 function Set-Boundaries {
     [CmdletBinding()]
-    param ($DataSet)
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site Boundaries" -ForegroundColor Green
+    $result = $True
+    $Time1  = Get-Date
     $blist = $DataSet.configuration.cmsite.boundaries.boundary
     foreach ($bx in $blist) {
         $bName = $bx.name
@@ -417,6 +440,8 @@ function Set-Boundaries {
             Write-Log -Category "info" -Message "oundary [$bName] is not assigned to a boundary group"
         }
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Output $result
 }
 
 function Set-CMSiteServerRoles {
@@ -427,6 +452,8 @@ function Set-CMSiteServerRoles {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site System Roles" -ForegroundColor Green
     Write-Log -Category "info" -Message "function: set-cmsiteserverroles"
+    $result = $True
+    $Time1  = Get-Date
     foreach ($siterole in $DataSet.configuration.cmsite.sitesystemroles | Where-Object {$_.enabled -eq 'true'}) {
         $roleName = $siterole.name
         Write-Log -Category "info" -Message "configuring site system role: $roleName"
@@ -444,6 +471,48 @@ function Set-CMSiteServerRoles {
             # ----------------
         } # switch
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Output $result
+}
+
+function Import-CMSiteClientSettings {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
+    $result = $True
+    $Time1  = Get-Date
+    foreach ($cs in $DataSet.configuration.cmsite.clientsettings.clientsetting) {
+        $csName = $cs.name
+        $csComm = $cs.comment
+        $csPri  = $cs.priority
+        $csType = $cs.type
+        Write-Log -Category info -Message "client setting.... $csName"
+        try {
+            New-CMClientSetting -Name "$csName" -Description "$csComm" -Type $csType -ErrorAction SilentlyContinue | Out-Null
+            Write-Log -Category info -Message "client setting was created successfully."
+        }
+        catch {
+            if ($_.Exception.Message -like "*already exists*") {
+                Write-Log -Category info -Message "client setting already exists: $csName"
+            }
+            else {
+                Write-Log -Category error -Message "your client setting just fell into a woodchipper. what a mess."
+                Write-Error $_
+                $result = $False
+                break
+            }
+        }
+        foreach ($csopt in $cs.settings.setting | Where-Object {$_.enabled -eq 'true'}) {
+            $csoName = $csopt.name
+            $csoComm = $csopt.comment
+            $csoOpts = $csopt.options
+            Write-Log -Category info -Message "client option.... $csoName"
+        }
+    }
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset -StartTime $Time1)"
     Write-Output $result
 }
 
@@ -457,6 +526,7 @@ function Set-CMSiteAIClasses {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function: Set-CMSiteAIClasses"
     $result = $True
+    $Time1  = Get-Date
     foreach ($srole in $DataSet.configuration.cmsite.sitesystemroles.sitesystemrole | Where-Object {$_.name -eq 'aisp'}) {
         foreach ($roleopt in $srole.roleoptions.roleoption) {
             $optName = $roleopt.name
@@ -489,6 +559,7 @@ function Set-CMSiteAIClasses {
         } # foreach
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -505,6 +576,7 @@ function Set-CMSiteConfigFolders {
     Write-Host "Configuring console folders" -ForegroundColor Green
     Write-Log -Category "info" -Message "function set-cmsitefolders"
     $result = $true
+    $Time1  = Get-Date
     foreach ($folder in $DataSet.configuration.cmsite.folders.folder) {
         $folderName = $folder.name
         $folderPath = $folder.path
@@ -517,6 +589,7 @@ function Set-CMSiteConfigFolders {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -531,6 +604,7 @@ function Import-CMSiteQueries {
     Write-Host "Importing custom Queries" -ForegroundColor Green
     Write-Log -Category "info" -Message "function Import-CMSiteQueries"
     $result = $True
+    $Time1  = Get-Date
     foreach ($query in $DataSet.configuration.cmsite.queries.query) {
         $queryName = $query.name
         $queryComm = $query.comment
@@ -548,7 +622,7 @@ function Import-CMSiteQueries {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
-    Write-Log -Category "info" -Message "finished importing custom queries"
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -563,6 +637,7 @@ function Import-CMSiteOSImages {
     Write-Host "Importing OS images" -ForegroundColor Green
     Write-Log -Category "info" -Message "function: import-cmsiteosimages"
     $result = $True
+    $Time1  = Get-Date
     foreach ($image in $DataSet.configuration.cmsite.osimages.osimage) {
         $imageName = $image.name
         $imagePath = $image.path
@@ -589,7 +664,7 @@ function Import-CMSiteOSImages {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
-    Write-Log -Category "info" -Message "finished importing os images"
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -604,6 +679,7 @@ function Import-CMSiteOSInstallers {
     Write-Host "Importing OS upgrade installers" -ForegroundColor Green
     Write-Log -Category "info" -Message "function: import-CMSiteOSInstallers"
     $result = $True
+    $Time1  = Get-Date
     foreach ($inst in $DataSet.configuration.cmsite.osinstallers.osinstaller) {
         $instName = $inst.name
         $instPath = $inst.path
@@ -631,7 +707,7 @@ function Import-CMSiteOSInstallers {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
-    Write-Log -Category "info" -Message "finished importing os installers"
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -644,6 +720,7 @@ function Import-CMSiteCollections {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function: import-CMSiteCollections"
     $result = $True
+    $Time1  = Get-Date
     foreach ($collection in $DataSet.configuration.cmsite.collections.collection) {
         $collName = $collection.name
         $collType = $collection.type
@@ -682,6 +759,8 @@ function Import-CMSiteCollections {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Output $result
 }
 
 function Set-CMSiteMaintenanceTasks {
@@ -694,6 +773,7 @@ function Set-CMSiteMaintenanceTasks {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function set-CMSiteMaintenanceTasks"
     $result = $true
+    $Time1  = Get-Date
     foreach ($mtask in $DataSet.configuration.cmsite.mtasks.mtask) {
         $mtName = $mtask.name
         $mtEnab = $mtask.enabled
@@ -724,6 +804,7 @@ function Set-CMSiteMaintenanceTasks {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -737,6 +818,7 @@ function Import-CMSiteAppCategories {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function Set-CMSiteAppCategories"
     $result = $true
+    $Time1  = Get-Date
     foreach ($cat in $DataSet.configuration.cmsite.appcategories.appcategory | Where-Object {$_.enabled -eq 'true'}) {
         $catName = $cat.name
         $catComm = $cat.comment
@@ -752,91 +834,9 @@ function Import-CMSiteAppCategories {
             }
         }
     }
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
-
-<#
-function Import-CMSiteApplications {
-    [CmdletBinding()]
-    param (
-        [parameter(Mandatory=$True)]
-        $DataSet
-    )
-    Write-Host "Configuring applications" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function set-CMSiteApplications"
-    $result = $true
-
-    foreach ($appn in $xmldata.configuration.cmsite.applications.application | Where-Object {$_.enabled -eq 'true'}) {
-        $appName = $appn.name 
-        $appPub  = $appn.publisher
-        $appVer  = $appn.version 
-        $appComm = $appn.comment 
-        $appKeys = $appn.keywords 
-        Write-Log -Category "info" -Message "creating application: $appName"
-        try {
-            $app = New-CMApplication -Name $appName -LocalizedApplicationName $appName -Publisher $appPub -Description $appComm -SoftwareVersion $appVer
-            Write-Log -Category "info" -Message "application created: $appName"
-        }
-        catch {
-            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-                Write-Log -Category "info" -Message "$appName already exists"
-                $app = Get-CMApplication -Name $appName
-            }
-            else {
-                Write-Log -Category "error" -Message "failed to create $appName"
-                Write-Error $_
-                $app = $null
-            }
-        }
-        if ($app) {
-            if ($appKeys -ne "") {
-                Write-Log -Category "info" -Message "updating keywords list"
-                $app | Set-CMApplication -Keyword $appKeys
-            }
-            Write-Log -Category "info" -Message "creating deployment types..."
-            foreach ($depType in $appn.deptypes.deptype) {
-                $depName = $depType.name
-                $depFile = $depType.source 
-                $depOpts = $depType.options 
-                $depComm = $depType.comment
-                Write-Log -Category "info" -Message "deployment type: $depname"
-                if ($depOpts -eq 'auto') {
-                    Write-Log -Category "info" -Message "installer type: msi"
-                    try {
-                        Add-CMDeploymentType -ApplicationName $appName -AutoIdentifyFromInstallationFile -ForceForUnknownPublisher $true -InstallationFileLocation $depFile -MsiInstaller -DeploymentTypeName $depName
-                    }
-                    catch {
-                        if ($_.Exception.Message -like '*same name already exists.') {
-                            Write-Log -Category "info" -Message "deployment type already exists"
-                        }
-                        else {
-                            Write-Error $_
-                        }
-                    }
-                }
-                else {
-                    Write-Log -Category "info" -Message "installer type: script"
-                    $filepath = Split-Path $depFile
-                    try {
-                        Add-CMDeploymentType -ApplicationName $appName -DeploymentTypeName $depName -ForceForUnknownPublisher $true -InstallationCommandLine $depFile -ContentLocation $filepath
-                    }
-                    catch {
-                        if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-                            Write-Log -Category "info" -Message "deployment type already exists"
-                        }
-                        else {
-                            Write-Error $_
-                        }
-                    }
-                }
-            } # foreach
-        } # if
-        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-    } # foreach
-    Write-Output $result
-}
-#>
 
 function Import-CMSiteApplications {
     [CmdletBinding(SupportsShouldProcess=$True)]
@@ -849,17 +849,9 @@ function Import-CMSiteApplications {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function Import-CMSiteApplications"
     $result = $true
+    $Time1  = Get-Date
     $PSDefaultParameterValues =@{"get-cimclass:namespace"="Root\SMS\site_$sitecode";"get-cimclass:computername"="$hostname";"get-cimInstance:computername"="$hostname";"get-ciminstance:namespace"="Root\SMS\site_$sitecode"}
     foreach ($appSet in $DataSet.configuration.cmsite.applications.application | Where-Object {$_.enabled -eq 'true'}) {
-        # APPLICATION
-        # name="7-Zip" 
-        # enabled="true" 
-        # publisher="7-Zip" 
-        # version="16.04" 
-        # categories="General" 
-        # comment="File compression utility" 
-        # keywords="file,zip,utility,archive,compression"
-
         $appName = $appSet.name 
         $appComm = $appSet.comment
         $appPub  = $appSet.publisher
@@ -892,19 +884,31 @@ function Import-CMSiteApplications {
         }
         if ($app) {
             if ($appKeys -ne "") {
-                Write-Log -Category "info" -Message "updating keywords list"
-                $app | Set-CMApplication -Keyword $appKeys
+                Write-Log -Category "info" -Message "assigning keywords: $appKeys"
+                try {
+                    $app | Set-CMApplication -Keyword $appKeys -ErrorAction SilentlyContinue
+                    Write-Log -Category info -Message "keywords have been assigned successfully"
+                }
+                catch {
+                    Write-Log -Category "info" -Message "the object is locked by an evil person"
+                }
+            }
+            if ($appCats -ne "") {
+                Write-Log -Category "info" -Message "assigning categories: $appCats"
+                try {
+                    $app | Set-CMApplication -AppCategories $appCats.Split(',') -ErrorAction SilentlyContinue
+                    Write-Log -Category info -Message "categories have been assigned successfully."
+                }
+                catch {
+                    if ($_.Exception.Message -contains '*DeniedLockAlreadyAssigned*') {
+                        Write-Log -Category "error" -Message "some idiot has the object open in a console and locked it."
+                    }
+                    else {
+                        Write-Error "barf-o-matic - your code just puked up a buick!"
+                    }
+                }
             }
             foreach ($depType in $appSet.deptypes.deptype) {
-                # DEPLOYMENT TYPE:
-                # name="x64 installer" 
-                # source="\\contoso.com\software\Apps\Notepad++\7.5\npp.7.5.installer.x64.exe" 
-                # options="/s" 
-                # uninstall="C:\Program Files\Notepad++\uninstall.exe" 
-                # detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion(ge)7.5" 
-                # requires="" 
-                # comment="64-bit installer" />
-
                 $depName   = $depType.name
                 $depSource = $depType.source
                 $depOpts   = $depType.options
@@ -952,7 +956,7 @@ function Import-CMSiteApplications {
                 else {
                     if ($depData.StartsWith("registry")) {
                         Write-Log -Category "info" -Message "detection type: registry"
-                        # registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5
+                        # "registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5"
                         $depDetect  = $depData.Split(":")[1]
                         $depRuleSet = $depDetect.Split(",")
                         $ruleKey    = $depRuleSet[0] # "HKLM:\...."
@@ -970,8 +974,10 @@ try {
 catch {}
 "@
                     }
-                    elseif ($depData.StartsWith("file")) {
-                        Write-Log -Category "info" -Message "detection type: file"
+                    elseif (($depData.StartsWith("file")) -or ($depData.StartsWith("folder"))) {
+                        # "file:\Program Files\Something\file.exe"
+                        # "folder:\Program Files\Something"
+                        Write-Log -Category "info" -Message "detection type: file or folder"
                         $depDetect  = $depData.Split(":")[1]
                         $depRuleSet = $depDetect.Split(",")
                         $ruleKey    = $depRuleSet[0] # "\Program Files\Something\file.exe"
@@ -1046,6 +1052,7 @@ catch {}
             Write-Log -Category "info" -Message "-------------------------------------------------"
         } # if
     } # foreach - application
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -1059,6 +1066,7 @@ function Set-CMSiteAccounts {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function set-CMSiteAccounts"
     $result = $true
+    $time1  = Get-Date
     foreach ($acct in $DataSet.configuration.cmsite.accounts.account | Where-Object {$_.enabled -eq 'true'}) {
         $acctName = $acct.name
         $acctPwd  = $acct.password
@@ -1081,6 +1089,7 @@ function Set-CMSiteAccounts {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -1095,6 +1104,7 @@ function Import-CMSiteDPGroups {
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Log -Category "info" -Message "function set-CMSiteDPGroups"
     $result = $true
+    $Time1  = Get-Date
     foreach ($dpgroup in $DataSet.configuration.cmsite.dpgroups.dpgroup | Where-Object {$_.enabled -eq 'true'}) {
         $dpgName = $dpgroup.name
         $dpgComm = $dpgroup.comment
@@ -1115,6 +1125,7 @@ function Import-CMSiteDPGroups {
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -1147,7 +1158,14 @@ Set-Location "$sitecode`:"
 $Site = Get-CMSite -SiteCode $sitecode
 Write-Log -Category "info" -Message "site version = $($site.Version)"
 
-foreach ($control in $xmldata.configuration.cmsite.control.ci | Where-Object {$_.enabled -eq 'true'}) {
+if ($Override) {
+    $controlset = $xmldata.configuration.cmsite.control.ci | Out-GridView -Title "Select Features to Run" -PassThru
+}
+else {
+    $controlset = $xmldata.configuration.cmsite.control.ci | Where-Object {$_.enabled -eq 'true'}
+}
+
+foreach ($control in $controlset) {
     $controlCode = $control.name
     switch ($controlCode) {
         'ACCOUNTS' {
@@ -1179,6 +1197,7 @@ foreach ($control in $xmldata.configuration.cmsite.control.ci | Where-Object {$_
             break
         }
         'CLIENTSETTINGS' {
+            Import-CMSiteClientSettings -DataSet $xmldata | Out-Null
             break
         }
         'CLIENTINSTALL' {
@@ -1238,7 +1257,7 @@ Write-Log -Category "info" -Message "restore working path to user profile"
 Set-Location -Path $env:USERPROFILE
 
 Write-Host "---------------- COMPLETED $(Get-Date) ------------------" -ForegroundColor Green
-$time2 = Get-TimeOffset -StartTime $RunTime1
-Write-Log -Category "info" -Message "total runtime (hh:mm:ss) = $time2"
+
+Write-Log -Category info -Message "total runtime: $(Get-TimeOffset $Runtime1)"
 
 Stop-Transcript
