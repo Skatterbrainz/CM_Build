@@ -174,12 +174,13 @@
             <!--
             <application name="" enabled="true" publisher="" version="" categories="" comment="" folder="" keywords="">
                 <deptypes comment="Deployment Types">
-                    <deptype name="" platform="[32/64]" source="" options="[auto/other..]" comment="" />
+                    <deptype name="ABC123" platform="32" source="" options="[auto/other..]" uninstall="" detect="" comment="" />
                 </deptypes>
             </application>
             -->
         </applications>
         <mtasks comment="">
+            <!-- Backup disabled until I figure out how to specify the target path -->
             <mtask name="Backup SMS Site Server" enabled="false" options="F:\BACKUPS" />
             <mtask name="Rebuild Indexes" enabled="false" options="" />
             <mtask name="Monitor Keys" enabled="true" options="" />
