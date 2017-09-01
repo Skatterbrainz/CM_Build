@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.02 - DS - 2017-08-31 -->
+<!-- Version 1.2.02 - DS - 2017-09-01 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
@@ -49,6 +49,28 @@
         <clientoptions comment="Configure Default Client Push Installation settings">
             <CMClientPushInstallation EnableAutomaticClientPushInstallation="false" EnableSystemTypeConfiguationManager="false" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
         </clientoptions>
+        <clientsettings comment="Client Settings">
+            <clientsetting name="Workstations" comment="Workstation Client Settings" type="Device" priority="1">
+                <settings>
+                    <setting name="ComputerAgent" enabled="true" options="AddPortalToTrustedSiteList,AllowPortalToHaveElevatedTrust,BrandingTitle=Contoso IT,EnableThirdPartyOrchestration,FinalReminderMinutesInterval=52,InitialReminderHoursInterval=6,InstallRestriction=OnlyAdministrators,PortalUrl=http://cm02.contoso.com,PowerShellExecutionPolicy=Bypass,SuspendBitLocker=Always" />
+                    <setting name="ComputerRestart" enabled="false" />
+                    <setting name="EndpointProtection" enabled="false" />
+                    <setting name="HardwareInventory" enabled="false" />
+                    <setting name="PowerOptions" enabled="false" />
+                    <setting name="RemoteTools" enabled="false" />
+                    <setting name="SoftwareDeployment" enabled="false" />
+                    <setting name="SoftwareInventory" enabled="false" />
+                    <setting name="SoftwareUpdates" enabled="false" />
+                </settings>
+            </clientsetting>
+                <settings>
+                    <setting name="HardwareInventory" enabled="false" />
+                    <setting name="RemoteTools" enabled="false" />
+                    <setting name="SoftwareInventory" enabled="false" />
+                </settings>
+            <clientsetting name="Servers" comment="Server Client Settings" type="Device" priority="2">
+            </clientsetting>
+        </clientsettings>
         <dpgroups comment="Distribution Point Groups">
             <dpgroup name="All Distribution Points" enabled="true" comment="All DP servers throughout the organization" />
             <dpgroup name="Virginia DPs" enabled="true" comment="DP servers in Virginia" />
@@ -141,6 +163,7 @@
             <appcategory name="Developer" enabled="true" comment="" />
             <appcategory name="Engineering" enabled="true" comment="" />
             <appcategory name="Finance" enabled="true" comment="" />
+            <appcategory name="General" enabled="true" comment="" />
             <appcategory name="Sales" enabled="true" comment="" />
         </appcategories>
         <applications comment="Applications">
@@ -174,13 +197,12 @@
             <!--
             <application name="" enabled="true" publisher="" version="" categories="" comment="" folder="" keywords="">
                 <deptypes comment="Deployment Types">
-                    <deptype name="ABC123" platform="32" source="" options="[auto/other..]" uninstall="" detect="" comment="" />
+                    <deptype name="" platform="[32/64]" source="" options="[auto/other..]" comment="" />
                 </deptypes>
             </application>
             -->
         </applications>
         <mtasks comment="">
-            <!-- Backup disabled until I figure out how to specify the target path -->
             <mtask name="Backup SMS Site Server" enabled="false" options="F:\BACKUPS" />
             <mtask name="Rebuild Indexes" enabled="false" options="" />
             <mtask name="Monitor Keys" enabled="true" options="" />
