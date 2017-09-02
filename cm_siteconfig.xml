@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.18 - DS - 2017-09-02 -->
+<!-- Version 1.2.19 - DS - 2017-09-02 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
             <ci name="ACCOUNTS" enabled="true" />
             <ci name="ADFOREST" enabled="true" />
+            <ci name="SERVERSETTINGS" enabled="true" />
             <ci name="DISCOVERY" enabled="true" />
             <ci name="BOUNDARIES" enabled="false" />
             <ci name="BOUNDARYGROUPS" enabled="true" />
@@ -54,6 +55,9 @@
             <!-- still working on this one -->
             <CMClientPushInstallation EnableAutomaticClientPushInstallation="false" EnableSystemTypeConfiguationManager="false" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
         </clientoptions>
+        <serversettings comment="Server Settings">
+            <serversetting use="1" name="CMSoftwareDistributionComponent" comment="Software Distribution Settings" key="NetworkAccessAccountName" value="CONTOSO\cm-naa" />
+        </serversettings>
         <clientsettings comment="Client Settings">
             <clientsetting name="Workstations" comment="Workstation Client Settings" type="Device" priority="1">
                 <settings>
