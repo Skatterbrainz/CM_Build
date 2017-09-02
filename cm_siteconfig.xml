@@ -30,7 +30,6 @@
         </schedules>
         <discoveries comment="https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/set-cmdiscoverymethod">
             <discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />
-            <!--<discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableActiveDirectorySiteBoundaryCreation" />-->
             <discovery enabled="true" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
             <discovery enabled="true" name="ActiveDirectoryGroupDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15" />
             <discovery enabled="true" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
