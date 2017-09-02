@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.02 - DS - 2017.08.31
+    1.2.17 - DS - 2017.09.01
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -41,16 +41,18 @@ function Get-ScriptDirectory {
     Split-Path $Invocation.MyCommand.Path
 }
 
-$basekey = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.02'
-$ScriptPath   = Get-ScriptDirectory
-$LogsFolder   = "$ScriptPath\Logs"
+$basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
+$ScriptVersion = '1.2.17'
+$ScriptPath    = Get-ScriptDirectory
+$LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
-$tsFile  = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
-$logFile = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
+$tsFile   = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
+$logFile  = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
+$HostName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 
 try {stop-transcript -ErrorAction SilentlyContinue} catch {}
 try {Start-Transcript -Path $tsFile -Force} catch {}
+
 Write-Host "------------------- BEGIN $(Get-Date) -------------------" -ForegroundColor Green
 
 function Write-Log {
@@ -94,7 +96,7 @@ function Get-TimeOffset {
     Write-Output $Offset
 }
 
-function Get-CMModule {
+function Import-CmxModule {
     [CmdletBinding()]
     param ()
     Write-Verbose "Importing ConfigurationManager module"
@@ -111,7 +113,7 @@ function Get-CMModule {
     }
 }
 
-function Set-CMSiteDiscoveryMethods {
+function Import-CmxDiscoveryMethods {
     [CmdletBinding()]
     param ($DataSet)
     Write-Log -Category "info" -Message "----------------------------------------------------"
@@ -175,6 +177,11 @@ function Set-CMSiteDiscoveryMethods {
                             $AutoBoundaries   = $True
                             break
                         }
+                        'EnableActiveDirectorySiteBoundaryCreation' {
+                            $ADSiteBoundaries = $False
+                            $AutoBroundaries  = $True
+                            break
+                        }
                         'EnableFilteringExpiredPassword' {
                             $FilterPassword1 = $True
                             $FilterPassword2 = $optset[1]
@@ -201,16 +208,22 @@ function Set-CMSiteDiscoveryMethods {
             'ActiveDirectoryForestDiscovery' {
                 Write-Log -Category "info" -Message "FOREST DISCOVERY"
                 try {
-                    if ($AutoBoundaries) {
+                    if ($SubnetBoundaries) {
                         Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $True -ErrorAction SilentlyContinue
                         Write-Log -Category "info" -Message "AD forest discovery configured successfully: with subnet boundary option"
+                    }
+                    elseif ($ADSiteBoundaries) {
+                        Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableActiveDirectorySiteBoundaryCreation $True -ErrorAction SilentlyContinue
+                        Write-Log -Category "info" -Message "AD forest discovery configured successfully: with adsite boundary option"
                     }
                     else {
                         Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue
                         Write-Log -Category "info" -Message "AD forest discovery configured successfully"
                     }
                 }
-                catch {}
+                catch {
+                    Write-Log -Category error -Message "AD Forest discovery setting failed!"
+                }
                 break
             }
             'ActiveDirectorySystemDiscovery' {
@@ -221,7 +234,7 @@ function Set-CMSiteDiscoveryMethods {
                         Write-Log -Category "info" -Message "AD system discovery configured successfully (A)"
                     }
                     catch {
-                        $_
+                        Write-Log -Category error -Message "AD system discovery setting failed!"
                     }
                 }
                 elseif ($FilterPassword1) {
@@ -230,7 +243,7 @@ function Set-CMSiteDiscoveryMethods {
                         Write-Log -Category "info" -Message "AD system discovery configured successfully (B)"
                     }
                     catch {
-                        $_
+                        Write-Log -Category error -Message "AD system discovery setting failed!"
                     }
                 }
                 elseif ($FilterLogon1) {
@@ -239,7 +252,7 @@ function Set-CMSiteDiscoveryMethods {
                         Write-Log -Category "info" -Message "AD system discovery configured successfully (C)"
                     }
                     catch {
-                        $_
+                        Write-Log -Category error -Message "AD system discovery setting failed!"
                     }
                 }
                 else {
@@ -248,7 +261,7 @@ function Set-CMSiteDiscoveryMethods {
                         Write-Log -Category "info" -Message "AD system discovery configured successfully (D)"
                     }
                     catch {
-                        $_
+                        Write-Log -Category error -Message "AD system discovery setting failed!"
                     }
                 }
                 break
@@ -262,7 +275,7 @@ function Set-CMSiteDiscoveryMethods {
                         Write-Log -Category "info" -Message "AD user discovery configured successfully (A)"
                     }
                     catch {
-                        $_
+                        Write-Log -Category error -Message "AD user discovery setting failed!"
                     }
                 }
                 else {
@@ -271,7 +284,7 @@ function Set-CMSiteDiscoveryMethods {
                         Write-Log -Category "info" -Message "AD user discovery configured successfully (B)"
                     }
                     catch {
-                        $_
+                        Write-Log -Category error -Message "AD user discovery setting failed!"
                     }
                 }
                 break
@@ -282,7 +295,9 @@ function Set-CMSiteDiscoveryMethods {
                     Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -Enabled $True -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays 90 -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays 90 -ErrorAction SilentlyContinue | Out-Null
                     Write-Log -Category "info" -Message "info: AD group discovery configured successfully"
                 }
-                catch {}
+                catch {
+                    Write-Log -Category error -Message "AD group discovery setting failed!"
+                }
                 break
             }
         } # switch
@@ -291,7 +306,7 @@ function Set-CMSiteDiscoveryMethods {
     Write-Output $result
 } # function
 
-function Set-CMSiteADForest {
+function Set-CmxADForest {
     [CmdletBinding()]
     param ($DataSet)
     $adforest = $DataSet.configuration.cmsite.forest
@@ -318,7 +333,7 @@ function Set-CMSiteADForest {
     Write-Output $result
 }
 
-function Set-CMSiteBoundaryGroups {
+function Import-CmxBoundaryGroups {
     [CmdletBinding()]
     param ($DataSet)
     Write-Log -Category "info" -Message "----------------------------------------------------"
@@ -347,7 +362,7 @@ function Set-CMSiteBoundaryGroups {
                     Write-Log -Category "info" -Message "boundary group $bgName has been updated"
                 }
                 catch {
-                    Write-Error $_
+                    Write-Log -Category error -Message $_.Exception.Message
                 }
             }
         }
@@ -364,7 +379,7 @@ function Set-CMSiteBoundaryGroups {
                     Write-Log -Category "info" -Message "boundary group $bgName has been updated"
                 }
                 catch {
-                    Write-Error $_
+                    Write-Log -Category error -Message $_.Exception.Message
                     $result = $false
                 }
             }
@@ -373,7 +388,7 @@ function Set-CMSiteBoundaryGroups {
     Write-Output $result
 }
 
-function Set-Boundaries {
+function Set-CmxBoundaries {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -444,38 +459,232 @@ function Set-Boundaries {
     Write-Output $result
 }
 
-function Set-CMSiteServerRoles {
+function Set-CmxSiteServerRoles {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)] $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site System Roles" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function: set-cmsiteserverroles"
+    Write-Log -Category "info" -Message "function: Set-CmxSiteServerRoles"
     $result = $True
     $Time1  = Get-Date
-    foreach ($siterole in $DataSet.configuration.cmsite.sitesystemroles | Where-Object {$_.enabled -eq 'true'}) {
+    foreach ($siterole in $DataSet.configuration.cmsite.sitesystemroles.sitesystemrole | Where-Object {$_.enabled -eq 'true'}) {
         $roleName = $siterole.name
-        Write-Log -Category "info" -Message "configuring site system role: $roleName"
+        $roleComm = $siterole.comment
+        Write-Log -Category "info" -Message "configuring site system role: $roleComm [$roleName]"
         switch ($RoleName) {
             'aisp' {
                 try {
-                    $x = Set-CMAssetIntelligenceSynchronizationPoint -Enable $True -EnableSynchronization $True -PassThru
-                    if ($x) { Set-CMSiteAIClasses -DataSet $DataSet }
+                    Set-CMAssetIntelligenceSynchronizationPoint -Enable $True -EnableSynchronization $True -ErrorAction SilentlyContinue
+                    Write-Log -Category "info" -Message "asset intelligence sync point is now enabled"
+                    $x = $True
                 }
-                catch { Write.Error $_ }
+                catch {
+                    try {
+                        $x = Get-CMAssetIntelligenceSynchronizationPoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -ErrorAction SilentlyContinue
+                        Write-Log -Category "info" -Message "asset intelligence sync point was already enabled"
+                        $ExistingDP = $True
+                    }
+                    catch {
+                        Write-Log -Category error -Message $_.Exception.Message
+                    }
+                }
+                if ($x) {
+                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                        switch ($roleopt.name) {
+                            'EnableAllReportingClass' {
+                                Write-Log -Category info -Message "enabling all reporting classes"
+                                Set-CMAssetIntelligenceClass -EnableAllReportingClass | Out-Null
+                                break
+                            }
+                        } # switch
+                    } # foreach
+                }
+                else {
+                    Write-Log -Category "error" -Message "failed to configure asset intelligence sync point!"
+                }
                 break
             }
-            # ---------------- 
-            # next rolename...
-            # ----------------
+            'dp' {
+                try {
+                    $dp = Get-CMDistributionPoint -SiteSystemServerName "$hostname" -ErrorAction SilentlyContinue
+                    Write-Log -Category "info" -Message "$hostname is already a distribution point"
+                }
+                catch {
+                    Write-Log -Category "info" -Message "$hostname is not a distribution point"
+                    $dp = Add-CMDistributionPoint -SiteSystemServerName "$hostname"
+                }
+                if ($dp) {
+                    $code = "Set-CMDistributionPoint `-SiteCode `"$sitecode`" `-SiteSystemServerName `"$hostname`""
+                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                        $param = $roleopt.params
+                        if ($param -eq '@') {
+                            $param = "`-$($roleopt.name)"
+                        }
+                        elseif ($param -eq 'true') {
+                            $param = "`-$($roleopt.name) `$True"
+                        }
+                        elseif ($param -eq 'false') {
+                            $param = "`-$($roleopt.name) `$False"
+                        }
+                        elseif ($roleopt.name -like "*password*") {
+                            $param = "`-$($roleopt.name) `$(ConvertTo-SecureString -String `"$param`" -AsPlainText -Force)"
+                        }
+                        else {
+                            $param = "`-$($roleopt.name) `"$($roleopt.params)`""
+                        }
+                        $code += " $param"
+                        Write-Log -Category "info" -Message "dp option >> $param"
+                    } # foreach
+                    Write-Log -Category "info" -Message "command >> $code"
+                    try {
+                        Invoke-Expression -Command $code -ErrorAction Stop
+                        Write-Log -Category info -Message "expression has been applied successfully"
+                    }
+                    catch {
+                        Write-Log -Category error -Message $_.Exception.Message
+                    }
+                }
+                break
+            }
+            'sup' {
+                # pending
+                break
+            }
+            'scp' {
+                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                    switch ($roleopt.name) {
+                        'Mode' {
+                            Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
+                            Set-CMServiceConnectionPoint -SiteCode P01 -SiteSystemServerName "$HostName" -Mode $roleopt.params
+                            break
+                        }
+                    } # switch
+                } # foreach
+                break
+            }
+            'mp' {
+                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                    switch ($roleopt.name) {
+                        'PublicFqdn' {
+                            Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
+                            Set-CMSiteSystemServer -SiteCode $sitecode -SiteSystemServerName "$HostName" -PublicFqdn "$($roleopt.params)"
+                            break
+                        }
+                        'FdmOperation' {
+                            Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
+                            if ($roleopt.params -eq 'FALSE') {
+                                Set-CMSiteSystemServer -SiteCode $sitecode -SiteSystemServerName "$HostName" -FdmOperation $False
+                            }
+                            else {
+                                Set-CMSiteSystemServer -SiteCode $sitecode -SiteSystemServerName "$HostName" -FdmOperation $True
+                            }
+                            break
+                        }
+                        'AccountName' {
+                            Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
+                            if ($roleopt.params -eq 'NULL') {
+                                Set-CMSiteSystemServer -SiteCode $sitecode -SiteSystemServerName "$HostName" -AccountName $null
+                            }
+                            else {
+                                Set-CMSiteSystemServer -SiteCode $sitecode -SiteSystemServerName "$HostName" -AccountName "$($roleopt.params)"
+                            }
+                            break
+                        }
+                        'EnableProxy' {
+                            Set-CMSiteSystemServer -SiteCode $sitecode -EnableProxy $True
+                            # ProxyAccessAccount=NAME,ProxyServerName=NAME,ProxyServerPort=INT
+                            $params = $roleopt.params
+                            if ($params.length -gt 0) {
+                                foreach ($param in $roleopt.params.split(',')) {
+                                    $pset = $param.split('=')
+                                    Write-Log -Category info -Message "setting $($pset[0]) = $($pset[1])"
+                                    switch ($pset[0]) {
+                                        'ProxyAccessAccount' {
+                                            Set-CMSiteSystemServer -SiteCode $sitecode -ProxyAccessAccount "$($pset[1])"
+                                            break
+                                        }
+                                        'ProxyServerName' {
+                                            Set-CMSiteSystemServer -SiteCode $sitecode -ProxyServerName "$($pset[1])"
+                                            break
+                                        }
+                                        'ProxyServerPort' {
+                                            Set-CMSiteSystemServer -SiteCode $sitecode -ProxyServerPort $pset[1]
+                                            break
+                                        }
+                                    } # switch
+                                } # foreach
+                            }
+                            else {
+                                Write-Log -Category "warning" -Message "EnableProxy parameters list is empty"
+                            }
+                            break
+                        }
+                    } #switch
+                } # foreach
+                break
+            }
+            'ssrp' {
+                # sql server reporting services point
+                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                    Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
+                    switch ($roleopt.name) {
+                        'DatabaseServerName' {
+                            $dbserver = $roleopt.params
+                            break
+                        }
+                        'DatabaseName' {
+                            $dbname = $roleopt.params
+                            break
+                        }
+                        'UserName' {
+                            $dbuser = $roleopt.params
+                            break
+                        }
+                        'FolderName' {
+                            $foldername = $roleopt.params
+                            break
+                        }
+                    } # switch
+                } # foreach
+                if ($dbserver -and $dbname -and $dbuser) {
+                    try {
+                        Add-CMReportingServicePoint -SiteCode "$sitecode" -SiteSystemServerName "$HostName" -DatabaseServerName "$dbserver" -DatabaseName "$dbname" -UserName "$dbuser" | Out-Null
+                        Write-Log -Category info -Message "reporting services point has been configured"
+                    }
+                    catch {
+                        Write-Log -Category error -Message $_.Exception.Message
+                    }
+                }
+                break
+            }
+            'cmg' {
+                # cloud management gateway
+                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                    switch ($roleopt.name) {
+                        'CloudManagementGatewayName' {
+                            try {
+                                Add-CMCloudManagementGatewayConnectionPoint -CloudManagementGatewayName "$($roleopt.params)" -SiteSystemServerName "$HostName" -SiteCode "$sitecode" | Out-Null
+                                Write-Log -Category info -Message "cloud management gateway has been configured"
+                            }
+                            catch {
+                                Write-Log -Category error -Message $_.Exception.Message
+                            }
+                            break
+                        }
+                    } # switch
+                } # foreach
+                break
+            }
         } # switch
+        Write-Log -Category info -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
-function Import-CMSiteClientSettings {
+function Import-CmxClientSettings {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -645,7 +854,7 @@ function Set-CMSiteAIClasses {
                             Write-Log -Category "error" -Message "failed to set option: $rClass"
                             $result = $False
                         }
-                    }
+                    } # foreach
                     break
                 }
             } # switch
@@ -686,7 +895,7 @@ function Set-CMSiteConfigFolders {
     Write-Output $result
 }
 
-function Import-CMSiteQueries {
+function Import-CmxQueries {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -695,7 +904,7 @@ function Import-CMSiteQueries {
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Importing custom Queries" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function Import-CMSiteQueries"
+    Write-Log -Category "info" -Message "function Import-CmxQueries"
     $result = $True
     $Time1  = Get-Date
     foreach ($query in $DataSet.configuration.cmsite.queries.query) {
@@ -719,7 +928,7 @@ function Import-CMSiteQueries {
     Write-Output $result
 }
 
-function Import-CMSiteOSImages {
+function Import-CmxOSImages {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -728,7 +937,7 @@ function Import-CMSiteOSImages {
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Importing OS images" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function: import-cmsiteosimages"
+    Write-Log -Category "info" -Message "function: Import-CmxOSImages"
     $result = $True
     $Time1  = Get-Date
     foreach ($image in $DataSet.configuration.cmsite.osimages.osimage) {
@@ -761,7 +970,7 @@ function Import-CMSiteOSImages {
     Write-Output $result
 }
 
-function Import-CMSiteOSInstallers {
+function Import-CmxOSInstallers {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -770,7 +979,7 @@ function Import-CMSiteOSInstallers {
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Importing OS upgrade installers" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function: import-CMSiteOSInstallers"
+    Write-Log -Category "info" -Message "function: Import-CmxOSInstallers"
     $result = $True
     $Time1  = Get-Date
     foreach ($inst in $DataSet.configuration.cmsite.osinstallers.osinstaller) {
@@ -804,14 +1013,14 @@ function Import-CMSiteOSInstallers {
     Write-Output $result
 }
 
-function Import-CMSiteCollections {
+function Import-CmxCollections {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
         $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function: import-CMSiteCollections"
+    Write-Log -Category "info" -Message "function: Import-CmxCollections"
     $result = $True
     $Time1  = Get-Date
     foreach ($collection in $DataSet.configuration.cmsite.collections.collection) {
@@ -856,7 +1065,7 @@ function Import-CMSiteCollections {
     Write-Output $result
 }
 
-function Set-CMSiteMaintenanceTasks {
+function Import-CmxMaintenanceTasks {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -864,7 +1073,7 @@ function Set-CMSiteMaintenanceTasks {
     )
     Write-Host "Configuring site maintenance tasks" -ForegroundColor Green
     Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function set-CMSiteMaintenanceTasks"
+    Write-Log -Category "info" -Message "function Import-CmxMaintenanceTasks"
     $result = $true
     $Time1  = Get-Date
     foreach ($mtask in $DataSet.configuration.cmsite.mtasks.mtask) {
@@ -901,7 +1110,7 @@ function Set-CMSiteMaintenanceTasks {
     Write-Output $result
 }
 
-function Import-CMSiteAppCategories {
+function Import-CmxAppCategories {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -931,7 +1140,7 @@ function Import-CMSiteAppCategories {
     Write-Output $result
 }
 
-function Import-CMSiteApplications {
+function Import-CmxApplications {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
@@ -940,7 +1149,7 @@ function Import-CMSiteApplications {
     )
     Write-Host "Importing applications" -ForegroundColor Green
     Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function Import-CMSiteApplications"
+    Write-Log -Category "info" -Message "function Import-CmxApplications"
     $result = $true
     $Time1  = Get-Date
     $PSDefaultParameterValues =@{"get-cimclass:namespace"="Root\SMS\site_$sitecode";"get-cimclass:computername"="$hostname";"get-cimInstance:computername"="$hostname";"get-ciminstance:namespace"="Root\SMS\site_$sitecode"}
@@ -1149,7 +1358,7 @@ catch {}
     Write-Output $result
 }
 
-function Set-CMSiteAccounts {
+function Import-CmxAccounts {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -1157,7 +1366,7 @@ function Set-CMSiteAccounts {
     )
     Write-Host "Configuring accounts" -ForegroundColor Green
     Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function set-CMSiteAccounts"
+    Write-Log -Category "info" -Message "function Import-CmxAccounts"
     $result = $true
     $time1  = Get-Date
     foreach ($acct in $DataSet.configuration.cmsite.accounts.account | Where-Object {$_.enabled -eq 'true'}) {
@@ -1186,7 +1395,7 @@ function Set-CMSiteAccounts {
     Write-Output $result
 }
 
-function Import-CMSiteDPGroups {
+function Import-CmxDPGroups {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -1239,7 +1448,7 @@ if ($sitecode -eq "") {
     Write-Warning "site code could not be obtained"
     break
 }
-if (-not (Get-CMModule)) {
+if (-not (Import-CmxModule)) {
     Write-Warning "failed to load ConfigurationManager powershell module"
     break
 }
@@ -1260,37 +1469,38 @@ else {
 
 foreach ($control in $controlset) {
     $controlCode = $control.name
+    Write-Log -Category info -Message "processing control code group: $controlCode"
     switch ($controlCode) {
         'ACCOUNTS' {
-            Set-CMSiteAccounts -DataSet $xmldata | Out-Null
+            Import-CmxAccounts -DataSet $xmldata | Out-Null
             break
         }
         'ADFOREST' {
-            Set-CMSiteADForest -DataSet $xmldata | Out-Null
+            Set-CmxADForest -DataSet $xmldata | Out-Null
             break
         }
         'DISCOVERY' {
-            Set-CMSiteDiscoveryMethods -DataSet $xmldata | Out-Null
+            Import-CmxDiscoveryMethods -DataSet $xmldata | Out-Null
+            Invoke-CMForestDiscovery -SiteCode $sitecode | Out-Null
             #Invoke-CMSystemDiscovery
             break
         }
         'BOUNDARYGROUPS' {
-            Set-CMSiteBoundaryGroups -DataSet $xmldata | Out-Null
+            Import-CmxBoundaryGroups -DataSet $xmldata | Out-Null
             break
         }
         'BOUNDARIES' {
             if ((-not($AutoBoundaries)) -or ($ForceBoundaries)) {
-                Set-Boundaries -DataSet $xmldata | Out-Null
+                Set-CmxBoundaries -DataSet $xmldata | Out-Null
             }
             break
         }
         'SITEROLES' {
-            Set-CMSiteServerRoles -DataSet $xmldata | Out-Null
-            Set-CMSiteAIClasses -DataSet $xmldata | Out-Null
+            Set-CmxSiteServerRoles -DataSet $xmldata | Out-Null
             break
         }
         'CLIENTSETTINGS' {
-            Import-CMSiteClientSettings -DataSet $xmldata | Out-Null
+            Import-CmxClientSettings -DataSet $xmldata | Out-Null
             break
         }
         'CLIENTINSTALL' {
@@ -1306,11 +1516,11 @@ foreach ($control in $controlset) {
             break
         }
         'DPGROUPS' {
-            Import-CMSiteDPGroups -DataSet $xmldata | Out-Null
+            Import-CmxDPGroups -DataSet $xmldata | Out-Null
             break
         }
         'QUERIES' {
-            if (Import-CMSiteQueries -DataSet $xmldata) {
+            if (Import-CmxQueries -DataSet $xmldata) {
                 Write-Host "Custom Queries have been created" -ForegroundColor Green
             }
             else {
@@ -1319,27 +1529,27 @@ foreach ($control in $controlset) {
             break
         }
         'COLLECTIONS' {
-            Import-CMSiteCollections -DataSet $xmldata | Out-Null
+            Import-CmxCollections -DataSet $xmldata | Out-Null
             break
         }
         'OSIMAGES' {
-            Import-CMSiteOSImages -DataSet $xmldata | Out-Null
+            Import-CmxOSImages -DataSet $xmldata | Out-Null
             break
         }
         'OSINSTALLERS' {
-            Import-CMSiteOSInstallers -DataSet $xmldata | Out-Null
+            Import-CmxOSInstallers -DataSet $xmldata | Out-Null
             break
         }
         'MTASKS' {
-            Set-CMSiteMaintenanceTasks -DataSet $xmldata | Out-Null
+            Import-CmxMaintenanceTasks -DataSet $xmldata | Out-Null
             break
         }
         'APPCATEGORIES' {
-            Import-CMSiteAppCategories -DataSet $xmldata | Out-Null
+            Import-CmxAppCategories -DataSet $xmldata | Out-Null
             break
         }
         'APPLICATIONS' {
-            Import-CMSiteApplications -DataSet $xmldata | Out-Null
+            Import-CmxApplications -DataSet $xmldata | Out-Null
             break
         }
     }
