@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.17 - DS - 2017.09.01
+    1.2.19 - DS - 2017.09.02
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -42,7 +42,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.17'
+$ScriptVersion = '1.2.19'
 $ScriptPath    = Get-ScriptDirectory
 $LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
@@ -385,6 +385,7 @@ function Import-CmxBoundaryGroups {
             }
         } # if
     } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -684,6 +685,45 @@ function Set-CmxSiteServerRoles {
     Write-Output $result
 }
 
+function Import-CmxServerSettings {
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Host "Configuring Server Settings" -ForegroundColor Green
+    $result = $True
+    $Time1  = Get-Date
+    foreach ($setting in $DataSet.configuration.cmsite.serversettings.serversetting | Where-Object {$_.use -eq "1"}) {
+        $setName = $setting.name
+        $setComm = $setting.comment
+        $setKey  = $setting.key
+        $setVal  = $setting.value
+        switch ($setName) {
+            'CMSoftwareDistributionComponent' {
+                Write-Log -Category info -Message "setting name: $setName"
+                switch ($setKey) {
+                    'NetworkAccessAccountName' {
+                        Write-Log -Category info -Message "setting $setKey == $setVal"
+                        try {
+                            Set-CMSoftwareDistributionComponent -SiteCode "$sitecode" -NetworkAccessAccountName "$setVal"
+                        }
+                        catch {
+                            Write-Log -Category error -Message $_.Exception.Message
+                            $result = $False
+                        }
+                        break
+                    }
+                } # switch
+                break
+            }
+        } # switch
+    } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Output $result
+}
+
 function Import-CmxClientSettings {
     [CmdletBinding()]
     param (
@@ -818,7 +858,7 @@ function Import-CmxClientSettings {
     Write-Output $result
 }
 
-function Set-CMSiteAIClasses {
+function NOT-USED-ANYMORE {
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
@@ -1473,6 +1513,10 @@ foreach ($control in $controlset) {
     switch ($controlCode) {
         'ACCOUNTS' {
             Import-CmxAccounts -DataSet $xmldata | Out-Null
+            break
+        }
+        'SERVERSETTINGS' {
+            Import-CmxServerSettings -DataSet $xmldata | Out-Null
             break
         }
         'ADFOREST' {
