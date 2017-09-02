@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.02 - DS - 2017-08-31 -->
+<!-- Version 1.2.18 - DS - 2017-09-02 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
@@ -22,13 +22,14 @@
             <ci name="APPLICATIONS" enabled="true" />
         </control>
         <schedules>
+            <!-- still working on this one -->
             <schedule name="sch15min" unit="minutes" value="15" />
             <schedule name="schDaily" unit="days" value="1" />
             <schedule name="schWeekly" unit="days" value="7" />
         </schedules>
         <discoveries comment="https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/set-cmdiscoverymethod">
-            <discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="" />
-            <!--<discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />-->
+            <discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />
+            <!--<discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableActiveDirectorySiteBoundaryCreation" />-->
             <discovery enabled="true" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
             <discovery enabled="true" name="ActiveDirectoryGroupDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15" />
             <discovery enabled="true" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
@@ -38,15 +39,19 @@
         <boundarygroups comment="Configure Boundary Groups">
             <boundarygroup name="NA-US-VA-Norfolk" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Norfolk" />
             <boundarygroup name="NA-US-VA-VB" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
-            <boundarygroup name="NA-US-CA-Fremont" SiteSystemServer="" LinkType="" comment="Fremont" />
-            <boundarygroup name="NA-US-NY-NewYork" SiteSystemServer="" LinkType="" comment="New York" />
+            <boundarygroup name="NA-US-CA-Fremont" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Fremont" />
+            <boundarygroup name="NA-US-NY-NewYork" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="New York" />
         </boundarygroups>
         <boundaries comment="Configure Site Boundaries if not set to AD discovery-automatic">
             <boundary name="NA-US-VA-Norfolk-Servers" type="IPRange" value="192.168.0.10-192.168.0.99" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
             <boundary name="NA-US-VA-Norfolk-Workstations" type="IPRange" value="192.168.0.100-192.168.0.150" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
             <boundary name="NA-US-NY-NewYork-Servers" type="IPRange" value="192.168.2.10-192.168.2.99" boundarygroup="NA-US-NY-NewYork" comment="New York" />
         </boundaries>
+        <boundaryassignments comment="">
+            <boundaryassignment name="" boundaryname="" boundarygroup="" comment="" />
+        </boundaryassignments>
         <clientoptions comment="Configure Default Client Push Installation settings">
+            <!-- still working on this one -->
             <CMClientPushInstallation EnableAutomaticClientPushInstallation="false" EnableSystemTypeConfiguationManager="false" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
         </clientoptions>
         <clientsettings comment="Client Settings">
@@ -64,13 +69,12 @@
                     <setting name="SoftwareUpdates" enabled="false" />
                 </settings>
             </clientsetting>
-                <settings>
-                    <setting name="HardwareInventory" enabled="false" />
-                    <setting name="RemoteTools" enabled="false" />
-                    <setting name="SoftwareInventory" enabled="false" />
-                </settings>
-            <clientsetting name="Servers" comment="Server Client Settings" type="Device" priority="2">
-            </clientsetting>
+            <settings>
+                <setting name="HardwareInventory" enabled="false" />
+                <setting name="RemoteTools" enabled="false" />
+                <setting name="SoftwareInventory" enabled="false" />
+            </settings>
+            <clientsetting name="Servers" comment="Server Client Settings" type="Device" priority="2"></clientsetting>
         </clientsettings>
         <dpgroups comment="Distribution Point Groups">
             <dpgroup name="All Distribution Points" enabled="true" comment="All DP servers throughout the organization" />
@@ -81,8 +85,64 @@
         <sitesystemroles>
             <sitesystemrole name="aisp" enabled="true" comment="Asset Intelligence Synchronization Point">
                 <roleoptions comment="Configure Asset Intelligence Classes">
-                    <roleoption name="EnableAllReportingClass" params="" />
-                    <!-- <roleoption name="EnableReportingClass" params="" /> -->
+                    <roleoption use="1" name="EnableAllReportingClass" params="" />
+                    <roleoption use="0" name="EnableReportingClass" params="SMS_BrowserHelperObject" />
+                    <roleoption use="0" name="EnableReportingClass" params="SMS_InstalledExecutable" />
+                    <roleoption use="0" name="EnableReportingClass" params="SMS_InstalledSoftware" />
+                    <roleoption use="0" name="EnableReportingClass" params="SMS_SoftwareShortcut" />
+                    <roleoption use="0" name="EnableReportingClass" params="SMS_SoftwareTag" />
+                    <roleoption use="0" name="EnableReportingClass" params="SMS_SystemConsoleUsage" />
+                    <roleoption use="0" name="EnableReportingClass" params="SMS_SystemConsoleUser" />
+                    <roleoption use="0" name="EnableReportingClass" params="SoftwareLicensingProduct" />
+                    <roleoption use="0" name="EnableReportingClass" params="SoftwareLicensingService" />"
+                    <roleoption use="0" name="EnableReportingClass" params="Win32_USBDevice" />
+                </roleoptions>
+            </sitesystemrole>
+            <sitesystemrole name="scp" enabled="true" comment="Service Connection Point">
+                <roleoptions comment="">
+                    <roleoption use="1" name="Mode" params="Online" />
+                </roleoptions>
+            </sitesystemrole>
+            <sitesystemrole name="mp" enabled="true" comment="Management Point">
+                <roleoptions comment="">
+                    <roleoption use="1" name="PublicFqdn" params="cm02.contoso.com" />
+                    <roleoption use="1" name="FdmOperation" params="False" />
+                    <roleoption use="1" name="AccountName" params="NULL" />
+                    <roleoption use="0" name="EnableProxy" params="ProxyAccessAccount=NAME,ProxyServerName=NAME,ProxyServerPort=INT" />
+                </roleoptions>
+            </sitesystemrole>
+            <sitesystemrole name="ssrp" enabled="true" comment="Reporting Services Point">
+                <roleoptions comment="">
+                    <roleoption use="1" name="DatabaseServerName" params="cm02.contoso.com" />
+                    <roleoption use="1" name="DatabaseName" params="CM_P01" />
+                    <roleoption use="1" name="UserName" params="CONTOSO\svc-sql" />
+                    <roleoption use="0" name="FolderName" params="" />
+                    <roleoption use="0" name="ReportServerInstance" params="" />
+                </roleoptions>
+            </sitesystemrole>
+            <sitesystemrole name="cmg" enabled="false" comment="Cloud Management Gateway">
+                <roleoptions comment="">
+                    <roleoption use="1" name="CloudManagementGatewayName" params="" />
+                </roleoptions>
+            </sitesystemrole>
+            <sitesystemrole name="dp" enabled="true" comment="Distribution Point">
+                <roleoptions comment="">
+                    <roleoption use="1" name="Description" params="Distribution Point 1" />
+                    <roleoption use="1" name="ClientCommunicationType" params="http" />
+                    <roleoption use="1" name="ClientConnectionType" params="InternetAndIntranet" />
+                    <roleoption use="1" name="ContentMonitoringPriority" params="Highest" />
+                    <roleoption use="1" name="EnableAnonymous" params="True" />
+                    <roleoption use="1" name="EnableContentValidation" params="True" />
+                    <roleoption use="1" name="EnableUnknownComputerSupport" params="True" />
+                    <roleoption use="1" name="EnablePxe" params="True" />
+                    <roleoption use="1" name="AllowPxeResponse" params="True" />
+                    <roleoption use="1" name="PxePassword" params="123" />
+                </roleoptions>
+            </sitesystemrole>
+            <sitesystemrole name="sup" enabled="false" comment="Software Update Point">
+                <!-- still working on this one -->
+                <roleoptions comment="">
+                    <roleoption use="0" name="" params="" />
                 </roleoptions>
             </sitesystemrole>
         </sitesystemroles>
@@ -105,27 +165,7 @@
             <folder name="Google" path="Application" comment="" />
             <folder name="Microsoft" path="Application" comment="" />
             <folder name="Utilities" path="Application" comment="" />
-            <!--
-            Valid Folder Paths...
-            Application
-            BootImage
-            ConfigurationBaseline
-            ConfigurationItem
-            DeviceCollection
-            Driver
-            DriverPackage
-            OperatingSystemImage
-            OperatingSystemInstaller
-            Package
-            Query
-            SmsProvider
-            SoftwareMetering
-            SoftwareUpdate
-            TaskSequence
-            UserCollection
-            UserStateMigration
-            VirtualHardDisk
-            -->
+            <folder name="Tools" path="Application\Utilities" comment="" />
         </folders>
         <queries comment="Custom queries">
             <query name="Contoso - Serial, MAC and Hostname" comment="Serial Number, MAC address and Hostname for all Devices" class="SMS_R_System" expression="select distinct SMS_R_System.Name, SMS_G_System_SYSTEM_ENCLOSURE.SerialNumber, SMS_G_System_NETWORK_ADAPTER.MACAddress, SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.IPEnabled from  SMS_R_System inner join SMS_G_System_SYSTEM_ENCLOSURE on SMS_G_System_SYSTEM_ENCLOSURE.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_NETWORK_ADAPTER on SMS_G_System_NETWORK_ADAPTER.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_NETWORK_ADAPTER_CONFIGURATION on SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.ResourceID = SMS_R_System.ResourceId where SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.IPEnabled = 1 and SMS_G_System_NETWORK_ADAPTER.MACAddress not like '' order by SMS_R_System.Name" />
@@ -159,7 +199,7 @@
             <collection name="Clients - Workstations - HP" type="Device" comment="HP workstation clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Hewlett-Packard' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
             <collection name="Clients - Workstations - Lenovo" type="Device" comment="Lenovo workstation clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Lenovo' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
         </collections>
-        <appcategories comment="">
+        <appcategories comment="Application Categories">
             <appcategory name="IT" enabled="true" comment="" />
             <appcategory name="Developer" enabled="true" comment="" />
             <appcategory name="Engineering" enabled="true" comment="" />
@@ -195,15 +235,8 @@
                     <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\vlc_player\vlc-2.2.6-win32.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="32-bit installer" />
                 </deptypes>
             </application>
-            <!--
-            <application name="" enabled="true" publisher="" version="" categories="" comment="" folder="" keywords="">
-                <deptypes comment="Deployment Types">
-                    <deptype name="" platform="[32/64]" source="" options="[auto/other..]" comment="" />
-                </deptypes>
-            </application>
-            -->
         </applications>
-        <mtasks comment="">
+        <mtasks comment="Site Maintenance Tasks">
             <mtask name="Backup SMS Site Server" enabled="false" options="F:\BACKUPS" />
             <mtask name="Rebuild Indexes" enabled="false" options="" />
             <mtask name="Monitor Keys" enabled="true" options="" />
@@ -249,8 +282,10 @@
             <mtask name="Delete Aged Console Connection Data" enabled="true" options="" />
             <mtask name="Delete Aged Cloud Management Gateway Traffic Data" enabled="true" options="" />
         </mtasks>
-        <accounts comment="">
+        <accounts comment="Site System Accounts">
             <account name="CONTOSO\cm-clientinstall" enabled="true" password="P@ssW0rd!" comment="For client push installations in general" />
+            <account name="CONTOSO\cm-naa" enabled="true" password="P@ssW0rd!" comment="Network Access Account" />
+            <account name="CONTOSO\svc-sql" enabled="true" password="P@ssW0rd!" comment="SQL Server service account" />
         </accounts>
     </cmsite>
 </configuration>
