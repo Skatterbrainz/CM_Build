@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.19 - DS - 2017-09-02 -->
+<!-- Version 1.2.20 - DS - 2017-09-02 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
@@ -30,6 +30,7 @@
         </schedules>
         <discoveries comment="https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/set-cmdiscoverymethod">
             <discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />
+            <!--<discovery enabled="true" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableActiveDirectorySiteBoundaryCreation" />-->
             <discovery enabled="true" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
             <discovery enabled="true" name="ActiveDirectoryGroupDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15" />
             <discovery enabled="true" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
@@ -112,6 +113,7 @@
                     <roleoption use="1" name="FdmOperation" params="False" />
                     <roleoption use="1" name="AccountName" params="NULL" />
                     <roleoption use="0" name="EnableProxy" params="ProxyAccessAccount=NAME,ProxyServerName=NAME,ProxyServerPort=INT" />
+                    <roleoption use="1" name="PublishDNS" params="True" />
                 </roleoptions>
             </sitesystemrole>
             <sitesystemrole name="ssrp" enabled="true" comment="Reporting Services Point">
@@ -142,11 +144,18 @@
                     <roleoption use="1" name="PxePassword" params="123" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="sup" enabled="false" comment="Software Update Point">
-                <!-- still working on this one -->
+            <sitesystemrole name="sup" enabled="true" comment="Software Update Point">
                 <roleoptions comment="">
-                    <roleoption use="0" name="" params="" />
+                    <roleoption use="1" name="HttpPort" params="8530" />
+                    <roleoption use="1" name="HttpsPort" params="8531" />
+                    <roleoption use="1" name="ClientConnectionType" params="InternetAndIntranet" />
+                    <roleoption use="1" name="WsusAccessAccount" params="NULL" />
                 </roleoptions>
+                <features comment="">
+                    <feature name="SynchronizeAction" params="SynchronizeFromMicrosoftUpdate" />
+                    <feature name="AddUpdateClassifications" params="Definition Updates,Critical Updates,Updates" />
+                    <feature name="AddProducts" params=""Windows Server Manager - Windows Server Update Services (WSUS) Dynamic Installer" />
+                </features>
             </sitesystemrole>
         </sitesystemroles>
         <folders comment="Console Folders to create">
