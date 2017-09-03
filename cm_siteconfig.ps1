@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.21 - DS - 2017.09.02
+    1.2.22 - DS - 2017.09.02
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.21'
+$ScriptVersion = '1.2.22'
 $ScriptPath    = Get-ScriptDirectory
 $LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
@@ -564,34 +564,41 @@ function Set-CmxSiteServerRoles {
                     }
                     catch {
                         Write-Log -Category error -Message $_.Exception.Message
+                        $result = $False
                     }
                 }
                 break
             }
             'sup' {
-                $code = "Add-CMSoftwareUpdatePoint `-SiteSystemServerName `"$hostname`" `-SiteCode `"$sitecode`""
-                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
-                    $optname = $roleopt.name
-                    $params  = $roleopt.params
-                    if ($optName -eq 'WsusAccessAccount') {
-                        if ($params -eq 'NULL') {
-                            $code += " `-WsusAccessAccount `$null"
+                if (Get-CMSoftwareUpdatePoint) {
+                    Write-Log -Category info -Message "software update point has already been configured"
+                }
+                else {
+                    $code = "Add-CMSoftwareUpdatePoint `-SiteSystemServerName `"$hostname`" `-SiteCode `"$sitecode`""
+                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                        $optname = $roleopt.name
+                        $params  = $roleopt.params
+                        if ($optName -eq 'WsusAccessAccount') {
+                            if ($params -eq 'NULL') {
+                                $code += " `-WsusAccessAccount `$null"
+                            }
+                            else {
+                                $code += "` -WsusAccessAccount `"$params`""
+                            }
                         }
                         else {
-                            $code += "` -WsusAccessAccount `"$params`""
+                            $code += " `-$optName $params"
                         }
+                    } # foreach
+                    Write-Log -Category "info" -Message "command >> $code"
+                    try {
+                        Invoke-Expression -Command $code -ErrorAction Stop
+                        Write-Log -Category info -Message "expression has been applied successfully"
                     }
-                    else {
-                        $code += " `-$optName $params"
+                    catch {
+                        Write-Log -Category error -Message $_.Exception.Message
+                        $result = $False
                     }
-                } # foreach
-                Write-Log -Category "info" -Message "command >> $code"
-                try {
-                    Invoke-Expression -Command $code -ErrorAction Stop
-                    Write-Log -Category info -Message "expression has been applied successfully"
-                }
-                catch {
-                    Write-Log -Category error -Message $_.Exception.Message
                 }
                 break
             }
@@ -674,6 +681,7 @@ function Set-CmxSiteServerRoles {
                                     Write-Log -Category error -Message $_.Exception.Message
                                 }
                             }
+                            catch {}
                             break
                         }
                     } #switch
@@ -715,6 +723,7 @@ function Set-CmxSiteServerRoles {
                         else {
                             Write-Log -Category error -Message "your code just blew chunks. what a mess."
                             Write-Log -Category error -Message $_.Exception.Message
+                            $result = $False
                         }
                     }
                 }
@@ -736,6 +745,85 @@ function Set-CmxSiteServerRoles {
                         }
                     } # switch
                 } # foreach
+                break
+            }
+            'acwsp' {
+                if (Get-CMApplicationCatalogWebServicePoint) {
+                    Write-Log -Category info -Message "application web catalog service point role is already configured"
+                }
+                else {
+                    try {
+                        Add-CMApplicationCatalogWebServicePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" | Out-Null
+                        Write-Log -Category info -Message "application web catalog service point role added successfully"
+                    }
+                    catch {
+                        Write-Log -Category error -Message $_.Exception.Message
+                        $result = $False
+                    }
+                }
+                break
+            }
+            'acwp' {
+                try {
+                    Add-CMApplicationCatalogWebsitePoint -SiteSystemServerName "$hostname" -ApplicationWebServicePointServerName "$hostname" | Out-Null
+                    Write-Log -Category info -Message "application website point role added successfully"
+                    $go = $True
+                }
+                catch {
+                    if (Get-CMApplicationCatalogWebsitePoint) {
+                        $go = $True
+                    }
+                    else {
+                        Write-Log -Category error -Message $_.Exception.Message
+                        $go = $False
+                        $result = $False
+                    }
+                }
+                if ($go) {
+                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                        $optName = $roleopt.name
+                        $optData = $roleopt.params
+                        Write-Log -Category info -Message "setting: $optName == $optData"
+                        switch ($optName) {
+                            'CommuncationType' {
+                                try {
+                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -CommunicationType $optData | Out-Null
+                                }
+                                catch {
+                                    Write-Log -Category error -Message "failed to apply setting!"
+                                }
+                                break
+                            }
+                            'ClientConnectionType' {
+                                try {
+                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -ClientConnectionType $optData | Out-Null
+                                }
+                                catch {
+                                    Write-Log -Category error -Message "failed to apply setting!"
+                                }
+                                break
+                            }
+                            'OrganizationName' {
+                                try {
+                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -OrganizationName "$optData" | Out-Null
+                                }
+                                catch {
+                                    Write-Log -Category error -Message "failed to apply setting!"
+                                }
+                                break
+                            }
+                            'ThemeColor' {
+                                try {
+                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -Color $optData | Out-Null
+                                }
+                                catch {
+                                    Write-Log -Category error -Message "failed to apply setting!"
+                                }
+                                break
+                            }
+                        } # switch
+                    } # foreach
+                }
                 break
             }
         } # switch
@@ -915,53 +1003,6 @@ function Import-CmxClientSettings {
         } # foreach
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset -StartTime $Time1)"
-    Write-Output $result
-}
-
-function NOT-USED-ANYMORE {
-    [CmdletBinding()]
-    param (
-        [parameter(Mandatory=$True)]
-        $DataSet
-    )
-    Write-Host "Configuring Asset Intelligence classes" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function: Set-CMSiteAIClasses"
-    $result = $True
-    $Time1  = Get-Date
-    foreach ($srole in $DataSet.configuration.cmsite.sitesystemroles.sitesystemrole | Where-Object {$_.name -eq 'aisp'}) {
-        foreach ($roleopt in $srole.roleoptions.roleoption) {
-            $optName = $roleopt.name
-            switch ($optName) {
-                'EnableAllReportingClass' {
-                    try {
-                        Set-CMAssetIntelligenceClass -EnableAllReportingClass | Out-Null
-                        Write-Log -Category "info" -Message "set option: $optName"
-                    }
-                    catch {
-                        Write-Log -Category "error" -Message "failed to set option: $optName"
-                        $Result = $False
-                    }
-                    break
-                }
-                'EnableReportingClass' {
-                    foreach ($rclass in $optData.Split(",")) {
-                        try {
-                            Set-CMAssetIntelligenceClass -EnableReportingClass $rClass | Out-Null
-                            Write-Log -Category "info" -Message "set option: $rClass"
-                        }
-                        catch {
-                            Write-Log -Category "error" -Message "failed to set option: $rClass"
-                            $result = $False
-                        }
-                    } # foreach
-                    break
-                }
-            } # switch
-        } # foreach
-        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-    } # foreach
-    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
