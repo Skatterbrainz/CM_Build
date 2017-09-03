@@ -14,13 +14,17 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.19 - DS - 2017.09.02
+    1.2.21 - DS - 2017.09.02
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
 
 .EXAMPLE
-    .\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Verbose
+    .\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Detailed
+.EXAMPLE
+    .\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Override
+.EXAMPLE
+    .\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Detailed -Override
 #>
 
 [CmdletBinding(SupportsShouldProcess=$True)]
@@ -42,13 +46,13 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.19'
+$ScriptVersion = '1.2.21'
 $ScriptPath    = Get-ScriptDirectory
 $LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
-$tsFile   = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
-$logFile  = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
-$HostName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
+$tsFile        = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
+$logFile       = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
+$HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 
 try {stop-transcript -ErrorAction SilentlyContinue} catch {}
 try {Start-Transcript -Path $tsFile -Force} catch {}
@@ -99,9 +103,9 @@ function Get-TimeOffset {
 function Import-CmxModule {
     [CmdletBinding()]
     param ()
-    Write-Verbose "Importing ConfigurationManager module"
+    Write-Log -Category info -Message "Importing ConfigurationManager module"
     if (-not(Get-Module ConfigurationManager)) {
-        Write-Output "Importing the ConfigurationManager powershell module"
+        Write-Host "Importing the ConfigurationManager powershell module" -ForegroundColor Green
         try {
             Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" 
             Write-Output $True
@@ -496,7 +500,22 @@ function Set-CmxSiteServerRoles {
                         switch ($roleopt.name) {
                             'EnableAllReportingClass' {
                                 Write-Log -Category info -Message "enabling all reporting classes"
-                                Set-CMAssetIntelligenceClass -EnableAllReportingClass | Out-Null
+                                try {
+                                    Set-CMAssetIntelligenceClass -EnableAllReportingClass | Out-Null
+                                }
+                                catch {
+                                    Write-Log -Category error -Message $_.Exception.Message
+                                }
+                                break
+                            }
+                            'EnabledReportingClass' {
+                                Write-Log -Category info -Message "enabling class: $($roleopt.params)"
+                                try {
+                                    Set-CMAssetIntelligenceClass -EnableReportingClass $roleopt.params | Out-Null
+                                }
+                                catch {
+                                    Write-Log -Category error -Message $_.Exception.Message
+                                }
                                 break
                             }
                         } # switch
@@ -550,7 +569,30 @@ function Set-CmxSiteServerRoles {
                 break
             }
             'sup' {
-                # pending
+                $code = "Add-CMSoftwareUpdatePoint `-SiteSystemServerName `"$hostname`" `-SiteCode `"$sitecode`""
+                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                    $optname = $roleopt.name
+                    $params  = $roleopt.params
+                    if ($optName -eq 'WsusAccessAccount') {
+                        if ($params -eq 'NULL') {
+                            $code += " `-WsusAccessAccount `$null"
+                        }
+                        else {
+                            $code += "` -WsusAccessAccount `"$params`""
+                        }
+                    }
+                    else {
+                        $code += " `-$optName $params"
+                    }
+                } # foreach
+                Write-Log -Category "info" -Message "command >> $code"
+                try {
+                    Invoke-Expression -Command $code -ErrorAction Stop
+                    Write-Log -Category info -Message "expression has been applied successfully"
+                }
+                catch {
+                    Write-Log -Category error -Message $_.Exception.Message
+                }
                 break
             }
             'scp' {
@@ -622,6 +664,18 @@ function Set-CmxSiteServerRoles {
                             }
                             break
                         }
+                        'PublishDNS' {
+                            try {
+                                if ($roleopt.params -eq 'True') {
+                                    Set-CMManagementPointComponent -SiteCode "$sitecode" -PublishDns $True | Out-Null
+                                    Write-Log -Category info -Message "publishing to DNS enabled"
+                                }
+                                catch {
+                                    Write-Log -Category error -Message $_.Exception.Message
+                                }
+                            }
+                            break
+                        }
                     } #switch
                 } # foreach
                 break
@@ -651,11 +705,17 @@ function Set-CmxSiteServerRoles {
                 } # foreach
                 if ($dbserver -and $dbname -and $dbuser) {
                     try {
-                        Add-CMReportingServicePoint -SiteCode "$sitecode" -SiteSystemServerName "$HostName" -DatabaseServerName "$dbserver" -DatabaseName "$dbname" -UserName "$dbuser" | Out-Null
+                        Add-CMReportingServicePoint -SiteCode "$sitecode" -SiteSystemServerName "$HostName" -DatabaseServerName "$dbserver" -DatabaseName "$dbname" -UserName "$dbuser" -ErrorAction SilentlyContinue | Out-Null
                         Write-Log -Category info -Message "reporting services point has been configured"
                     }
                     catch {
-                        Write-Log -Category error -Message $_.Exception.Message
+                        if ($_.Exception.Message -like "*already exists*") {
+                            Write-Log -Category info -Message "reporting services point is already active"
+                        }
+                        else {
+                            Write-Log -Category error -Message "your code just blew chunks. what a mess."
+                            Write-Log -Category error -Message $_.Exception.Message
+                        }
                     }
                 }
                 break
@@ -850,10 +910,10 @@ function Import-CmxClientSettings {
                             break
                         }
                     } # switch
-                }
+                } # foreach
             }
-        }
-    }
+        } # foreach
+    } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset -StartTime $Time1)"
     Write-Output $result
 }
