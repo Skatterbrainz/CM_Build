@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.2.01 - DS - 2017.08.30
+    1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
     1.0.0  - DS - 2017.08.14
@@ -33,9 +33,11 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Skip platform validation checking")]
         [switch] $NoCheck,
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
-        [switch] $NoReboot
+        [switch] $NoReboot,
+    [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
+        [switch] $Detailed
 )
-$ScriptVersion = '1.2.01'
+$ScriptVersion = '1.2.02'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -54,7 +56,9 @@ function Write-Log {
             [ValidateNotNullOrEmpty()]
             [string] $Message
     )
-    Write-Verbose "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message"
+    if ($Detailed) {
+        Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" -ForegroundColor Cyan
+    }
     "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
 }
 

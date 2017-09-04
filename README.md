@@ -1,14 +1,15 @@
-# CM_Build 1.2 / CM_SiteConfig 1.1
+# CM_Build 1.2 / CM_SiteConfig 1.2
 ConfigMgr Site Server installer and Site Configuration scripts
 
 ## CM_Build Revision History
-* 1.2.01 - 2017.08.30 - added sqloptions to XML for control over max memory allocation and DB recovery model, minor bug fixes
+* 1.2.21 - 2017.09.02 - added sqloptions to XML for control over max memory allocation and DB recovery model, minor bug fixes
 * 1.1.43 - 2017.08.28 - bug fixes, verbose output, enhanced features
 * 1.1.42 - 2017.08.24 - bug fixes
 * 1.1.00 - 2017.08.17 - redesigned XML schema and powershell code framework
 * 1.0.00 - 2017.08.16 - initial release
 
 ## CM_SiteConfig Revision History
+* 1.2.21 - 2017.09.02 - added more capabilities, bug fixes, documentation in XML
 * 1.1.20 - 2017.08.28 - redesigned XML schema and powershell code framework
 * 1.1.10 - 2017.08.24 - added folders, queries
 * 1.1.00 - 2017.08.17 - added to repository
