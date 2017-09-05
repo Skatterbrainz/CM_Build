@@ -12,6 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
+    1.2.03 - DS - 2017.09.05
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -37,7 +38,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
         [switch] $Detailed
 )
-$ScriptVersion = '1.2.02'
+$ScriptVersion = '1.2.03'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -59,7 +60,7 @@ function Write-Log {
     if ($Detailed) {
         Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" -ForegroundColor Cyan
     }
-    "$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
+    #"$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
 }
 
 $ScriptPath   = Get-ScriptDirectory
@@ -69,13 +70,8 @@ if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
 $tsFile  = "$LogsFolder\cm_build_$($env:COMPUTERNAME)_transaction.log"
 $logFile = "$LogsFolder\cm_build_$($env:COMPUTERNAME)_details.log"
 
-try {
-    Start-Transcript -Path $tsFile
-}
-catch {
-    Write-Error $error[0]
-    break
-}
+try {stop-transcript -ErrorAction SilentlyContinue} catch {}
+try {Start-Transcript -Path $tsFile -Force} catch {}
 
 Write-Log -Category "info" -Message "------------------- BEGIN $(Get-Date) -------------------"
 Write-Log -Category "info" -Message "script version = $ScriptVersion"
@@ -191,7 +187,6 @@ function Get-CMBuildConfigData {
             [string] $XmlFile
     )
     Write-Host "Loading configuration data" -ForegroundColor Green
-    Write-Log -Category "info" -Message "[function:Get-CMBuildConfigData] loading xml data from: $XmlFile"
     if (-not(Test-Path $XmlFile)) {
         Write-Warning "ERROR: configuration file not found: $XmlFile"
     }
@@ -201,7 +196,7 @@ function Get-CMBuildConfigData {
             Write-Output $data
         }
         catch {
-            Write-Warning "failed to import configuration data"
+            Write-Log -Category "error" -Message "failed to import configuration data"
         }
     }
 }
@@ -210,9 +205,8 @@ function Set-CMBuildFolders {
     [CmdletBinding()]
     param($Folders)
     Write-Host "Configuring folders" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "[function: Set-CMBuildFolders]"
     $result = $True
+    $timex  = Get-Date
     foreach ($folder in $Folders) {
         $folderName = $folder.name
         foreach ($fn in $folderName.split(',')) {
@@ -223,8 +217,9 @@ function Set-CMBuildFolders {
                     $WaitAfter = $True
                 }
                 catch {
-                    Write-Warning "error: unable to create folder: $fn"
+                    Write-Log -Category "error" -Message $_.Exception.Message
                     $result = $False
+                    break
                 }
             }
             else {
@@ -236,6 +231,7 @@ function Set-CMBuildFolders {
         Write-Log -Category "info" -Message "pausing for 5 seconds"
         Start-Sleep -Seconds 5
     }
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
     Write-Log -Category "info" -Message "function result = $result"
     Write-Output $result
 }
@@ -244,9 +240,8 @@ function Set-CMBuildFiles {
     [CmdletBinding()]
     param ($Files)
     Write-Host "Configuring files" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "[function: Set-CMBuildFiles]"
     $result = $True
+    $timex  = Get-Date
     foreach ($fileSet in $Files) {
         $filename = $fileSet.name
         $filepath = $fileSet.path 
@@ -280,6 +275,7 @@ function Set-CMBuildFiles {
         $data | Out-File $fullname -Force
     } # foreach
     Write-Log -Category "info" -Message "function result = $result"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
     Write-Output $result
 }
 
@@ -298,15 +294,13 @@ function Install-CMBuildServerRoles {
             [string] $LogFile = "serverroles.log"
     )
     Write-Host "Installing Windows Server Roles and Features" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "[function: Install-CMBuildServerRoles]"
-    $time1  = Get-Date
+    $timex  = Get-Date
     $result = 0
     $FeaturesList | 
     Foreach-Object {
         $FeatureCode = $_
         Write-Log -Category "info" -Message "installing feature: $FeatureCode"
-        $time3 = Get-Date
+        $timez = Get-Date
         if ($AlternateSource -ne "") {
             Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
@@ -322,7 +316,7 @@ function Install-CMBuildServerRoles {
             }
             catch {
                 Write-Log -Category "error" -Message "installation of $FeatureCode failed horribly!"
-                $_
+                Write-Log -Category "error" -Message $_.Exception.Message
                 $result = -2
             }
             Write-Log -Category "info" -Message "$FeatureCode exitcode: $exitcode"
@@ -341,21 +335,20 @@ function Install-CMBuildServerRoles {
             }
             catch {
                 Write-Log -Category "error" -Message "installation of $FeatureCode failed horribly!"
-                $_
+                Write-Log -Category "error" -Message $_.Exception.Message
                 $result = -2
             }
             Write-Log -Category "info" -Message "$FeatureCode exitcode: $exitcode"
         } # if
-        $time4 = Get-TimeOffset -StartTime $time3
-        Write-Log -Category "info" -Message "internal : $FeatureCode runtime = $time4"
+        Write-Log -Category "info" -Message "internal : $FeatureCode runtime = $(Get-TimeOffset -StartTime $timez)"
+        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach-object
 
     Write-Log -Category "info" -Message "result = $result"
     if ($result -eq 0) {
         Set-CMBuildTaskCompleted -KeyName 'SERVERROLES' -Value $(Get-Date)
     }
-    $time2 = Get-TimeOffset -StartTime $time1
-    Write-Log -Category "info" -Message "function runtime = $time2"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
     Write-Output $result
 }
 
@@ -372,11 +365,9 @@ function Install-CMBuildServerRolesFile {
             [string] $LogFile = "serverrolesfile.log"
     )
     Write-Host "Installing Windows Server Roles and Features" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "[function: Install-CMBuildServerRolesfile]"
     if (Test-Path $PackageFile) {
         if ($AltSource -ne "") {
-            Write-Log -Category "info" -Message "referencing alternate windows content source"
+            Write-Log -Category "info" -Message "referencing alternate windows content source: $AltSource"
             try {
                 Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile using alternate source"
                 $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -Source $AltSource -ErrorAction Continue
@@ -392,7 +383,7 @@ function Install-CMBuildServerRolesFile {
                 }
             }
             catch {
-                Write-Error $_
+                Write-Log -Category "error" -Message $_.Exception.Message
                 break
             }
         }
@@ -413,8 +404,7 @@ function Install-CMBuildServerRolesFile {
             }
             catch {
                 Write-Log -Category "error" -Message "failed to install features!"
-                Write-Error $_
-                break
+                Write-Log -Category "error" -Message $_.Exception.Message
             }
         }
     }
@@ -432,9 +422,8 @@ function Set-CMBuildWsusConfiguration {
         [ValidateNotNullOrEmpty()]
         [string] $UpdatesFolder
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "[function: Set-CMBuildWsusConfiguration]"
-    $time1 = Get-Date
+    Write-Host "Configuring WSUS features" -ForegroundColor Green
+    $timex = Get-Date
     Write-Log -Category "info" -Message "verifying WSUS role installation for SQL database connectivity"
     if (-not ((Get-WindowsFeature UpdateServices-DB | Select-Object -ExpandProperty Installed) -eq $True)) {
         Write-Log -Category "error" -Message "WSUS is not installed properly (aborting)"
@@ -450,8 +439,7 @@ function Set-CMBuildWsusConfiguration {
     catch {
         Write-Warning "ERROR: Unable to invoke WSUS post-install configuration"
     }
-    $time2 = Get-TimeOffset -StartTime $time1
-    Write-Log -Category "info" -Message "function runtime = $time2"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
     Write-Output $result
 }
 
@@ -468,9 +456,8 @@ function Set-CMBuildSqlConfiguration {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function: Set-CMBuildSqlConfiguration"
-    $time1 = Get-Date
+    Write-Host "Configuring SQL Server settings" -ForegroundColor Green
+    $timex  = Get-Date
     $result = 0
     foreach ($sqlopt in $DataSet.configuration.sqloptions.sqloption | Where-Object {$_.enabled -eq 'true'}) {
         $optName = $sqlopt.name
@@ -569,8 +556,7 @@ function Set-CMBuildSqlConfiguration {
             }
         } # switch
     } # foreach
-    $time2 = Get-TimeOffset -StartTime $time1
-    Write-Log -Category "info" -Message "function runtime = $time2"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
     Write-Output $result
 }
 
@@ -639,8 +625,7 @@ function Install-CMBuildPayload {
             Write-Host "Reboot will be requested" -ForegroundColor Magenta
         }
     }
-    $time2 = Get-TimeOffset -StartTime $time1
-    Write-Log -Category "info" -Message "function runtime = $time2"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $time1))"
     Write-Log -Category "info" -Message "function result = $result"
     Write-Output $result
 }
@@ -680,8 +665,6 @@ function Invoke-CMBuildRegKeys {
             [string] $Order
     )
     Write-Host "Configuring registry keys" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "[function: Invoke-CMBuildRegKeys]"
     Write-Log -Category "info" -Message "keygroup order = $Order"
 
     $keys = $DataSet | Where-Object {$_.enabled -eq 'true'}
@@ -700,7 +683,7 @@ function Invoke-CMBuildRegKeys {
                         Write-Log -Category "info" -Message "opened registry hive $($regPath.Substring(0,4)) successfully"
                     }
                     catch {
-                        $_
+                        Write-Log -Category "error" -Message $_.Exception.Message
                     }
                     break
                 }
@@ -723,7 +706,9 @@ function Invoke-CMBuildRegKeys {
                     $val = $keyset.GetValue($regVal)
                     Write-Log -Category "info" -Message "registry value updated: $val"
                 }
-                catch {}
+                catch {
+                    Write-Log -Category "error" -Message $_.Exception.Message
+                }
             }
         }
     }
