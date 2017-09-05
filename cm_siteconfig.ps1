@@ -118,7 +118,7 @@ function Import-CmxModule {
 }
 
 function Import-CmxDiscoveryMethods {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param ($DataSet)
     Write-Log -Category "info" -Message "----------------------------------------------------"
     <#
@@ -251,7 +251,7 @@ function Import-CmxDiscoveryMethods {
                                 break
                             }
                             'ADAttributes' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -AddAdditionalAttribute $ADAttributes | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -AddAdditionalAttribute $optx[1].split(',') | Out-Null
                                 break
                             }
                         } # switch
@@ -293,7 +293,7 @@ function Import-CmxDiscoveryMethods {
 } # function
 
 function Set-CmxADForest {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param ($DataSet)
     $adforest = $DataSet.configuration.cmsite.forest
     Write-Host "Configuring AD Forest" -ForegroundColor Green
@@ -301,17 +301,18 @@ function Set-CmxADForest {
     $Time1  = Get-Date
     try {
         New-CMActiveDirectoryForest -ForestFqdn "$adforest" -EnableDiscovery $True -ErrorAction SilentlyContinue
-        Write-Log -Category "info" -Message "active directory forest has been configured: $adforest"
+        Write-Log -Category "info" -Message "item created successfully: $adforest"
         Write-Output $True
     }
     catch {
         if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-            Write-Log -Category "info" -Message "AD forest $adforest already defined"
+            Write-Log -Category "info" -Message "item already exists"
             Write-Output $True
         }
         else {
-            Write-Error $_
+            Write-Log -Category error -Message $_.Exception.Message
             $result = $false
+            break
         }
     }
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -319,7 +320,7 @@ function Set-CmxADForest {
 }
 
 function Import-CmxBoundaryGroups {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param ($DataSet)
     Write-Host "Configuring Site Boundary Groups" -ForegroundColor Green
     $result = $True
@@ -329,7 +330,6 @@ function Import-CmxBoundaryGroups {
         $bgComm   = $item.comment
         $bgServer = $item.SiteSystemServer
         $bgLink   = $item.LinkType
-        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
         Write-Log -Category "info" -Message "boundary group name = $bgName"
         if ($bgServer) {
             $bgSiteServer = @{$bgServer = $bgLink}
@@ -346,6 +346,8 @@ function Import-CmxBoundaryGroups {
                 }
                 catch {
                     Write-Log -Category error -Message $_.Exception.Message
+                    $result = $False
+                    break
                 }
             }
         }
@@ -364,16 +366,18 @@ function Import-CmxBoundaryGroups {
                 catch {
                     Write-Log -Category error -Message $_.Exception.Message
                     $result = $false
+                    break
                 }
             }
         } # if
+        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
 function Set-CmxBoundaries {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
@@ -442,7 +446,7 @@ function Set-CmxBoundaries {
 }
 
 function Set-CmxSiteServerRoles {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)] $DataSet
     )
@@ -809,6 +813,7 @@ function Set-CmxSiteServerRoles {
 }
 
 function Import-CmxServerSettings {
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
@@ -847,7 +852,7 @@ function Import-CmxServerSettings {
 }
 
 function Import-CmxClientSettings {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
@@ -868,7 +873,7 @@ function Import-CmxClientSettings {
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "client setting already exists: $csName"
+                Write-Log -Category info -Message "item already exists: $csName"
             }
             else {
                 Write-Log -Category error -Message "your client setting just fell into a woodchipper. what a mess."
@@ -982,7 +987,7 @@ function Import-CmxClientSettings {
 }
 
 function Set-CMSiteConfigFolders {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -998,10 +1003,10 @@ function Set-CMSiteConfigFolders {
         $folderPath = $item.path
         try {
             New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "folder created: $folderName"
+            Write-Log -Category "info" -Message "item created successfully: $folderName"
         }
         catch {
-            Write-Log -Category "warning" -Message "folder already exists: $folderName"
+            Write-Log -Category "warning" -Message "item already exists: $folderName"
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
@@ -1010,7 +1015,7 @@ function Set-CMSiteConfigFolders {
 }
 
 function Import-CmxQueries {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
@@ -1026,11 +1031,11 @@ function Import-CmxQueries {
         $queryExp  = $item.expression
         try {
             New-CMQuery -Name $queryName -Expression $queryExp -Comment $queryComm -TargetClassName $queryType | Out-Null
-            Write-Log -Category "info" -Message "query created: $queryName"
+            Write-Log -Category "info" -Message "item created successfully: $queryName"
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "query already exists: $queryname"
+                Write-Log -Category info -Message "item already exists: $queryname"
             }
             else {
                 Write-Log -Category "error" -Message $_.Exception.Message
@@ -1045,15 +1050,13 @@ function Import-CmxQueries {
 }
 
 function Import-CmxOSImages {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Importing OS images" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function: Import-CmxOSImages"
     $result = $True
     $Time1  = Get-Date
     foreach ($item in $DataSet.configuration.cmsite.osimages.osimage | Where-Object {$_.use -eq '1'}) {
@@ -1071,7 +1074,7 @@ function Import-CmxOSImages {
             }
             catch {
                 if ($_.Exception.Message -like "*already exists*") {
-                    Write-Log -Category "info" -Message "item already exists"
+                    Write-Log -Category "info" -Message "item already exists: $imageName"
                 }
                 else {
                     Write-Log -Category "error" -Message $_.Exception.Message
@@ -1091,7 +1094,7 @@ function Import-CmxOSImages {
 }
 
 function Import-CmxOSInstallers {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
@@ -1116,7 +1119,7 @@ function Import-CmxOSInstallers {
             }
             catch {
                 if ($_.Exception.Message -like "*already exists*") {
-                    Write-Log -Category "info" -Message "item already exists"
+                    Write-Log -Category "info" -Message "item already exists: instName"
                 }
                 else {
                     Write-Log -Category "error" -Message $_.Exception.Message
@@ -1136,7 +1139,7 @@ function Import-CmxOSInstallers {
 }
 
 function Import-CmxCollections {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         $DataSet
@@ -1174,7 +1177,7 @@ function Import-CmxCollections {
         }
         catch {
             if ($_.ToString() -eq 'An object with the specified name already exists.') {
-                Write-Log -Category "info" -Message "item already exists"
+                Write-Log -Category "info" -Message "item already exists: collName"
             }
             else {
                 Write-Log -Category "error" -Message $_.Exception.Message
@@ -1189,7 +1192,7 @@ function Import-CmxCollections {
 }
 
 function Import-CmxMaintenanceTasks {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             $DataSet
@@ -1208,7 +1211,7 @@ function Import-CmxMaintenanceTasks {
                 Write-Log -Category "info" -Message "enabled task: $mtName"
             }
             catch {
-                Write-Error $_
+                Write-Log -Category error -Message $_.Exception.Message
                 $result = $False
                 break
             }
@@ -1232,7 +1235,7 @@ function Import-CmxMaintenanceTasks {
 }
 
 function Import-CmxAppCategories {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         $DataSet
@@ -1463,7 +1466,7 @@ catch {}
                     }
                     catch {
                         if ($_.Exception.Message -like '*already exists.') {
-                            Write-Log -Category "info" -Message "deployment type already exists"
+                            Write-Log -Category "info" -Message "deployment type already exists: $depName"
                         }
                         else {
                             Write-Error $_.Exception.Message
@@ -1484,7 +1487,7 @@ catch {}
 }
 
 function Import-CmxAccounts {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         $DataSet
@@ -1536,7 +1539,7 @@ function Import-CmxDPGroups {
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists"
+                Write-Log -Category info -Message "item already exists: dpgName"
             }
             else {
                 Write-Log -Category error -Message $_.Exception.Message
@@ -1570,7 +1573,7 @@ function Import-CmxMalwarePolicies {
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists"
+                Write-Log -Category info -Message "item already exists: $itemName"
             }
             else {
                 Write-Log -Category error -Message $_.Exception.Message
