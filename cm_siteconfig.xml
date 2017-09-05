@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.23 - DS - 2017-09-05 -->
+<!-- Version 1.2.24 - DS - 2017-09-05 -->
 <configuration>
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
