@@ -1,78 +1,46 @@
-# CM_Build 1.2 / CM_SiteConfig 1.2
-* ConfigMgr Site Server installer and Site Configuration scripts
-* More details at https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
+# Overview
 
-## CM_Build Revision History
-* 1.2.22 - 2017.09.04 - minor bug fixes, attempt to satisfy quota of using number 2 in everything.
-* 1.2.21 - 2017.09.02 - added sqloptions to XML for control over max memory allocation and DB recovery model, minor bug fixes
-* 1.1.43 - 2017.08.28 - bug fixes, verbose output, enhanced features
-* 1.1.42 - 2017.08.24 - bug fixes
-* 1.1.00 - 2017.08.17 - redesigned XML schema and powershell code framework
-* 1.0.00 - 2017.08.16 - initial release
+Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
-## CM_SiteConfig Revision History
-* 1.2.21 - 2017.09.02 - added more capabilities, bug fixes, documentation in XML
-* 1.1.20 - 2017.08.28 - redesigned XML schema and powershell code framework
-* 1.1.10 - 2017.08.24 - added folders, queries
-* 1.1.00 - 2017.08.17 - added to repository
+# CM_BUILD
 
-Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
+ placeholder
+ 
+# CM_SITECONFIG
 
-### CM_Build Usage
+ placeholder
 
-* cm_build.ps1 -xmlfile .\cm_build.xml [-NoCheck] [-NoReboot] [-Verbose] [-WhatIf]
-  * -xmlfile [filepath]
-  * -NoCheck (skip platform validation)
-  * -NoReboot (suppress reboots)
-  * a transcript log is created in the runtime folder
+# Revision History
+* 1.x.xx - xxxx.xx.xx
+* 1.2.22 - 2017.09.04
+* 1.2.21 - 2017.09.02
+* 1.1.43 - 2017.08.28
+* 1.1.42 - 2017.08.24
+* 1.1.00 - 2017.08.17
+* 1.0.00 - 2017.08.16
 
-## CM_Build System Requirements
+# Recommended Platforms and Resources
 
-* Server installed and patched (Windows Server 2012 R2 or 2016)
-* Server is joined to domain
-* Static IPv4 address
-* Disks are allocated (e.g. E:, F:, G:)
-* At least 8 GB memory
+* Software
+ * Windows Server 2016 (or 2012 R2)
+ * SQL Server 2016 SP1 (or 2016, 2014)
+ * Configuration Manager Current Branch (supported versions only)
+ * Windows 10 ADK (current version)
+ * MDT (current version)
+ * AD domain joined, static IPv4 address
+* Hardware
+ * 16 GB memory or more
+ * 3 logical disks (OS, SQL/CM, Data/Content), more disks preferred (for temp db, logs, etc.)
+ * 2 vCPUs
+* Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
-## CM_Build Execution
+# Examples
 
-* Installs Windows Server Roles and Features
-* Installs ADK
-* Installs MDT
-* Installs SQL Server
-* Installs SSMS
-* Configures SQL Server memory
-* Installs WSUS role
-* Installs ConfigMgr
-* Installs ConfigMgr Toolkit
-* Installs Right-click Tools
-* Installs anything else you want it to
-
-## CM_Build Process Overview
-
-* Download installation media
-  * Configuration Manager 1702
-  * SQL Server 2016
-  * Windows 10 ADK 1703
-  * MDT 8443
-  * ConfigMgr Toolkit 2012 R2
-  * Recast Right-click Tools
-* Extract content into shared location
-* Edit cm_build.xml to suit your environment and needs
-* Open PowerShell console using "Run as Administrator"
-* Set-ExecutionPolicy to ByPass 
-* Execute (see examples)
-
-## CM_Build Examples
-
-* .\cm_build.ps1 -xmlfile .\cm_build.xml -Verbose
-* .\cm_build.ps1 -xmlfile .\cm_build.xml -NoCheck -Verbose
-* .\cm_build.ps1 -xmlfile .\cm_build.xml -NoReboot -Verbose
-
-## CM_Build Notes
-
-* To use the internal function process for adding server roles/features, leave the XML setting under [packages] to use *type*="feature".
-* To use an external XML role config file, change the SERVERROLES *type*="payload", and edit the [payload] entry to specify the *file*="filename.xml".  The XML file needs to reside in the same folder where the -XmlFile filename resides.
+* cm_build.ps1 -XmlFile cm_build.xml
+* cm_build.ps1 -XmlFile cm_build.xml -NoCheck
+* cm_build.ps1 -XmlFile cm_build.xml -NoReboot
+* cm_build.ps1 -XmlFile cm_build.xml -Detailed
+* (combinations of above, eg.: -NoCheck -NoReboot -Detailed)
 
 ## CM_SiteConfig Usage
 
