@@ -1,7 +1,9 @@
 # CM_Build 1.2 / CM_SiteConfig 1.2
-ConfigMgr Site Server installer and Site Configuration scripts
+* ConfigMgr Site Server installer and Site Configuration scripts
+* More details at https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
 ## CM_Build Revision History
+* 1.2.22 - 2017.09.04 - minor bug fixes, attempt to satisfy quota of using number 2 in everything.
 * 1.2.21 - 2017.09.02 - added sqloptions to XML for control over max memory allocation and DB recovery model, minor bug fixes
 * 1.1.43 - 2017.08.28 - bug fixes, verbose output, enhanced features
 * 1.1.42 - 2017.08.24 - bug fixes
