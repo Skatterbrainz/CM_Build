@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.23 - DS - 2017.09.05
+    1.2.24 - DS - 2017.09.05
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.23'
+$ScriptVersion = '1.2.24'
 $ScriptPath    = Get-ScriptDirectory
 $LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
@@ -60,7 +60,7 @@ try {Start-Transcript -Path $tsFile -Force} catch {}
 Write-Host "------------------- BEGIN $(Get-Date) -------------------" -ForegroundColor Green
 
 function Write-Log {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateSet('info','error','warning')]
@@ -119,7 +119,11 @@ function Import-CmxModule {
 
 function Import-CmxDiscoveryMethods {
     [CmdletBinding(SupportsShouldProcess=$True)]
-    param ($DataSet)
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     <#
     Write-Verbose "info: defining one-year time span values"
@@ -294,7 +298,11 @@ function Import-CmxDiscoveryMethods {
 
 function Set-CmxADForest {
     [CmdletBinding(SupportsShouldProcess=$True)]
-    param ($DataSet)
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     $adforest = $DataSet.configuration.cmsite.forest
     Write-Host "Configuring AD Forest" -ForegroundColor Green
     $result = $True
@@ -321,7 +329,11 @@ function Set-CmxADForest {
 
 function Import-CmxBoundaryGroups {
     [CmdletBinding(SupportsShouldProcess=$True)]
-    param ($DataSet)
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     Write-Host "Configuring Site Boundary Groups" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -448,7 +460,9 @@ function Set-CmxBoundaries {
 function Set-CmxSiteServerRoles {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
-        [parameter(Mandatory=$True)] $DataSet
+        [parameter(Mandatory=$True)] 
+        [ValidateNotNullOrEmpty()]
+        $DataSet
     )
     Write-Host "Configuring Site System Roles" -ForegroundColor Green
     $result = $True
@@ -1142,6 +1156,7 @@ function Import-CmxCollections {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
         $DataSet
     )
     Write-Host "Configuring collections" -ForegroundColor Green
@@ -1195,7 +1210,8 @@ function Import-CmxMaintenanceTasks {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
-            $DataSet
+        [ValidateNotNullOrEmpty()]
+        $DataSet
     )
     Write-Host "Configuring site maintenance tasks" -ForegroundColor Green
     $result = $true
@@ -1238,6 +1254,7 @@ function Import-CmxAppCategories {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
         $DataSet
     )
     Write-Host "Configuring application categories" -ForegroundColor Green
@@ -1281,6 +1298,7 @@ function Import-CmxApplications {
         "get-cimInstance:computername"="$hostname"
         "get-ciminstance:namespace"="Root\SMS\site_$sitecode"}
     foreach ($item in $DataSet.configuration.cmsite.applications.application | Where-Object {$_.use -eq '1'}) {
+        $timex = Get-Date
         $appName   = $item.name 
         $appComm   = $item.comment
         $appPub    = $item.publisher
@@ -1481,6 +1499,7 @@ catch {}
             } # foreach - deployment type
             Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
         } # if
+        Write-Log -Category info -Message "task runtime: $(Get-TimeOffset $timex)"
     } # foreach - application
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
@@ -1490,6 +1509,7 @@ function Import-CmxAccounts {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
         $DataSet
     )
     Write-Host "Configuring accounts" -ForegroundColor Green
