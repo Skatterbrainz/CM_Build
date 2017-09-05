@@ -74,8 +74,12 @@ Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MD
 
 ## CM_SiteConfig Usage
 
-* cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml [-Verbose] [-WhatIf]
+* cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml [-ForceBoundaries] [-Detailed] [-Override] [-Verbose] [-WhatIf]
+* [Detailed] is like -Verbose, only prettier, and doesn't get fall-down drunk on you
+* [ForceBoundaries] was an idea I had while on 1.5 hrs of sleep. stay away from it for now.
+* [Override] displays a PS GridView menu to allow you to select individual tasks to run regardless of enabled=true in the XML file.
 
 ## CM_SiteConfig Examples
 
-* .\cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml -Verbose
+* .\cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml -Detailed
+* .\cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml -Detailed -Override
