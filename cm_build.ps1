@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.2.03 - DS - 2017.09.05
+    1.2.04 - DS - 2017.09.05
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -38,7 +38,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
         [switch] $Detailed
 )
-$ScriptVersion = '1.2.03'
+$ScriptVersion = '1.2.04'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -138,7 +138,7 @@ function Test-Platform {
 }
 
 function Set-CMBuildTaskCompleted {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -202,13 +202,17 @@ function Get-CMBuildConfigData {
 }
 
 function Set-CMBuildFolders {
-    [CmdletBinding()]
-    param($Folders)
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param(
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     Write-Host "Configuring folders" -ForegroundColor Green
     $result = $True
     $timex  = Get-Date
-    foreach ($folder in $Folders) {
-        $folderName = $folder.name
+    foreach ($item in $DataSet.configuration.folders.folder | Where-Object {$_.use -eq '1'}) {
+        $folderName = $item.name
         foreach ($fn in $folderName.split(',')) {
             if (-not(Test-Path $fn)) {
                 Write-Log -Category "info" -Message "creating folder: $fn"
@@ -237,17 +241,21 @@ function Set-CMBuildFolders {
 }
 
 function Set-CMBuildFiles {
-    [CmdletBinding()]
-    param ($Files)
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     Write-Host "Configuring files" -ForegroundColor Green
     $result = $True
     $timex  = Get-Date
-    foreach ($fileSet in $Files) {
-        $filename = $fileSet.name
-        $filepath = $fileSet.path 
+    foreach ($item in $DataSet.configuration.files.file | Where-Object {$_.use -eq '1'}) {
+        $filename = $item.name
+        $filepath = $item.path 
         $fullName = "$filePath\$filename"
-        $fileComm = $fileSet.comment 
-        $filekeys = $fileSet.keys.key
+        $fileComm = $item.comment 
+        $filekeys = $item.keys.key
         Write-Log -Category "info" -Message "filename: $fullName"
         Write-Log -Category "info" -Message "tcomment: $fileComm"
         if (-not (Test-Path $fullName)) {
@@ -280,7 +288,7 @@ function Set-CMBuildFiles {
 }
 
 function Install-CMBuildServerRoles {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -353,7 +361,7 @@ function Install-CMBuildServerRoles {
 }
 
 function Install-CMBuildServerRolesFile {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -416,7 +424,7 @@ function Install-CMBuildServerRolesFile {
 }
 
 function Set-CMBuildWsusConfiguration {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
@@ -450,7 +458,7 @@ function Get-TotalMemory {
 }
 
 function Set-CMBuildSqlConfiguration {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param(
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
@@ -459,11 +467,11 @@ function Set-CMBuildSqlConfiguration {
     Write-Host "Configuring SQL Server settings" -ForegroundColor Green
     $timex  = Get-Date
     $result = 0
-    foreach ($sqlopt in $DataSet.configuration.sqloptions.sqloption | Where-Object {$_.enabled -eq 'true'}) {
-        $optName = $sqlopt.name
-        $optData = $sqlopt.param
-        $optDB   = $sqlopt.db
-        $optComm = $sqlopt.comment
+    foreach ($item in $DataSet.configuration.sqloptions.sqloption | Where-Object {$_.use -eq '1'}) {
+        $optName = $item.name
+        $optData = $item.param
+        $optDB   = $item.db
+        $optComm = $item.comment
         Write-Log -Category "info" -Message "option name..... $optName"
         Write-Log -Category "info" -Message "option db....... $optDB"
         Write-Log -Category "info" -Message "option param.... $optData"
@@ -561,7 +569,7 @@ function Set-CMBuildSqlConfiguration {
 }
 
 function Install-CMBuildPayload {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -641,7 +649,7 @@ function Get-WsusUpdatesPath {
 }
 
 function Invoke-BPAtest {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param ($FeatureCode)
     Import-module BestPractices
     switch ($FeatureCode) {
@@ -656,9 +664,10 @@ function Invoke-BPAtest {
 }
 
 function Invoke-CMBuildRegKeys {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
             $DataSet,
         [parameter(Mandatory=$True)]
             [ValidateSet('before','after')]
@@ -666,16 +675,15 @@ function Invoke-CMBuildRegKeys {
     )
     Write-Host "Configuring registry keys" -ForegroundColor Green
     Write-Log -Category "info" -Message "keygroup order = $Order"
-
-    $keys = $DataSet | Where-Object {$_.enabled -eq 'true'}
-    foreach ($key in $keys) {
-        $regName  = $key.name
-        $regOrder = $key.order
+    $result = $True
+    foreach ($item in $DataSet.configuration.regkeys.regkey | Where-Object {$_.use -eq '1'}) {
+        $regName  = $item.name
+        $regOrder = $item.order
         $reg = $null
         if ($regOrder -eq $Order) {
-            $regPath = $key.path
-            $regVal  = $key.value
-            $regData = $key.data
+            $regPath = $item.path
+            $regVal  = $item.value
+            $regData = $item.data
             switch ($regPath.substring(0,4)) {
                 'HKLM' {
                     try {
@@ -684,6 +692,7 @@ function Invoke-CMBuildRegKeys {
                     }
                     catch {
                         Write-Log -Category "error" -Message $_.Exception.Message
+                        $result = $False
                     }
                     break
                 }
@@ -708,10 +717,12 @@ function Invoke-CMBuildRegKeys {
                 }
                 catch {
                     Write-Log -Category "error" -Message $_.Exception.Message
+                    $result = $False
                 }
             }
         }
     }
+    Write-Output $result
 }
 
 function Test-CMBuildPackage {
@@ -730,7 +741,7 @@ function Test-CMBuildPackage {
 }
 
 function Invoke-CMBuildPackage {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [string] $Name,
@@ -783,7 +794,7 @@ function Invoke-CMBuildPackage {
 }
 
 function Invoke-CMBuildPayload {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -835,7 +846,7 @@ function Invoke-CMBuildPayload {
 } 
 
 function Invoke-CMBuildFunction {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -974,11 +985,11 @@ Set-Location $env:USERPROFILE
 Write-Log -Category "info" -Message "----------------------------------------------------"
 Write-Log -Category "info" -Message "project info....... $($project.comment)"
 
-if (-not (Set-CMBuildFolders -Folders $xmldata.configuration.folders.folder)) {
+if (-not (Set-CMBuildFolders -DataSet $xmldata)) {
     Write-Warning "error: failed to create folders (aborting)"
     break
 }
-if (-not (Set-CMBuildFiles -Files $xmldata.configuration.files.file)) {
+if (-not (Set-CMBuildFiles -DataSet $xmldata)) {
     Write-Warning "error: failed to create files (aborting)"
     break
 }
@@ -986,7 +997,7 @@ if (-not (Set-CMBuildFiles -Files $xmldata.configuration.files.file)) {
 Write-Host "Executing project configuration" -ForegroundColor Green
 
 Disable-InternetExplorerESC | Out-Null
-Invoke-CMBuildRegKeys -DataSet $xmldata.configuration.regkeys.regkey -Order "before" | Out-Null
+Invoke-CMBuildRegKeys -DataSet $xmldata -Order "before" | Out-Null
 
 Write-Log -Category "info" -Message "beginning package execution"
 Write-Log -Category "info" -Message "----------------------------------------------------"
