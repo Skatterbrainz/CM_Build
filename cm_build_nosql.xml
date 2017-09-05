@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.03 - DS - 2017.09.05 / for installations where SQL is on separate host -->
+<!-- Version 1.2.04 - DS - 2017.09.05 / for installations where SQL is on separate host -->
 <configuration>
     <project comment="Contoso SCCM primary site server build for CM02.contoso.com, 1.2.03 by DS 2017-09-05" />
     <references>
-        <reference name="WindowsServer" type="AltSource" path="\\FS1\apps\sources\2016\sources\sxs" file="" comment="Windows Server 2016 install media" />
-        <reference name="Windows10" type="AltSource" path="\\FS1\apps\sources\SXS" file="" comment="Windows 10 x64 enterprise" />
+        <reference use="1" name="WindowsServer" type="AltSource" path="\\FS1\apps\sources\2016\sources\sxs" file="" comment="Windows Server 2016 install media" />
+        <reference use="1" name="Windows10" type="AltSource" path="\\FS1\apps\sources\SXS" file="" comment="Windows 10 x64 enterprise" />
     </references>
     <packages comment="Controls the order and links of execution">
         <package name="SERVERROLES" enabled="true" type="feature" comment="Server Roles and Features" note="Installs from internal function" />
