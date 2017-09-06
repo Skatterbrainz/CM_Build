@@ -14,7 +14,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-    1.2.06 - DS - 2017.09.06
+    1.2.07 - DS - 2017.09.06
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -40,7 +40,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
         [switch] $Detailed
 )
-$ScriptVersion = '1.2.06'
+$ScriptVersion = '1.2.07'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -1070,7 +1070,7 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
     }
 } # foreach
 
-Set-CMxRegKeys -DataSet $xmldata.configuration.regkeys.regkey -Order "after"
+Set-CMxRegKeys -DataSet $xmldata -Order "after" | Out-Null
 
 Write-Host "Processing finished at $(Get-Date)" -ForegroundColor Green
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
