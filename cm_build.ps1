@@ -12,9 +12,9 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .PARAMETER Detailed
-    [switch](optional) show verbose output
+    [switch](optional) Show verbose output
 .NOTES
-    1.2.05 - DS - 2017.09.06
+    1.2.06 - DS - 2017.09.06
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -40,7 +40,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
         [switch] $Detailed
 )
-$ScriptVersion = '1.2.05'
+$ScriptVersion = '1.2.06'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -284,7 +284,13 @@ function Import-CMxFiles {
                 $data += "$keyname=`"$keyval`"`r`n"
             }
         } # foreach
-        $data | Out-File $fullname -Force
+        try {
+            $data | Out-File $fullname -Force
+        }
+        catch {
+            Write-Log -Category error -Message "Failed to write file: $fullname"
+            $result = $False
+        }
     } # foreach
     Write-Log -Category "info" -Message "function result = $result"
     Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
@@ -572,76 +578,6 @@ function Invoke-CMxSqlConfiguration {
     Write-Output $result
 }
 
-function Invoke-CMxPayload {
-    [CmdletBinding(SupportsShouldProcess=$True)]
-    param (
-        [parameter(Mandatory=$True)]
-            [ValidateNotNullOrEmpty()]
-            [string] $Name,
-        [parameter(Mandatory=$True)]
-            [ValidateNotNullOrEmpty()]
-            [string] $SourceFile,
-        [parameter(Mandatory=$False)]
-            [string] $OptionParams = ""
-    )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function: Invoke-CMxPayload"
-    Write-Log -Category "info" -Message "payload name..... $Name"
-    Write-Log -Category "info" -Message "sourcefile....... $SourceFile"
-    Write-Log -Category "info" -Message "input arguments.. $OptionParams"
-    
-    if (-not(Test-Path $SourceFile)) {
-        Write-Log -Category "error" -Message "source file not found: $SourceFile"
-        Write-Output -1
-        break
-    }
-    if ($SourceFile.EndsWith('.msi')) {
-        if ($OptionParams -ne "") {
-            $ArgList = "/i $SourceFile $OptionParams"
-        }
-        else {
-            $ArgList = "/i $SourceFile /qb! /norestart"
-        }
-        $SourceFile = "msiexec.exe"
-    }
-    else {
-        $ArgList = $OptionParams
-    }
-    Write-Log -Category "info" -Message "source file...... $SourceFile"
-    Write-Log -Category "info" -Message "new arguments.... $ArgList"
-    $time1 = Get-Date
-    $result = 0
-    try {
-        $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Continue
-        if ((0,3010,1605,1641,1618,1707).Contains($p.ExitCode)) {
-            Write-Log -Category "info" -Message "aggregating a success code."
-            Set-CMxTaskCompleted -KeyName $Name -Value $(Get-Date)
-            $result = 0
-        }
-        else {
-            Write-Log -Category "info" -Message "internal : exit code = $($p.ExitCode)"
-            $result = $p.ExitCode
-        }
-    }
-    catch {
-        Write-Warning "error: failed to execute installation: $Name"
-        Write-Warning "error: $($error[0].Exception)"
-        Write-Log -Category "error" -Message "internal : exit code = -1"
-        $result = -1
-    }
-    if (Test-PendingReboot) {
-        if ($NoReboot) {
-            Write-Host "Reboot is required but suppressed" -ForegroundColor Cyan
-        }
-        else {
-            Write-Host "Reboot will be requested" -ForegroundColor Magenta
-        }
-    }
-    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $time1))"
-    Write-Log -Category "info" -Message "function result = $result"
-    Write-Output $result
-}
-
 function Get-CmxWsusUpdatesPath {
     param ($FolderSet)
     $fpath = $FolderSet | Where-Object {$_.comment -like 'WSUS*'} | Select-Object -ExpandProperty name
@@ -804,7 +740,7 @@ function Invoke-CMxPackage {
     Write-Output $result
 }
 
-function Invoke-CMxPayload {
+function Start-CMxPayload {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
@@ -828,14 +764,14 @@ function Invoke-CMxPayload {
         'CONFIGMGR' {
             Write-Host "Tip: Monitor C:\ConfigMgrSetup.log for progress" -ForegroundColor Green
             $runFile = "$SourcePath\$PayloadFile"
-            $x = Invoke-CMxPayload -Name $Name -SourceFile $runFile -OptionParams $PayloadArguments
+            $x = Invoke-CMxPayloadInstaller -Name $Name -SourceFile $runFile -OptionParams $PayloadArguments
             Write-Log -Category "info" -Message "exit code = $x"
             break
         }
         'SQLSERVER' {
             Write-Host "Tip: Monitor $($env:PROGRAMFILES)\Microsoft SQL Server\130\Setup Bootstrap\Logs\summary.txt for progress" -ForegroundColor Green
             $runFile = "$SourcePath\$PayloadFile"
-            $x = Invoke-CMxPayload -Name $Name -SourceFile $runFile -OptionParams $PayloadArguments
+            $x = Invoke-CMxPayloadInstaller -Name $Name -SourceFile $runFile -OptionParams $PayloadArguments
             Write-Log -Category "info" -Message "exit code = $x"
             break
         }
@@ -847,7 +783,7 @@ function Invoke-CMxPayload {
         }
         default {
             $runFile = "$SourcePath\$PayloadFile"
-            $x = Invoke-CMxPayload -Name $Name -SourceFile $runFile -OptionParams $PayloadArguments
+            $x = Invoke-CMxPayloadInstaller -Name $Name -SourceFile $runFile -OptionParams $PayloadArguments
             Write-Log -Category "info" -Message "exit code = $x"
             break
         }
@@ -855,6 +791,76 @@ function Invoke-CMxPayload {
     Write-Log -Category "info" -Message "[Invoke-CMxPayload] result = $result"
     Write-Output $x
 } 
+
+function Invoke-CMxPayloadInstaller {
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param (
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Name,
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $SourceFile,
+        [parameter(Mandatory=$False)]
+            [string] $OptionParams = ""
+    )
+    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "function: Invoke-CMxPayloadInstaller"
+    Write-Log -Category "info" -Message "payload name..... $Name"
+    Write-Log -Category "info" -Message "sourcefile....... $SourceFile"
+    Write-Log -Category "info" -Message "input arguments.. $OptionParams"
+    
+    if (-not(Test-Path $SourceFile)) {
+        Write-Log -Category "error" -Message "source file not found: $SourceFile"
+        Write-Output -1
+        break
+    }
+    if ($SourceFile.EndsWith('.msi')) {
+        if ($OptionParams -ne "") {
+            $ArgList = "/i $SourceFile $OptionParams"
+        }
+        else {
+            $ArgList = "/i $SourceFile /qb! /norestart"
+        }
+        $SourceFile = "msiexec.exe"
+    }
+    else {
+        $ArgList = $OptionParams
+    }
+    Write-Log -Category "info" -Message "source file...... $SourceFile"
+    Write-Log -Category "info" -Message "new arguments.... $ArgList"
+    $time1 = Get-Date
+    $result = 0
+    try {
+        $p = Start-Process -FilePath $SourceFile -ArgumentList $ArgList -NoNewWindow -Wait -PassThru -ErrorAction Continue
+        if ((0,3010,1605,1641,1618,1707).Contains($p.ExitCode)) {
+            Write-Log -Category "info" -Message "aggregating a success code."
+            Set-CMxTaskCompleted -KeyName $Name -Value $(Get-Date)
+            $result = 0
+        }
+        else {
+            Write-Log -Category "info" -Message "internal : exit code = $($p.ExitCode)"
+            $result = $p.ExitCode
+        }
+    }
+    catch {
+        Write-Warning "error: failed to execute installation: $Name"
+        Write-Warning "error: $($error[0].Exception)"
+        Write-Log -Category "error" -Message "internal : exit code = -1"
+        $result = -1
+    }
+    if (Test-PendingReboot) {
+        if ($NoReboot) {
+            Write-Host "Reboot is required but suppressed" -ForegroundColor Cyan
+        }
+        else {
+            Write-Host "Reboot will be requested" -ForegroundColor Magenta
+        }
+    }
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $time1))"
+    Write-Log -Category "info" -Message "function result = $result"
+    Write-Output $result
+}
 
 function Invoke-CMxFunction {
     [CmdletBinding(SupportsShouldProcess=$True)]
@@ -991,7 +997,7 @@ $AltSource = $xmldata.configuration.references.reference |
         Select-Object -ExpandProperty path
 Write-Log -Category "info" -Message "alternate windows source = $AltSource"
 
-Set-Location $env:USERPROFILE
+#Set-Location $env:USERPROFILE
 
 Write-Log -Category "info" -Message "----------------------------------------------------"
 Write-Log -Category "info" -Message "project info....... $($project.comment)"
