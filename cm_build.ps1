@@ -11,6 +11,8 @@
     [switch](optional) Skip platform validation restrictions
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
+.PARAMETER Detailed
+    [switch](optional) show verbose output
 .NOTES
     1.2.05 - DS - 2017.09.06
     1.2.02 - DS - 2017.09.02
