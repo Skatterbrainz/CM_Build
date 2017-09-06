@@ -12,7 +12,7 @@
 .PARAMETER NoReboot
     [switch](optional) Suppress reboots until very end
 .NOTES
-    1.2.04 - DS - 2017.09.05
+    1.2.05 - DS - 2017.09.06
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -38,7 +38,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
         [switch] $Detailed
 )
-$ScriptVersion = '1.2.04'
+$ScriptVersion = '1.2.05'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -47,6 +47,7 @@ function Get-ScriptDirectory {
     $Invocation = (Get-Variable MyInvocation -Scope 1).Value
     Split-Path $Invocation.MyCommand.Path
 }
+
 function Write-Log {
     [CmdletBinding()]
     param (
@@ -73,7 +74,7 @@ $logFile = "$LogsFolder\cm_build_$($env:COMPUTERNAME)_details.log"
 try {stop-transcript -ErrorAction SilentlyContinue} catch {}
 try {Start-Transcript -Path $tsFile -Force} catch {}
 
-Write-Log -Category "info" -Message "------------------- BEGIN $(Get-Date) -------------------"
+Write-Log -Category "info" -Message "******************* BEGIN $(Get-Date) *******************"
 Write-Log -Category "info" -Message "script version = $ScriptVersion"
 Write-Log -Category "info" -Message "importing required modules"
 
@@ -123,13 +124,14 @@ function Test-CMxPlatform {
     $os = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty caption
     if (($os -like "*Windows Server 2012 R2*") -or ($os -like "*Windows Server 2016*")) {
         Write-Log -Category "info" -Message "passed rule = operating system"
-        $mem = [math]::Round($(Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory)/1GB,0)
-        if ($mem -ge 8) {
+        $mem = [math]::Round($(Get-WmiObject -Class Win32_ComputerSystem | 
+            Select-Object -ExpandProperty TotalPhysicalMemory)/1GB,0)
+        if ($mem -ge 16) {
             Write-Log -Category "info" -Message "passed rule = minimmum memory allocation"
             Write-Output $True
         }
         else {
-            Write-Host "FAIL: System has $mem GB of memory. ConfigMgr requires 8 GB of memory or more" -ForegroundColor Red
+            Write-Host "FAIL: System has $mem GB of memory. ConfigMgr requires 16 GB of memory or more" -ForegroundColor Red
         }
     }
     else {
@@ -725,12 +727,12 @@ function Set-CMxRegKeys {
     Write-Output $result
 }
 
-function Test-CMBuildPackage {
+function Test-CMxPackage {
     param (
         [parameter(Mandatory=$False)]
         [string] $PackageName = ""
     )
-    Write-Log -Category "info" -Message "[function: Test-CMBuildPackage]"
+    Write-Log -Category "info" -Message "[function: Test-CMxPackage]"
     $detRule = $detects | Where-Object {$_.name -eq $PackageName}
     if (($detRule) -and ($detRule -ne "")) {
         Write-Output (Test-Path $detRule)
@@ -740,7 +742,7 @@ function Test-CMBuildPackage {
     }
 }
 
-function Invoke-CMBuildPackage {
+function Invoke-CMxPackage {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
@@ -754,7 +756,7 @@ function Invoke-CMBuildPackage {
         [parameter(Mandatory=$False)]
             [string] $PayloadArguments=""
     )
-    Write-Log -Category "info" -Message "function: invoke-cmbuildpackage"
+    Write-Log -Category "info" -Message "function: Invoke-CMxPackage"
     Write-Log -Category "info" -Message "package type = $PackageType"
     switch ($PackageType) {
         'feature' {
@@ -765,11 +767,17 @@ function Invoke-CMBuildPackage {
                     Foreach-Object {$_.innerText}).Split(',')
             $result = Import-CMxServerRoles -RoleName $Name -FeaturesList $xdata -AlternateSource $AltSource
             Write-Log -Category "info" -Message "exit code = $result"
-            Set-CMxTaskCompleted -KeyName $Name -Value $(Get-Date)
+            if ($result) { 
+                Set-CMxTaskCompleted -KeyName $Name -Value $(Get-Date) 
+            }
+            else {
+                Write-Warning "error: step failure [feature] at: $Name"
+                $continue = $False
+            }
             break
         }
         'function' {
-            $result = Invoke-CMBuildFunction -Name $Name -Comment $pkgComm
+            $result = Invoke-CMxFunction -Name $Name -Comment $pkgComm
             if ($result -ne 0) {
                 Write-Warning "error: step failure [function] at: $Name"
                 $continue = $False
@@ -777,7 +785,7 @@ function Invoke-CMBuildPackage {
             break
         }
         'payload' {
-            $result = Invoke-CMBuildPayload -Name $Name -SourcePath $PayloadSource -PayloadFile $PayloadFile -PayloadArguments $PayloadArguments
+            $result = Invoke-CMxPayload -Name $Name -SourcePath $PayloadSource -PayloadFile $PayloadFile -PayloadArguments $PayloadArguments
             if ($result -ne 0) {
                 Write-Warning "error: step failure [payload] at: $Name"
                 $continue = $False
@@ -786,14 +794,15 @@ function Invoke-CMBuildPackage {
         }
         default {
             Write-Warning "invalid package type value: $PackageType"
+            $continue
             break
         }
     } # switch
-    Write-Log -Category "info" -Message "function result = $result"
+    Write-Log -Category "info" -Message "[Invoke-CMxPackage] result = $result"
     Write-Output $result
 }
 
-function Invoke-CMBuildPayload {
+function Invoke-CMxPayload {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
@@ -841,11 +850,11 @@ function Invoke-CMBuildPayload {
             break
         }
     } # switch
-    Write-Log -Category "info" -Message "function result = $result"
+    Write-Log -Category "info" -Message "[Invoke-CMxPayload] result = $result"
     Write-Output $x
 } 
 
-function Invoke-CMBuildFunction {
+function Invoke-CMxFunction {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
@@ -880,7 +889,7 @@ function Invoke-CMBuildFunction {
             break
         }
     } # switch
-    Write-Log -Category "info" -Message "function result = $result"
+    Write-Log -Category "info" -Message "[Invoke-CMxFunction] result = $result"
     Write-Output $result
 }
 
@@ -1003,7 +1012,7 @@ Write-Log -Category "info" -Message "beginning package execution"
 Write-Log -Category "info" -Message "----------------------------------------------------"
 $continue = $True
 
-foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.enabled -eq 'true'}) {
+foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.use -eq '1'}) {
     if ($continue) {
         $pkgName  = $package.name
         $pkgType  = $package.type 
@@ -1025,7 +1034,7 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
         Write-Log -Category "info" -Message "payload args.... $pkgArgs"
         Write-Log -Category "info" -Message "rule type....... $detType"
 
-        if (!(Test-CMBuildPackage -PackageName $dependson)) {
+        if (!(Test-CMxPackage -PackageName $dependson)) {
             Write-Log -Category "error" -Message "dependency missing: $depends"
             $continue = $False
             break
@@ -1042,7 +1051,7 @@ foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.
         }
         else {
             Write-Log -Category "info" -Message "install state... $pkgName is NOT INSTALLED"
-            $x = Invoke-CMBuildPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
+            $x = Invoke-CMxPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
             if ($x -ne 0) {$continue = $False; break}
         }
         Write-Log -Category "info" -Message "----------------------------------------------------"
