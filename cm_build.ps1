@@ -15,7 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-    1.2.18 - DS - 2017.09.08
+    1.2.19 - DS - 2017.09.08
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -43,7 +43,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.2.18'
+$ScriptVersion = '1.2.19'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -721,7 +721,7 @@ function Invoke-CMxPackage {
                     Foreach-Object {$_.innerText}).Split(',')
             $result = Import-CMxServerRoles -RoleName $Name -FeaturesList $xdata -AlternateSource $AltSource
             Write-Log -Category "info" -Message "exit code = $result"
-            if ($result) { 
+            if ($result -or ($result -eq 0)) { 
                 Set-CMxTaskCompleted -KeyName $Name -Value $(Get-Date) 
             }
             else {
@@ -732,7 +732,7 @@ function Invoke-CMxPackage {
         }
         'function' {
             $result = Invoke-CMxFunction -Name $Name -Comment $pkgComm
-            if ($result -ne 0) {
+			if (!($result -or ($result -eq 0))) { 
                 Write-Warning "error: step failure [function] at: $Name"
                 $continue = $False
             }
@@ -740,7 +740,7 @@ function Invoke-CMxPackage {
         }
         'payload' {
             $result = Start-CMxPayload -Name $Name -SourcePath $PayloadSource -PayloadFile $PayloadFile -PayloadArguments $PayloadArguments
-            if ($result -ne 0) {
+            if (!($result -or ($result -eq 0))) { 
                 Write-Warning "error: step failure [payload] at: $Name"
                 $continue = $False
             }
