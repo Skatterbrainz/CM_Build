@@ -1,5 +1,6 @@
 #requires -RunAsAdministrator
 #requires -version 3
+#requires -modules ServerManager
 <#
 .SYNOPSIS
     SCCM site server installation script
@@ -14,7 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-    1.2.07 - DS - 2017.09.06
+    1.2.18 - DS - 2017.09.08
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -38,9 +39,11 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Suppress reboots")]
         [switch] $NoReboot,
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
-        [switch] $Detailed
+        [switch] $Detailed,
+    [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
+        [switch] $Override
 )
-$ScriptVersion = '1.2.07'
+$ScriptVersion = '1.2.18'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -96,6 +99,7 @@ else {
     Write-Log -Category "info" -Message "installing SqlServer module"
     Install-Module SqlServer -Force
 }
+<#
 if (Get-Module -ListAvailable -Name dbatools) {
     Write-Log -Category "info" -Message "dbatools module is already installed"
 }
@@ -103,7 +107,28 @@ else {
     Write-Log -Category "info" -Message "installing dbatools module"
     Install-Module dbatools -SkipPublisherCheck -Force
 }
-
+#>
+if (-not(Test-Path "c:\ProgramData\chocolatey\choco.exe")) {
+    Write-Log -Category "info" -Message "installing chocolatey..."
+    if ($WhatIfPreference) {
+        Write-Log -Category "info" -Message "Chocolatey is not installed. Bummer dude. This script would attempt to install it first."
+    }
+    else {
+        Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+    }
+    Write-Log -Category "info" -Message "installation completed"
+}
+else {
+    Write-Log -Category "info" -Message "chocolatey is already installed"
+}
+if (-not(Test-Path "c:\ProgramData\chocolatey\choco.exe")) {
+	Write-Log -Category "error" -Message "chocolatey install failed!"
+	break
+}
+if (-not(Get-Module -Name "Carbon")) {
+	Write-Log -Category "info" -Message "installing Carbon package"
+	cinst carbon -y
+}
 #Clear-Host
 Write-Log -Category "info" -Message "defining internal functions"
 
@@ -239,7 +264,7 @@ function Import-CMxFolders {
         Write-Log -Category "info" -Message "pausing for 5 seconds"
         Start-Sleep -Seconds 5
     }
-    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex)"
     Write-Log -Category "info" -Message "function result = $result"
     Write-Output $result
 }
@@ -281,7 +306,13 @@ function Import-CMxFiles {
                 }
             }
             else {
-                $data += "$keyname=`"$keyval`"`r`n"
+				if ($keyname -eq "SQLSYSADMINACCOUNTS") {
+					$kv = $(foreach ($y in $keyval.split(',')) {'"' + $y + '"'}) -join " "
+					$data += "$keyname=$kv`r`n"
+				}
+				else {
+					$data += "$keyname=`"$keyval`"`r`n"
+				}
             }
         } # foreach
         try {
@@ -293,7 +324,7 @@ function Import-CMxFiles {
         }
     } # foreach
     Write-Log -Category "info" -Message "function result = $result"
-    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex)"
     Write-Output $result
 }
 
@@ -366,7 +397,7 @@ function Import-CMxServerRoles {
     if ($result -eq 0) {
         Set-CMxTaskCompleted -KeyName 'SERVERROLES' -Value $(Get-Date)
     }
-    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex)"
     Write-Output $result
 }
 
@@ -457,7 +488,7 @@ function Invoke-CMxWsusConfiguration {
     catch {
         Write-Warning "ERROR: Unable to invoke WSUS post-install configuration"
     }
-    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex))"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex)"
     Write-Output $result
 }
 
@@ -588,21 +619,6 @@ function Get-CmxWsusUpdatesPath {
     Write-Output $fpath
 }
 
-function Invoke-BPAtest {
-    [CmdletBinding(SupportsShouldProcess=$True)]
-    param ($FeatureCode)
-    Import-module BestPractices
-    switch ($FeatureCode) {
-        'WSUS' {
-            # ref: https://blogs.technet.microsoft.com/heyscriptingguy/2013/04/15/installing-wsus-on-windows-server-2012/
-            Invoke-BpaModel -ModelId Microsoft/Windows/UpdateServices
-            Get-BpaResult -ModelId Microsoft/Windows/UpdateServices |
-                Select-Object Title,Severity,Compliance | Format-List
-            break
-        }
-    }
-}
-
 function Set-CMxRegKeys {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param (
@@ -723,7 +739,7 @@ function Invoke-CMxPackage {
             break
         }
         'payload' {
-            $result = Invoke-CMxPayload -Name $Name -SourcePath $PayloadSource -PayloadFile $PayloadFile -PayloadArguments $PayloadArguments
+            $result = Start-CMxPayload -Name $Name -SourcePath $PayloadSource -PayloadFile $PayloadFile -PayloadArguments $PayloadArguments
             if ($result -ne 0) {
                 Write-Warning "error: step failure [payload] at: $Name"
                 $continue = $False
@@ -757,7 +773,7 @@ function Start-CMxPayload {
         [parameter(Mandatory=$False)]
             [string] $Comment = ""
     )
-    Write-Host "Installing $Name" -ForegroundColor Green
+    Write-Host "Installing payload: $Name" -ForegroundColor Green
     Write-Log -Category "info" -Message "installation payload = $Name"
     Write-Log -Category "info" -Message "comment = $Comment"
     switch ($pkgName) {
@@ -857,7 +873,7 @@ function Invoke-CMxPayloadInstaller {
             Write-Host "Reboot will be requested" -ForegroundColor Magenta
         }
     }
-    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $time1))"
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $time1)"
     Write-Log -Category "info" -Message "function result = $result"
     Write-Output $result
 }
@@ -892,6 +908,13 @@ function Invoke-CMxFunction {
             Set-CMxTaskCompleted -KeyName $Name -Value $(Get-Date)
             break
         }
+		'LOCALACCOUNTS' {
+			$result = Import-CMxLocalAccounts -DataSet $xmldata
+			if ($result -eq $True) {
+				Set-CMxTaskCompleted -KeyName $Name -Value $(Get-Date)
+			}
+			break
+		}
         default {
             Write-Warning "There is no function mapping for: $Name"
             break
@@ -985,92 +1008,188 @@ function Get-CMxInstallState {
     Write-Output $result
 }
 
+function Import-CMxLocalAccounts {
+	[CmdletBinding(SupportsShouldProcess=$True)]
+	param (
+		[parameter(Mandatory=$True)]
+		[ValidateNotNullOrEmpty()]
+		$DataSet
+	)
+	Write-Host "Configuring Local accounts and group memberships" -ForegroundColor Green
+	$result = 0
+	$time1  = Get-Date
+	foreach ($item in $DataSet.configuration.localaccounts.localaccount | Where-Object {$_.use -eq "1"}) {
+		$itemName   = $item.name
+		$itemGroup  = $item.memberof
+		$itemRights = $item.rights
+		if (Get-LocalGroupMember -Group "$itemGroup" -Member "$itemName" -ErrorAction SilentlyContinue) {
+			Write-Log -Category "info" -Message "$itemName is already a member of $itemGroup"
+			if ($itemRights.Length -gt 0) {
+				Set-CMxLocalAccountRights -UserName "$itemName" -Privileges "$itemRights" | Out-Null
+			}
+		}
+		else {
+			Write-Log -Category "info" -Message "$itemName is not a member of $itemGroup"
+			try {
+				Add-LocalGroupMember -Group "$itemGroup" -Member "$itemName"
+				if (Get-LocalGroupMember -Group "$itemGroup" -Member "$itemName" -ErrorAction SilentlyContinue) {
+					Write-Log -Category "info" -Message "$itemName has been added to $itemGroup"
+					if ($itemRights.Length -gt 0) {
+						Set-CMxLocalAccountRights -UserName "$itemName" -Privileges "$itemRights" | Out-Null
+					}
+				}
+				else {
+					Write-Log -Category "error" -Message $_.Exception.Message
+					$result = $False
+					break
+				}
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+				$result = $False
+				break
+			}
+		}
+	} # foreach
+    Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $time1)"
+	Write-Output $result
+}
+
+<#
+.NOTES
+	reference: http://get-carbon.org/Grant-Privilege.html
+#>
+function Set-CMxLocalAccountRights {
+	param (
+		[parameter(Mandatory=$True)]
+			[ValidateNotNullOrEmpty()]
+			[string] $UserName,
+		[parameter(Mandatory=$True)]
+			[ValidateNotNullOrEmpty()]
+			[string] $Privileges
+	)
+	Write-Log -Category "info" -Message "Set-CMxServiceLogonRights: $UserName"
+	[array]$privs = Get-Privilege -Identity $UserName
+	$result = $False
+	if ($privs.Count -gt 0) {
+		foreach ($right in $Privileges.Split(',')) {
+			if ($privs -contains $right) {
+				Write-Log -Category "info" -Message "$right, already granted to: $UserName"
+				$result = $True
+			}
+			else {
+				Write-Log -Category "info" -Message "granting: $right, to: $UserName"
+				Grant-Privilege -Identity $UserName -Privilege $right
+			}
+		} # foreach
+	}
+	else {
+		foreach ($right in $Privileges.Split(',')) {
+			Write-Log -Category "info" -Message "granting: $right, to: $UserName"
+			Grant-Privilege -Identity $UserName -Privilege $right
+		} # foreach
+	}
+	Write-Output $result
+}
+
 # end-functions
 
 [xml]$xmldata = Get-CMxConfigData $XmlFile
 Write-Log -Category "info" -Message "----------------------------------------------------"
 Set-CMxTaskCompleted -KeyName 'START' -Value $(Get-Date)
 
-$project   = $xmldata.configuration.project
-$AltSource = $xmldata.configuration.references.reference | 
-    Where-Object {$_.name -eq 'WindowsServer'} | 
-        Select-Object -ExpandProperty path
-Write-Log -Category "info" -Message "alternate windows source = $AltSource"
-
-#Set-Location $env:USERPROFILE
-
-Write-Log -Category "info" -Message "----------------------------------------------------"
-Write-Log -Category "info" -Message "project info....... $($project.comment)"
-
-if (-not (Import-CMxFolders -DataSet $xmldata)) {
-    Write-Warning "error: failed to create folders (aborting)"
-    break
+if ($Override) {
+    $controlset = $xmldata.configuration.packages.package | Out-GridView -Title "Select Packages to Run" -PassThru
 }
-if (-not (Import-CMxFiles -DataSet $xmldata)) {
-    Write-Warning "error: failed to create files (aborting)"
-    break
+else {
+    $controlset = $xmldata.configuration.packages.package | Where-Object {$_.use -eq '1'}
 }
 
-Write-Host "Executing project configuration" -ForegroundColor Green
+if ($controlset) {
+	$project   = $xmldata.configuration.project
+	$AltSource = $xmldata.configuration.references.reference | 
+		Where-Object {$_.name -eq 'WindowsServer'} | 
+			Select-Object -ExpandProperty path
+	Write-Log -Category "info" -Message "alternate windows source = $AltSource"
 
-Disable-InternetExplorerESC | Out-Null
-Set-CMxRegKeys -DataSet $xmldata -Order "before" | Out-Null
+	#Set-Location $env:USERPROFILE
 
-Write-Log -Category "info" -Message "beginning package execution"
-Write-Log -Category "info" -Message "----------------------------------------------------"
-$continue = $True
+	Write-Log -Category "info" -Message "----------------------------------------------------"
+	Write-Log -Category "info" -Message "project info....... $($project.comment)"
 
-foreach ($package in $xmldata.configuration.packages.package | Where-Object {$_.use -eq '1'}) {
-    if ($continue) {
-        $pkgName  = $package.name
-        $pkgType  = $package.type 
-        $pkgComm  = $package.comment 
-        $payload  = $xmldata.configuration.payloads.payload | Where-Object {$_.name -eq $pkgName}
-        $pkgSrc   = $payload.path 
-        $pkgFile  = $payload.file
-        $pkgArgs  = $payload.params
-        $detRule  = $xmldata.configuration.detections.detect | Where-Object {$_.name -eq $pkgName}
-        $detPath  = $detRule.path
-        $detType  = $detRule.type
-        $depends  = $package.dependson
+	if (-not (Import-CMxFolders -DataSet $xmldata)) {
+		Write-Warning "error: failed to create folders (aborting)"
+		break
+	}
+	if (-not (Import-CMxFiles -DataSet $xmldata)) {
+		Write-Warning "error: failed to create files (aborting)"
+		break
+	}
 
-        Write-Log -Category "info" -Message "package name.... $pkgName"
-        Write-Log -Category "info" -Message "package type.... $pkgType"
-        Write-Log -Category "info" -Message "package comment. $pkgComm"
-        Write-Log -Category "info" -Message "payload source.. $pkgSrc"
-        Write-Log -Category "info" -Message "payload file.... $pkgFile"
-        Write-Log -Category "info" -Message "payload args.... $pkgArgs"
-        Write-Log -Category "info" -Message "rule type....... $detType"
+	Write-Host "Executing project configuration" -ForegroundColor Green
 
-        if (!(Test-CMxPackage -PackageName $dependson)) {
-            Write-Log -Category "error" -Message "dependency missing: $depends"
-            $continue = $False
-            break
-        }
-        if (($detType -eq "") -or ($detPath -eq "") -or (-not($detPath))) {
-            Write-Log -Category "error" -Message "detection rule is missing for $pkgName (aborting)"
-            $continue = $False
-            break
-        }
-        $installed = $False
-        $installed = Get-CMxInstallState -PackageName $pkgName -RuleType $detType -RuleData $detPath
-        if ($installed) {
-            Write-Log -Category "info" -Message "install state... $pkgName is INSTALLED"
-        }
-        else {
-            Write-Log -Category "info" -Message "install state... $pkgName is NOT INSTALLED"
-            $x = Invoke-CMxPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
-            if ($x -ne 0) {$continue = $False; break}
-        }
-        Write-Log -Category "info" -Message "----------------------------------------------------"
-    }
-    else {
-        Write-Warning "STOP! aborted at step [$pkgName] $(Get-Date)"
-        break
-    }
-} # foreach
+	Disable-InternetExplorerESC | Out-Null
+	Set-CMxRegKeys -DataSet $xmldata -Order "before" | Out-Null
 
-Set-CMxRegKeys -DataSet $xmldata -Order "after" | Out-Null
+	Write-Log -Category "info" -Message "beginning package execution"
+	Write-Log -Category "info" -Message "----------------------------------------------------"
+	$continue = $True
+	$pkgcount = 0
+	foreach ($package in $controlset) {
+		if ($continue) {
+			$pkgName  = $package.name
+			$pkgType  = $package.type 
+			$pkgComm  = $package.comment 
+			$payload  = $xmldata.configuration.payloads.payload | Where-Object {$_.name -eq $pkgName}
+			$pkgSrc   = $payload.path 
+			$pkgFile  = $payload.file
+			$pkgArgs  = $payload.params
+			$detRule  = $xmldata.configuration.detections.detect | Where-Object {$_.name -eq $pkgName}
+			$detPath  = $detRule.path
+			$detType  = $detRule.type
+			$depends  = $package.dependson
+
+			Write-Log -Category "info" -Message "package name.... $pkgName"
+			Write-Log -Category "info" -Message "package type.... $pkgType"
+			Write-Log -Category "info" -Message "package comment. $pkgComm"
+			Write-Log -Category "info" -Message "payload source.. $pkgSrc"
+			Write-Log -Category "info" -Message "payload file.... $pkgFile"
+			Write-Log -Category "info" -Message "payload args.... $pkgArgs"
+			Write-Log -Category "info" -Message "rule type....... $detType"
+
+			if (!(Test-CMxPackage -PackageName $dependson)) {
+				Write-Log -Category "error" -Message "dependency missing: $depends"
+				$continue = $False
+				break
+			}
+			if (($detType -eq "") -or ($detPath -eq "") -or (-not($detPath))) {
+				Write-Log -Category "error" -Message "detection rule is missing for $pkgName (aborting)"
+				$continue = $False
+				break
+			}
+			$installed = $False
+			$installed = Get-CMxInstallState -PackageName $pkgName -RuleType $detType -RuleData $detPath
+			if ($installed) {
+				Write-Log -Category "info" -Message "install state... $pkgName is INSTALLED"
+			}
+			else {
+				Write-Log -Category "info" -Message "install state... $pkgName is NOT INSTALLED"
+				$x = Invoke-CMxPackage -Name $pkgName -PackageType $pkgType -PayloadSource $pkgSrc -PayloadFile $pkgFile -PayloadArguments $pkgArgs
+				if ($x -ne 0) {$continue = $False; break}
+			}
+			$pkgcount += 1
+			Write-Log -Category "info" -Message "----------------------------------------------------"
+		}
+		else {
+			Write-Warning "STOP! aborted at step [$pkgName] $(Get-Date)"
+			break
+		}
+	} # foreach
+
+	if (($pkgcount -gt 0) -and ($continue)) {
+		Set-CMxRegKeys -DataSet $xmldata -Order "after" | Out-Null
+	}
+}
 
 Write-Host "Processing finished at $(Get-Date)" -ForegroundColor Green
 $RunTime2 = Get-TimeOffset -StartTime $RunTime1
