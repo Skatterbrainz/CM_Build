@@ -6,13 +6,20 @@ Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
 Part 1 of 2 = builds on top of a standard Windows Server instance to having Configuration Manager.  This includes server roles and features, ADK, MDT, SQL Server, WSUS, and Configuration Manager.  It also includes things like SQL memory and recovery settings, registry keys, custom folders and files, and optional tools (ConfigMgr Toolkit, Right-click Tools, etc.).
 
-* Latest version : 1.2.18
+* Latest version : 1.2.19
  
 # CM_SITECONFIG
 
 Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigMgr instance).  Configures AD forest connection, discovery methods, boundary groups, collections, queries, client settings, applications, operating system images, operating system upgrade installers, site maintenance tasks, application categories and antimalware policies. 
 
 * Latest version : 1.2.24
+
+# Noteable Updates
+
+* [Override] parameter added to both scripts - provides a gridview menu to choose individual XML sections to apply
+* Added cm_build_nosql.xml template for skipping SQL Server (when on a separate host)
+* Added [localaccounts] section to cm_build.xml and cm_build_nosql.xml - adds domain accounts to local admins group and assigns policy privileges like Logon as a Service, etc.
+* Fixed numerous bugs with control flow logic, especially for handling step failures and terminating gracefully.
 
 # Recommended Platforms and Resources
 
