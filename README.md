@@ -1,87 +1,52 @@
-# CM_Build 1.2 / CM_SiteConfig 1.2
-* ConfigMgr Site Server installer and Site Configuration scripts
-* More details at https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
+# Overview
 
-## CM_Build Revision History
-* 1.2.22 - 2017.09.04 - minor bug fixes, attempt to satisfy quota of using number 2 in everything.
-* 1.2.21 - 2017.09.02 - added sqloptions to XML for control over max memory allocation and DB recovery model, minor bug fixes
-* 1.1.43 - 2017.08.28 - bug fixes, verbose output, enhanced features
-* 1.1.42 - 2017.08.24 - bug fixes
-* 1.1.00 - 2017.08.17 - redesigned XML schema and powershell code framework
-* 1.0.00 - 2017.08.16 - initial release
+Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
-## CM_SiteConfig Revision History
-* 1.2.21 - 2017.09.02 - added more capabilities, bug fixes, documentation in XML
-* 1.1.20 - 2017.08.28 - redesigned XML schema and powershell code framework
-* 1.1.10 - 2017.08.24 - added folders, queries
-* 1.1.00 - 2017.08.17 - added to repository
+# CM_BUILD
 
-Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
+Part 1 of 2 = builds on top of a standard Windows Server instance to having Configuration Manager.  This includes server roles and features, ADK, MDT, SQL Server, WSUS, and Configuration Manager.  It also includes things like SQL memory and recovery settings, registry keys, custom folders and files, and optional tools (ConfigMgr Toolkit, Right-click Tools, etc.).
 
-### CM_Build Usage
+* Latest version : 1.2.18
+ 
+# CM_SITECONFIG
 
-* cm_build.ps1 -xmlfile .\cm_build.xml [-NoCheck] [-NoReboot] [-Verbose] [-WhatIf]
-  * -xmlfile [filepath]
-  * -NoCheck (skip platform validation)
-  * -NoReboot (suppress reboots)
-  * a transcript log is created in the runtime folder
+Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigMgr instance).  Configures AD forest connection, discovery methods, boundary groups, collections, queries, client settings, applications, operating system images, operating system upgrade installers, site maintenance tasks, application categories and antimalware policies. 
 
-## CM_Build System Requirements
+* Latest version : 1.2.24
 
-* Server installed and patched (Windows Server 2012 R2 or 2016)
-* Server is joined to domain
-* Static IPv4 address
-* Disks are allocated (e.g. E:, F:, G:)
-* At least 8 GB memory
+# Recommended Platforms and Resources
 
-## CM_Build Execution
+* Recommended Software
+  * Windows Server 2016 (or current version)
+  * SQL Server 2016 SP1 (or current version)
+  * SQL Server Management Studio 2017 (or latest version)
+  * Configuration Manager Current Branch (supported versions only)
+  * Windows 10 ADK 1703 (or current version)
+  * MDT 8443 (or current version)
+  * ConfigMgr Toolkit 2012 R2 (or current version)
+  * AD domain joined, static IPv4 address
+* Hardware
+  * 16 GB memory or more
+  * 3 logical disks (OS, SQL/CM, Data/Content), more disks preferred (for temp db, logs, etc.)
+  * 2 vCPUs
+* Tested on Windows Server 2016 Datacenter, with SQL Server 2016 SP1, ADK 1703, MDT 8443 and SCCM 1702
 
-* Installs Windows Server Roles and Features
-* Installs ADK
-* Installs MDT
-* Installs SQL Server
-* Installs SSMS
-* Configures SQL Server memory
-* Installs WSUS role
-* Installs ConfigMgr
-* Installs ConfigMgr Toolkit
-* Installs Right-click Tools
-* Installs anything else you want it to
+# Examples
 
-## CM_Build Process Overview
+* cm_build.ps1 -XmlFile cm_build.xml
+* cm_build.ps1 -XmlFile cm_build.xml -NoCheck
+* cm_build.ps1 -XmlFile cm_build.xml -NoReboot
+* cm_build.ps1 -XmlFile cm_build.xml -Detailed
+* cm_build.ps1 -XmlFile cm_build.xml -Override
+* (combinations of above, eg.: -NoCheck -NoReboot -Detailed -Override)
 
-* Download installation media
-  * Configuration Manager 1702
-  * SQL Server 2016
-  * Windows 10 ADK 1703
-  * MDT 8443
-  * ConfigMgr Toolkit 2012 R2
-  * Recast Right-click Tools
-* Extract content into shared location
-* Edit cm_build.xml to suit your environment and needs
-* Open PowerShell console using "Run as Administrator"
-* Set-ExecutionPolicy to ByPass 
-* Execute (see examples)
+* cm_siteconfig.ps1 -XmlFile cm_siteconfig.xml
+* cm_siteconfig.ps1 -XmlFile cm_siteconfig.xml -Detailed
+* cm_siteconfig.ps1 -XmlFile cm_siteconfig.xml -Override
+* (combinations of above, eg.: -Detailed -Override)
 
-## CM_Build Examples
-
-* .\cm_build.ps1 -xmlfile .\cm_build.xml -Verbose
-* .\cm_build.ps1 -xmlfile .\cm_build.xml -NoCheck -Verbose
-* .\cm_build.ps1 -xmlfile .\cm_build.xml -NoReboot -Verbose
-
-## CM_Build Notes
-
-* To use the internal function process for adding server roles/features, leave the XML setting under [packages] to use *type*="feature".
-* To use an external XML role config file, change the SERVERROLES *type*="payload", and edit the [payload] entry to specify the *file*="filename.xml".  The XML file needs to reside in the same folder where the -XmlFile filename resides.
-
-## CM_SiteConfig Usage
-
-* cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml [-ForceBoundaries] [-Detailed] [-Override] [-Verbose] [-WhatIf]
 * [Detailed] is like -Verbose, only prettier, and doesn't get fall-down drunk on you
 * [ForceBoundaries] was an idea I had while on 1.5 hrs of sleep. stay away from it for now.
+* [NoCheck] skips platform requirements validation checks, like memory, etc.
+* [NoReboot] suppresses reboots during the execution
 * [Override] displays a PS GridView menu to allow you to select individual tasks to run regardless of enabled=true in the XML file.
-
-## CM_SiteConfig Examples
-
-* .\cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml -Detailed
-* .\cm_siteconfig.ps1 -xmlfile .\cm_siteconfig.xml -Detailed -Override

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- Version 1.2.19 - DS - 2017.09.08 -->
+<!-- for use when SQL Server is on a different host (already installed/configured) -->
+<configuration>
+    <project comment="Contoso SCCM primary site server build for CM01.contoso.com, 1.2.19 by DS 2017-09-08" />
+    <references>
+        <reference use="0" name="WindowsServer" type="AltSource" path="\\FS1\sources\win2016dc\sources\sxs" file="" comment="Windows Server 2016 install media" />
+        <reference use="1" name="Windows10" type="AltSource" path="\\Fs1\sources\Win10x64ent\sources\sxs" file="" comment="Windows 10 x64 enterprise" />
+    </references>
+    <packages comment="Controls the order and links of execution">
+        <package use="1" name="LOCALACCOUNTS" type="function" comment="Configure local accounts and groups" dependson="" />
+	<package use="1" name="SERVERROLES" type="feature" comment="Server Roles and Features" note="change feature to payload to invoke external file" />
+        <package use="1" name="ADK" type="payload" comment="Windows 10 ADK 1703" dependson="" />
+        <package use="1" name="MDT" type="payload" comment="Microsoft Deployment Toolkit 8443" dependson="" />
+        <package use="0" name="SQLSERVER" type="payload" comment="SQL Server 2016" dependson="" />
+        <package use="0" name="SSMS" type="payload" comment="SQL Server Management Studio" dependson="" />
+        <package use="0" name="SQLCONFIG" type="function" comment="Configure SQL Server" dependson="" />
+        <package use="1" name="WSUS" type="feature" comment="WSUS Role" dependson="" note="change feature to payload to invoke external file" />
+        <package use="1" name="WSUSCONFIG" type="function" comment="WSUS Configuration" dependson="WSUS" />
+        <package use="1" name="CONFIGMGR" type="payload" comment="Configuration Manager 1702" dependson="WSUS" />
+        <package use="1" name="CMTOOLKIT" type="payload" comment="ConfigMgr Toolkit 2012 R2" dependson="CONFIGMGR" />
+        <package use="1" name="RCTOOLS" type="payload" comment="Recast RightClick Tools" dependson="CONFIGMGR" />
+    </packages>
+    <localaccounts comment="Local Accounts and Group Memberships">
+	<localaccount use="0" name="CONTOSO\sql-svc" memberof="Administrators" rights="SeServiceLogonRight,SeDenyInteractiveLogonRight" comment="rights are based on http://get-carbon.org/Grant-Privilege.html" />
+	<localaccount use="1" name="CONTOSO\sccmadmin" memberof="Administrators" rights="" comment="" />
+	<localaccount use="1" name="CONTOSO\IT sccm admins" memberof="Administrators" rights="" comment="" />
+    </localaccounts>
+    <payloads comment="Describes execution details for each package">
+        <payload name="SERVERROLES" path="Install-WindowsFeature" file="roles.xml" params="" comment="only used if the package type is payload, must reside in same path as cm_build.xml" />
+        <payload name="ADSCHEMA" path="\\FS1\apps\CM_BUILD\ConfigMgr\SMSSETUP\BIN\X64" file="extadsch.exe" params="" comment="" />
+        <payload name="ADK" path="\\FS1\apps\CM_BUILD\ADK\cached" file="adksetup.exe" params="/installpath E:\ADK /Features OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment OptionId.UserStateMigrationTool /quiet /ceip off" comment="" />
+        <payload name="MDT" path="\\FS1\apps\CM_BUILD\MDT" file="MicrosoftDeploymentToolkit_x64.msi" params="/qb! /norestart" comment="" />
+        <payload name="SQLSERVER" path="\\FS1\apps\CM_BUILD\SQL" file="setup.exe" params="/ConfigurationFile=F:\CM_BUILD\sqlsetup_cm01.ini" comment="" />
+        <payload name="SSMS" path="\\FS1\apps\CM_BUILD\SSMS" file="SSMS-Setup-ENU.exe" params="/install /quiet /norestart" comment="" />
+        <payload name="WSUSCONFIG" path="C:\Program Files\Update Services\Tools" file="WsusUtil.exe" params="postinstall SQL_INSTANCE_NAME=CM01.contoso.com CONTENT_DIR=F:\UPDATES" comment="" />
+        <payload name="CONFIGMGR" path="\\FS1\apps\CM_BUILD\ConfigMgr\SMSSETUP\BIN\X64" file="setup.exe" params="/script F:\CM_BUILD\cmsetup_cm01.ini" comment="" />
+        <payload name="CMTOOLKIT" path="\\FS1\apps\CM_BUILD\Tools" file="ConfigMgrTools.msi" params="/qb! /norestart" comment="" />
+        <payload name="RCTOOLS" path="\\FS1\apps\CM_BUILD\Tools" file="Recast_RCT_Latest.msi" params="/qb! /norestart" comment="" />
+        <payload name="WSUS" path="Install-WindowsFeature" file="wsus.xml" params="" comment="only used if the package type is payload" />
+    </payloads>
+    <detections comment="Describes criteria to indicate install status">
+        <detect name="LOCALACCOUNTS" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="LOCALACCOUNTS" type="synthetic" />
+	<detect name="SERVERROLES" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SERVERROLES" type="synthetic" />
+        <detect name="ADK" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots" value="" type="automatic" />
+        <detect name="MDT" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9547DE37-4A70-4194-97EA-ACC3E747254B}" value="" type="automatic" />
+        <detect name="SQLSERVER" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" value="" type="automatic" />
+        <detect name="SSMS" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{510DB6E6-7CF0-4B25-A51E-3AED7E25D507}" value="" type="automatic" />
+        <detect name="SQLCONFIG" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SQLCONFIG" type="synthetic" />
+        <detect name="WSUS" path="UpdateServices-DB" value="" type="feature" />
+        <detect name="WSUSCONFIG" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="WSUSCONFIG" type="synthetic" />
+        <detect name="CONFIGMGR" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SMS Primary Site" value="" type="automatic" />
+        <detect name="CMTOOLKIT" path="C:\Program Files (x86)\ConfigMgr 2012 Toolkit R2\ToolkitHelp.docx" value="" type="automatic" />
+        <detect name="RCTOOLS" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{4FFF7ECC-CCF7-4530-B938-E7812BB91186}" value="" type="automatic" />
+    </detections>
+    <folders comment="Folders to be created">
+        <folder use="1" name="E:\ADK" comment="ADK installation path" />
+        <folder use="1" name="E:\MDT" comment="MDT installation path" />
+        <folder use="1" name="E:\CONFIGMGR" comment="ConfigMgr installation path" />
+        <folder use="0" name="E:\SQLDB" comment="SQL Database path" />
+        <folder use="0" name="G:\SQLLOGS" comment="SQL Logs path" />
+        <folder use="0" name="E:\SQLBACKUPS" comment="SQL backups path" />
+        <folder use="0" name="G:\SQLTEMPDB" comment="SQL Temp DB path" />
+        <folder use="1" name="F:\CM_BUILD" comment="CM_BUILD temp folder" />
+        <folder use="1" name="F:\CMPREREQS" comment="ConfigMgr prereqs download path" />
+        <folder use="1" name="F:\UPDATES" comment="WSUS updates storage path" />
+        <folder use="1" name="F:\SOURCES,F:\SOURCES\DRVPKG,F:\SOURCES\DRVSRC,F:\SOURCES\SCRIPTS,F:\SOURCES\TOOLS" comment="" />
+    </folders>
+    <files comment="Files to be created">
+        <file use="1" pkg="CONFIGMGR" name="cmsetup_cm01.ini" path="F:\CM_BUILD" force="true" comment="ConfigMgr Installation file">
+            <keys>
+                <key name="__SECTION1" value="Identification" comment="do not modify" />
+                <key name="Action" value="InstallPrimarySite" />
+                <key name="__SECTION2" value="Options" comment="do not modify" />
+                <!--<key name="ProductID" value="EVAL" />-->
+                <key name="ProductID" value="xxxxx-xxxxx-xxxxx-xxxxx-xxxxx" />
+                <key name="SiteCode" value="P01" />
+                <key name="SiteName" value="Primary Site 1" />
+                <key name="SMSInstallDir" value="E:\ConfigMgr" />
+                <key name="SDKServer" value="CM01.contoso.com" />
+                <key name="RoleCommunicationProtocol" value="HTTPorHTTPS" />
+                <key name="ClientsUsePKICertificate" value="0" />
+                <key name="PrerequisiteComp" value="0" />
+                <key name="PrerequisitePath" value="F:\CMPREREQS" comment="path for downloading prereqs" />
+                <key name="ManagementPoint" value="CM01.contoso.com" />
+                <key name="ManagementPointProtocol" value="HTTP" />
+                <key name="DistributionPoint" value="CM01.contoso.com" />
+                <key name="DistributionPointProtocol" value="HTTP" />
+                <key name="DistributionPointInstallIIS" value="0" />
+                <key name="AdminConsole" value="1" />
+                <key name="JoinCEIP" value="0" />
+                <key name="__SECTION3" value="SQLConfigOptions" comment="do not modify" />
+                <key name="SQLServerName" value="CM01.contoso.com" />
+                <key name="DatabaseName" value="CM_P01" />
+                <key name="SQLSSBPort" value="4022" />
+                <key name="__SECTION4" value="CloudConnectorOptions" comment="do not modify" />
+                <key name="CloudConnector" value="1" />
+                <key name="CloudConnectorServer" value="CM01.contoso.com" />
+                <key name="UseProxy" value="0" />
+                <key name="ProxyName" value="" />
+                <key name="ProxyPort" value="" />
+                <key name="__SECTION5" value="SystemCenterOptions" comment="do not modify" />
+                <key name="__SECTION6" value="SABranchOptions" comment="do not modify" />
+                <key name="SAActive" value="1" comment="Software Assurance active" />
+                <key name="CurrentBranch" value="1" />
+                <key name="SAExpiration" value="2017-08-14 00:00:00.000" comment="SA initiation date" />
+                <key name="__SECTION7" value="HierarchyExpansionOption" comment="do not modify" />
+            </keys>
+        </file>
+    </files>
+    <features comment="Windows Server roles and features">
+        <feature use="1" name="SERVERROLES" comment="Prerequisite roles">BITS,BITS-IIS-Ext,NET-Framework-45-ASPNET,NET-Framework-Core,NET-Framework-Features,NET-WCF-HTTP-Activation45,RDC,RSAT-Bits-Server,WAS,WAS-Config-APIs,WAS-Process-Model,Web-App-Dev,Web-Asp-Net,Web-Asp-Net45,Web-Common-Http,Web-Default-Doc,Web-Dir-Browsing,Web-Filtering,Web-Health,Web-Http-Errors,Web-Http-Logging,Web-Http-Redirect,Web-Http-Tracing,Web-ISAPI-Ext,Web-ISAPI-Filter,Web-Log-Libraries,Web-Metabase,Web-Mgmt-Compat,Web-Mgmt-Console,Web-Mgmt-Tools,Web-Net-Ext,Web-Net-Ext45,Web-Performance,Web-Request-Monitor,Web-Security,Web-Server,Web-Stat-Compression,Web-Static-Content,Web-WebServer,Web-Windows-Auth,Web-WMI</feature>
+        <feature use="1" name="WSUS" comment="WSUS role">UpdateServices-Services,UpdateServices-DB,UpdateServices-RSAT</feature>
+    </features>
+    <regkeys comment="Custom registry keys">
+        <regkey use="1" name="ADK1703Fix" order="after" path="HKLM:\SYSTEM\CurrentControlSet\Services\WIMMount" value="ImagePath" data="system32\drivers\wimmount.sys" comment="https://blogs.technet.microsoft.com/mniehaus/2017/05/16/quick-workaround-for-adk-1703-issue" />
+        <regkey use="1" name="SAMPLE" order="before" path="HKLM:\SOFTWARE\CM_BUILD\TEST" value="V1" data="123" comment="Sample" />
+    </regkeys>
+    <sqloptions comment="SQL Server configuration settings">
+        <sqloption use="1" name="SqlServerMemoryMax" db="ALL" param="80%" comment="Set memory to 80 percent of total" />
+        <sqloption use="1" name="SetDBRecoveryModel" db="ReportServer" param="SIMPLE" comment="Set recovery model to SIMPLE" />
+    </sqloptions>
+</configuration>

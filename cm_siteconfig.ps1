@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.22 - DS - 2017.09.02
+    1.2.24 - DS - 2017.09.05
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.22'
+$ScriptVersion = '1.2.24'
 $ScriptPath    = Get-ScriptDirectory
 $LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
@@ -60,7 +60,7 @@ try {Start-Transcript -Path $tsFile -Force} catch {}
 Write-Host "------------------- BEGIN $(Get-Date) -------------------" -ForegroundColor Green
 
 function Write-Log {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateSet('info','error','warning')]
@@ -118,8 +118,12 @@ function Import-CmxModule {
 }
 
 function Import-CmxDiscoveryMethods {
-    [CmdletBinding()]
-    param ($DataSet)
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     Write-Log -Category "info" -Message "----------------------------------------------------"
     <#
     Write-Verbose "info: defining one-year time span values"
@@ -144,193 +148,179 @@ function Import-CmxDiscoveryMethods {
     Write-Host "Configuring Discovery Methods" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    $disc = $DataSet.configuration.cmsite.discoveries.discovery | ? {$_.enabled -eq 'true'}
-    foreach ($dm in $disc) {
-        $discName = $dm.name
-        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-        Write-Log -Category "info" -Message "discovery method = $discName"
-        $dmx = $disc | Where-Object {$_.name -eq $discName}
-        $options = $dmx.options
-        if ($options) {
-            Write-Log -Category "info" -Message "additional options are specified"
-            $ADContainer      = ""
-            $ADAttributes     = $null
-            $SubnetBoundaries = $False
-            $ADSiteBoundaries = $False
-            $FilterPassword1  = $False
-            $FilterPassword2  = $null
-            $FilterLogon1     = $False
-            $FilterLogon2     = $null
-            $EnableDelta      = $False
-
-            foreach ($option in $options.Split('|')) {
-                $optset = $option.Split(':')
-                if ($optset.length -eq 2) {
-                    Write-Log -Category "info" -Message "(option) name= $($optset[0]) ... value= $($optset[1])"
-                    switch ($optset[0]) {
-                        'ADContainer' {
-                            $ADContainer = $optset[1]
-                            break
-                        }
-                        'ADAttributes' {
-                            $ADAttributes = $optset[1].Split(',')
-                            break
-                        }
-                        'EnableSubnetBoundaryCreation' {
-                            $SubnetBoundaries = $True
-                            $AutoBoundaries   = $True
-                            break
-                        }
-                        'EnableActiveDirectorySiteBoundaryCreation' {
-                            $ADSiteBoundaries = $False
-                            $AutoBroundaries  = $True
-                            break
-                        }
-                        'EnableFilteringExpiredPassword' {
-                            $FilterPassword1 = $True
-                            $FilterPassword2 = $optset[1]
-                            break
-                        }
-                        'EnableFilteringExpiredLogon' {
-                            $FilterLogon1 = $True
-                            $FilterLogon2 = $optset[1]
-                            break
-                        }
-                        'EnableDeltaDiscovery' {
-                            $EnableDelta = $True
-                            break
-                        }
-                    } # switch
-                }
-                else {
-                    Write-Log -Category "info" -Message "option: name= $optset ... value= True"
-                }
-            } # foreach
-        } # if
-        
+    foreach ($item in $DataSet.configuration.cmsite.discoveries.discovery | Where-Object {$_.use -eq '1'}) {
+        $discName = $item.name
+        $discOpts = $item.options
+        Write-Log -Category "info" -Message "configuring discovery method = $discName"
         switch ($discName) {
             'ActiveDirectoryForestDiscovery' {
-                Write-Log -Category "info" -Message "FOREST DISCOVERY"
                 try {
-                    if ($SubnetBoundaries) {
-                        Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $True -ErrorAction SilentlyContinue
-                        Write-Log -Category "info" -Message "AD forest discovery configured successfully: with subnet boundary option"
-                    }
-                    elseif ($ADSiteBoundaries) {
-                        Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableActiveDirectorySiteBoundaryCreation $True -ErrorAction SilentlyContinue
-                        Write-Log -Category "info" -Message "AD forest discovery configured successfully: with adsite boundary option"
-                    }
-                    else {
-                        Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue
-                        Write-Log -Category "info" -Message "AD forest discovery configured successfully"
+                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue | Out-Null
+                    Write-Log -Category info -Message "discovery has been enabled. configuring options"
+                    if ($discOpts.length -gt 0) {
+                        foreach ($opt in $discOpts.Split('|')) {
+                            Write-Log -Category info -Message "option = $opt"
+                            switch ($opt) {
+                                'EnableActiveDirectorySiteBoundaryCreation' {
+                                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableActiveDirectorySiteBoundaryCreation $True | Out-Null
+                                }
+                                'EnableSubnetBoundaryCreation' {
+                                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $True | Out-Null
+                                }
+                            }
+                        } # foreach
                     }
                 }
                 catch {
-                    Write-Log -Category error -Message "AD Forest discovery setting failed!"
+                    Write-Log -Category error -Message $_.Exception.Message
+                    $result = $False
                 }
                 break
             }
             'ActiveDirectorySystemDiscovery' {
-                Write-Log -Category "info" -Message "SYSTEM DISCOVERY"
-                if ($FilterPassword1 -and $FilterLogon1) {
-                    try {
-                        Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredLogon $FilterLogon1 -TimeSinceLastLogonDays $FilterLogon2 -EnableFilteringExpiredPassword $FilterPassword1 -TimeSinceLastPasswordUpdateDays $FilterPassword2 -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Log -Category "info" -Message "AD system discovery configured successfully (A)"
-                    }
-                    catch {
-                        Write-Log -Category error -Message "AD system discovery setting failed!"
-                    }
+                try {
+                    Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction Continue | Out-Null
+                    Write-Log -Category info -Message "discovery has been enabled. configuring options"
+                    foreach ($opt in $discOpts.Split("|")) {
+                        $optx = $opt.Split(':')
+                        Write-Log -Category info -Message "option = $($optx[0])"
+                        switch ($optx[0]) {
+                            'ADContainer' {
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$ADContainer" -Recursive | Out-Null
+                                break
+                            }
+                            'EnableDetaDiscovery' {
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True | Out-Null
+                                break
+                            }
+                            'EnableFilteringExpiredLogon' {
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] | Out-Null
+                                break
+                            }
+                            'EnableFilteringExpiredPassword' {
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays $optx[1] | Out-Null
+                                break
+                            }
+                        } # switch
+                    } # foreach
                 }
-                elseif ($FilterPassword1) {
-                    try {
-                        Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredPassword $FilterPassword1 -TimeSinceLastPasswordUpdateDays $FilterPassword2 -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Log -Category "info" -Message "AD system discovery configured successfully (B)"
-                    }
-                    catch {
-                        Write-Log -Category error -Message "AD system discovery setting failed!"
-                    }
-                }
-                elseif ($FilterLogon1) {
-                    try {
-                        Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredLogon $FilterLogon1 -TimeSinceLastLogonDays $FilterLogon2 -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Log -Category "info" -Message "AD system discovery configured successfully (C)"
-                    }
-                    catch {
-                        Write-Log -Category error -Message "AD system discovery setting failed!"
-                    }
-                }
-                else {
-                    try {
-                        Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Log -Category "info" -Message "AD system discovery configured successfully (D)"
-                    }
-                    catch {
-                        Write-Log -Category error -Message "AD system discovery setting failed!"
-                    }
-                }
-                break
-            }
-            'ActiveDirectoryUserDiscovery' {
-                Write-Log -Category "info" -Message "USER DISCOVERY"
-                if ($ADAttributes -ne $null) {
-                    Write-Log -Category "info" -Message "assigning custom AD attributes"
-                    try {
-                        Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -Recursive -AddAdditionalAttribute $ADAttributes -ErrorAction SilentlyContinue | Out-Null
-                        Write-Log -Category "info" -Message "AD user discovery configured successfully (A)"
-                    }
-                    catch {
-                        Write-Log -Category error -Message "AD user discovery setting failed!"
-                    }
-                }
-                else {
-                    try {
-                        Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -Enabled $True -ActiveDirectoryContainer "LDAP://$ADContainer" -EnableDeltaDiscovery $EnableDelta -Recursive -ErrorAction SilentlyContinue | Out-Null
-                        Write-Log -Category "info" -Message "AD user discovery configured successfully (B)"
-                    }
-                    catch {
-                        Write-Log -Category error -Message "AD user discovery setting failed!"
-                    }
+                catch {
+                    Write-Log -Category error -Message $_.Exception.Message
+                    $result = $False
                 }
                 break
             }
             'ActiveDirectoryGroupDiscovery' {
-                Write-Log -Category "info" -Message "GROUP DISCOVERY"
                 try {
-                    Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -Enabled $True -EnableDeltaDiscovery $EnableDelta -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays 90 -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays 90 -ErrorAction SilentlyContinue | Out-Null
-                    Write-Log -Category "info" -Message "info: AD group discovery configured successfully"
+                    Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue | Out-Null
+                    Write-Log -Category info -Message "discovery has been enabled. configuring options"
+                    foreach ($opt in $discOpts.Split("|")) {
+                        $optx = $opt.Split(':')
+                        Write-Log -Category info -Message "option = $($optx[0])"
+                        switch ($optx[0]) {
+                            'EnableDeltaDiscovery' {
+                                Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True | Out-Null
+                                break
+                            }
+                            'EnableFilteringExpiredLogon' {
+                                Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] | Out-Null
+                                break
+                            }
+                            'EnableFilteringExpiredPassword' {
+                                Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays 90 | Out-Null
+                                break
+                            }
+                        } # switch
+                    } # foreach
                 }
                 catch {
                     Write-Log -Category error -Message "AD group discovery setting failed!"
                 }
                 break
             }
+            'ActiveDirectoryUserDiscovery' {
+                try {
+                    Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue | Out-Null
+                    Write-Log -Category info -Message "discovery has been enabled. configuring options"
+                    foreach ($opt in $discOpts.Split("|")) {
+                        $optx = $opt.Split(':')
+                        Write-Log -Category info -Message "option = $($optx[0])"
+                        switch ($optx[0]) {
+                            'ADContainer' {
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$ADContainer" -Recursive | Out-Null
+                                break
+                            }
+                            'EnableDetaDiscovery' {
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True | Out-Null
+                                break
+                            }
+                            'ADAttributes' {
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -AddAdditionalAttribute $optx[1].split(',') | Out-Null
+                                break
+                            }
+                        } # switch
+                    } # foreach
+                }
+                catch {
+                    Write-Log -Category error -Message $_.Exception.Message
+                    $result = $False
+                }
+                break
+            }
+            'NetworkDiscovery' {
+                try {
+                    Set-CMDiscoveryMethod -NetworkDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue | Out-Null
+                    Write-Log -Category info -Message "discovery has been enabled. configuring options"
+                }
+                catch {
+                    Write-Log -Category error -Message $_.Exception.Message
+                    $result = $False
+                }
+                break
+            }
+            'HeartbeatDiscovery' {
+                try {
+                    Set-CMDiscoveryMethod -Heartbeat -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue | Out-Null
+                    Write-Log -Category info -Message "discovery has been enabled. configuring options"
+                }
+                catch {
+                    Write-Log -Category error -Message $_.Exception.Message
+                    $result = $False
+                }
+                break
+            }
         } # switch
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 } # function
 
 function Set-CmxADForest {
-    [CmdletBinding()]
-    param ($DataSet)
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     $adforest = $DataSet.configuration.cmsite.forest
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring AD Forest" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
     try {
         New-CMActiveDirectoryForest -ForestFqdn "$adforest" -EnableDiscovery $True -ErrorAction SilentlyContinue
-        Write-Log -Category "info" -Message "active directory forest has been configured: $adforest"
+        Write-Log -Category "info" -Message "item created successfully: $adforest"
         Write-Output $True
     }
     catch {
         if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-            Write-Log -Category "info" -Message "AD forest $adforest already defined"
+            Write-Log -Category "info" -Message "item already exists"
             Write-Output $True
         }
         else {
-            Write-Error $_
+            Write-Log -Category error -Message $_.Exception.Message
             $result = $false
+            break
         }
     }
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -338,19 +328,20 @@ function Set-CmxADForest {
 }
 
 function Import-CmxBoundaryGroups {
-    [CmdletBinding()]
-    param ($DataSet)
-    Write-Log -Category "info" -Message "----------------------------------------------------"
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
     Write-Host "Configuring Site Boundary Groups" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    $bglist = $DataSet.configuration.cmsite.boundarygroups.boundarygroup
-    foreach ($bg in $bglist) {
-        $bgName = $bg.name
-        $bgComm = $bg.comment
-        $bgServer = $bg.SiteSystemServer
-        $bgLink   = $bg.LinkType
-        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
+    foreach ($item in $DataSet.configuration.cmsite.boundarygroups.boundarygroup | Where-Object {$_.use -eq '1'}) {
+        $bgName   = $item.name
+        $bgComm   = $item.comment
+        $bgServer = $item.SiteSystemServer
+        $bgLink   = $item.LinkType
         Write-Log -Category "info" -Message "boundary group name = $bgName"
         if ($bgServer) {
             $bgSiteServer = @{$bgServer = $bgLink}
@@ -367,6 +358,8 @@ function Import-CmxBoundaryGroups {
                 }
                 catch {
                     Write-Log -Category error -Message $_.Exception.Message
+                    $result = $False
+                    break
                 }
             }
         }
@@ -385,32 +378,32 @@ function Import-CmxBoundaryGroups {
                 catch {
                     Write-Log -Category error -Message $_.Exception.Message
                     $result = $false
+                    break
                 }
             }
         } # if
+        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
 function Set-CmxBoundaries {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site Boundaries" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    $blist = $DataSet.configuration.cmsite.boundaries.boundary
-    foreach ($bx in $blist) {
-        $bName = $bx.name
-        $bType = $bx.type
-        $bData = $bx.value
-        $bGrp  = $bx.boundarygroup
-        $bComm = $bx.comment
+    foreach ($item in $DataSet.configuration.cmsite.boundaries.boundary | Where-Object {$_.use -eq '1'}) {
+        $bName = $item.name
+        $bType = $item.type
+        $bData = $item.value
+        $bGrp  = $item.boundarygroup
+        $bComm = $item.comment
         Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
         Write-Log -Category "info" -Message "boundary name = $bName"
         Write-Log -Category "info" -Message "comment = $bComm"
@@ -424,7 +417,7 @@ function Set-CmxBoundaries {
         catch {
             Write-Log -Category "info" -Message "boundary [$bName] already exists"
             try {
-                $bx = Get-CMBoundary -BoundaryName $bName -ErrorAction Stop
+                $bx = Get-CMBoundary -BoundaryName $bName -ErrorAction SilentlyContinue
                 Write-Log -Category "info" -Message "getting boundary information for $bName"
                 $bID = $bx.BoundaryID
                 Write-Log -Category "info" -Message "boundary [$bName] identifier = $bID"
@@ -438,7 +431,7 @@ function Set-CmxBoundaries {
         if ($bID -and $bGrp) {
             Write-Log -Category "info" -Message "assigning boundary [$bName] to boundary group: $bGrp"
             try {
-                $bg = Get-CMBoundaryGroup -Name $bGrp -ErrorAction Stop
+                $bg = Get-CMBoundaryGroup -Name $bGrp -ErrorAction SilentlyContinue
                 $bgID = $bg.GroupID
                 Write-Log -Category "info" -Message "boundary group identifier = $bgID"
             }
@@ -465,18 +458,18 @@ function Set-CmxBoundaries {
 }
 
 function Set-CmxSiteServerRoles {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
-        [parameter(Mandatory=$True)] $DataSet
+        [parameter(Mandatory=$True)] 
+        [ValidateNotNullOrEmpty()]
+        $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Site System Roles" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function: Set-CmxSiteServerRoles"
     $result = $True
     $Time1  = Get-Date
-    foreach ($siterole in $DataSet.configuration.cmsite.sitesystemroles.sitesystemrole | Where-Object {$_.enabled -eq 'true'}) {
-        $roleName = $siterole.name
-        $roleComm = $siterole.comment
+    foreach ($item in $DataSet.configuration.cmsite.sitesystemroles.sitesystemrole | Where-Object {$_.use -eq '1'}) {
+        $roleName = $item.name
+        $roleComm = $item.comment
         Write-Log -Category "info" -Message "configuring site system role: $roleComm [$roleName]"
         switch ($RoleName) {
             'aisp' {
@@ -834,20 +827,20 @@ function Set-CmxSiteServerRoles {
 }
 
 function Import-CmxServerSettings {
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring Server Settings" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    foreach ($setting in $DataSet.configuration.cmsite.serversettings.serversetting | Where-Object {$_.use -eq "1"}) {
-        $setName = $setting.name
-        $setComm = $setting.comment
-        $setKey  = $setting.key
-        $setVal  = $setting.value
+    foreach ($item in $DataSet.configuration.cmsite.serversettings.serversetting | Where-Object {$_.use -eq "1"}) {
+        $setName = $item.name
+        $setComm = $item.comment
+        $setKey  = $item.key
+        $setVal  = $item.value
         switch ($setName) {
             'CMSoftwareDistributionComponent' {
                 Write-Log -Category info -Message "setting name: $setName"
@@ -873,19 +866,20 @@ function Import-CmxServerSettings {
 }
 
 function Import-CmxClientSettings {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+    Write-Host "Configuring Client Settings" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    foreach ($cs in $DataSet.configuration.cmsite.clientsettings.clientsetting) {
-        $csName = $cs.name
-        $csComm = $cs.comment
-        $csPri  = $cs.priority
-        $csType = $cs.type
+    foreach ($item in $DataSet.configuration.cmsite.clientsettings.clientsetting | Where-Object {$_.use -eq '1'}) {
+        $csName = $item.name
+        $csComm = $item.comment
+        $csPri  = $item.priority
+        $csType = $item.type
         Write-Log -Category info -Message "client setting.... $csName"
         try {
             New-CMClientSetting -Name "$csName" -Description "$csComm" -Type $csType -ErrorAction SilentlyContinue | Out-Null
@@ -893,16 +887,16 @@ function Import-CmxClientSettings {
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "client setting already exists: $csName"
+                Write-Log -Category info -Message "item already exists: $csName"
             }
             else {
                 Write-Log -Category error -Message "your client setting just fell into a woodchipper. what a mess."
-                Write-Error $_
+                Write-Error $_.Exception.Message
                 $result = $False
                 break
             }
         }
-        foreach ($csopt in $cs.settings.setting | Where-Object {$_.enabled -eq 'true'}) {
+        foreach ($csopt in $cs.settings.setting | Where-Object {$_.use -eq '1'}) {
             $csoName = $csopt.name
             $csoComm = $csopt.comment
             $csoOpts = $csopt.options
@@ -1007,7 +1001,7 @@ function Import-CmxClientSettings {
 }
 
 function Set-CMSiteConfigFolders {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -1015,20 +1009,18 @@ function Set-CMSiteConfigFolders {
         [parameter(Mandatory=$True)]
             $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Configuring console folders" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function set-cmsitefolders"
     $result = $true
     $Time1  = Get-Date
-    foreach ($folder in $DataSet.configuration.cmsite.folders.folder) {
-        $folderName = $folder.name
-        $folderPath = $folder.path
+    foreach ($item in $DataSet.configuration.cmsite.folders.folder | Where-Object {$_.use -eq '1'}) {
+        $folderName = $item.name
+        $folderPath = $item.path
         try {
             New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "folder created: $folderName"
+            Write-Log -Category "info" -Message "item created successfully: $folderName"
         }
         catch {
-            Write-Log -Category "warning" -Message "folder already exists: $folderName"
+            Write-Log -Category "warning" -Message "item already exists: $folderName"
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
@@ -1037,31 +1029,33 @@ function Set-CMSiteConfigFolders {
 }
 
 function Import-CmxQueries {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Importing custom Queries" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function Import-CmxQueries"
     $result = $True
     $Time1  = Get-Date
-    foreach ($query in $DataSet.configuration.cmsite.queries.query) {
-        $queryName = $query.name
-        $queryComm = $query.comment
-        $queryType = $query.class
-        $queryExp  = $query.expression
+    foreach ($item in $DataSet.configuration.cmsite.queries.query | Where-Object {$_.use -eq '1'}) {
+        $queryName = $item.name
+        $queryComm = $item.comment
+        $queryType = $item.class
+        $queryExp  = $item.expression
         try {
             New-CMQuery -Name $queryName -Expression $queryExp -Comment $queryComm -TargetClassName $queryType | Out-Null
-            Write-Log -Category "info" -Message "query created: $queryName"
+            Write-Log -Category "info" -Message "item created successfully: $queryName"
         }
         catch {
-            Write-Log -Category "error" -Message "query failed: $queryName"
-            $_
-            $result = $False
-            break
+            if ($_.Exception.Message -like "*already exists*") {
+                Write-Log -Category info -Message "item already exists: $queryname"
+            }
+            else {
+                Write-Log -Category "error" -Message $_.Exception.Message
+                $result = $False
+                break
+            }
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
@@ -1070,21 +1064,19 @@ function Import-CmxQueries {
 }
 
 function Import-CmxOSImages {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
     Write-Host "Importing OS images" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function: Import-CmxOSImages"
     $result = $True
     $Time1  = Get-Date
-    foreach ($image in $DataSet.configuration.cmsite.osimages.osimage) {
-        $imageName = $image.name
-        $imagePath = $image.path
-        $imageDesc = $image.comment
+    foreach ($item in $DataSet.configuration.cmsite.osimages.osimage | Where-Object {$_.use -eq '1'}) {
+        $imageName = $item.name
+        $imagePath = $item.path
+        $imageDesc = $item.comment
         $oldLoc = Get-Location
         Set-Location c:
         if (Test-Path $imagePath) {
@@ -1092,13 +1084,17 @@ function Import-CmxOSImages {
             Write-Log -Category "info" -Message "image name: $imageName"
             try {
                 New-CMOperatingSystemImage -Name $imageName -Path $imagePath -Description $imageDesc | Out-Null
-                Write-Log -Category "info" -Message "imported successfully"
+                Write-Log -Category "info" -Message "item created successfully"
             }
             catch {
-                Write-Log -Category "error" -Message "failed to import: $imageName"
-                $_
-                $result = $False
-                break
+                if ($_.Exception.Message -like "*already exists*") {
+                    Write-Log -Category "info" -Message "item already exists: $imageName"
+                }
+                else {
+                    Write-Log -Category "error" -Message $_.Exception.Message
+                    $result = $False
+                    break
+                }
             }
         }
         else {
@@ -1112,22 +1108,20 @@ function Import-CmxOSImages {
 }
 
 function Import-CmxOSInstallers {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Host "Importing OS upgrade installers" -ForegroundColor Green
-    Write-Log -Category "info" -Message "function: Import-CmxOSInstallers"
+    Write-Host "Configuring OS upgrade installers" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    foreach ($inst in $DataSet.configuration.cmsite.osinstallers.osinstaller) {
-        $instName = $inst.name
-        $instPath = $inst.path
-        $instDesc = $inst.comment
-        $instVer  = $inst.version
+    foreach ($item in $DataSet.configuration.cmsite.osinstallers.osinstaller | Where-Object {$_.use -eq '1'}) {
+        $instName = $item.name
+        $instPath = $item.path
+        $instDesc = $item.comment
+        $instVer  = $item.version
         $oldLoc   = Get-Location
         Set-Location c:
         if (Test-Path $instPath) {
@@ -1135,13 +1129,17 @@ function Import-CmxOSInstallers {
             Write-Log -Category "info" -Message "installer name: $instName"
             try {
                 New-CMOperatingSystemInstaller -Name $instName -Path $instPath -Description $instDesc -Version $instVer -ErrorAction SilentlyContinue | Out-Null
-                Write-Log -Category "info" -Message "imported successfully"
+                Write-Log -Category "info" -Message "item created successfully"
             }
             catch {
-                Write-Log -Category "error" -Message "failed to import: $instName"
-                $_
-                $result = $False
-                break
+                if ($_.Exception.Message -like "*already exists*") {
+                    Write-Log -Category "info" -Message "item already exists: instName"
+                }
+                else {
+                    Write-Log -Category "error" -Message $_.Exception.Message
+                    $result = $False
+                    break
+                }
             }
         }
         else {
@@ -1155,23 +1153,23 @@ function Import-CmxOSInstallers {
 }
 
 function Import-CmxCollections {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function: Import-CmxCollections"
+    Write-Host "Configuring collections" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    foreach ($collection in $DataSet.configuration.cmsite.collections.collection) {
-        $collName = $collection.name
-        $collType = $collection.type
-        $collComm = $collection.comment
-        $collBase = $collection.parent
-        $collPath = $collection.folder
-        $collRuleType = $collection.ruletype
-        $collRuleText = $collection.rule
+    foreach ($item in $DataSet.configuration.cmsite.collections.collection) {
+        $collName     = $item.name
+        $collType     = $item.type
+        $collComm     = $item.comment
+        $collBase     = $item.parent
+        $collPath     = $item.folder
+        $collRuleType = $item.ruletype
+        $collRuleText = $item.rule
         try {
             $coll = New-CMCollection -Name $collName -CollectionType $collType -Comment $collComm -LimitingCollectionName $collBase -ErrorAction SilentlyContinue
             if ($coll) {
@@ -1190,14 +1188,16 @@ function Import-CmxCollections {
                     }
                 } # switch
             }
-            Write-Log -Category "info" -Message "collection has been configured successfully."
+            Write-Log -Category "info" -Message "item created successfully."
         }
         catch {
             if ($_.ToString() -eq 'An object with the specified name already exists.') {
-                Write-Log -Category "info" -Message "collection already exists"
+                Write-Log -Category "info" -Message "item already exists: collName"
             }
             else {
-                Write-Log -Category "error" -Message "collection failed and spewed chunks everywhere :("
+                Write-Log -Category "error" -Message $_.Exception.Message
+                $result = $False
+                break
             }
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
@@ -1207,20 +1207,19 @@ function Import-CmxCollections {
 }
 
 function Import-CmxMaintenanceTasks {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
-            $DataSet
+        [ValidateNotNullOrEmpty()]
+        $DataSet
     )
     Write-Host "Configuring site maintenance tasks" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function Import-CmxMaintenanceTasks"
     $result = $true
     $Time1  = Get-Date
-    foreach ($mtask in $DataSet.configuration.cmsite.mtasks.mtask) {
-        $mtName = $mtask.name
-        $mtEnab = $mtask.enabled
-        $mtOpts = $mtask.options
+    foreach ($item in $DataSet.configuration.cmsite.mtasks.mtask) {
+        $mtName = $item.name
+        $mtEnab = $item.enabled
+        $mtOpts = $item.options
         if ($mtEnab -eq 'true') {
             Write-Log -Category "info" -Message "enabling task: $mtName"
             try {
@@ -1228,7 +1227,7 @@ function Import-CmxMaintenanceTasks {
                 Write-Log -Category "info" -Message "enabled task: $mtName"
             }
             catch {
-                Write-Error $_
+                Write-Log -Category error -Message $_.Exception.Message
                 $result = $False
                 break
             }
@@ -1252,28 +1251,30 @@ function Import-CmxMaintenanceTasks {
 }
 
 function Import-CmxAppCategories {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
         $DataSet
     )
     Write-Host "Configuring application categories" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function Set-CMSiteAppCategories"
     $result = $true
     $Time1  = Get-Date
-    foreach ($cat in $DataSet.configuration.cmsite.appcategories.appcategory | Where-Object {$_.enabled -eq 'true'}) {
-        $catName = $cat.name
-        $catComm = $cat.comment
+    foreach ($item in $DataSet.configuration.cmsite.appcategories.appcategory | Where-Object {$_.use -eq '1'}) {
+        $catName = $item.name
+        $catComm = $item.comment
         try {
             New-CMCategory -CategoryType AppCategories -Name $catName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "category created: $catName"
+            Write-Log -Category "info" -Message "item created successfully: $catName"
         }
         catch {
-            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-                Write-Log -Category "info" -Message "category already exists: $catName"
+            if ($_.Exception.Message -like "*already exists*") {
+                Write-Log -Category "info" -Message "item already exists: $catName"
             }
             else {
+                Write-Log -Category error -Message $_.Exception.Message
+                $result = $False
+                break
             }
         }
     }
@@ -1289,19 +1290,22 @@ function Import-CmxApplications {
         $DataSet
     )
     Write-Host "Importing applications" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function Import-CmxApplications"
     $result = $true
     $Time1  = Get-Date
-    $PSDefaultParameterValues =@{"get-cimclass:namespace"="Root\SMS\site_$sitecode";"get-cimclass:computername"="$hostname";"get-cimInstance:computername"="$hostname";"get-ciminstance:namespace"="Root\SMS\site_$sitecode"}
-    foreach ($appSet in $DataSet.configuration.cmsite.applications.application | Where-Object {$_.enabled -eq 'true'}) {
-        $appName = $appSet.name 
-        $appComm = $appSet.comment
-        $appPub  = $appSet.publisher
-        $appVer  = $appSet.version
-        $appCats = $appSet.categories
-        $appKeys = $appSet.keywords
-        $appFolder = $appSet.folder
+    $PSDefaultParameterValues =@{
+        "get-cimclass:namespace"="Root\SMS\site_$sitecode"
+        "get-cimclass:computername"="$hostname"
+        "get-cimInstance:computername"="$hostname"
+        "get-ciminstance:namespace"="Root\SMS\site_$sitecode"}
+    foreach ($item in $DataSet.configuration.cmsite.applications.application | Where-Object {$_.use -eq '1'}) {
+        $timex = Get-Date
+        $appName   = $item.name 
+        $appComm   = $item.comment
+        $appPub    = $item.publisher
+        $appVer    = $item.version
+        $appCats   = $item.categories
+        $appKeys   = $item.keywords
+        $appFolder = $item.folder
 
         Write-Log -Category "info" -Message "app name......... $appName"
         Write-Log -Category "info" -Message "app publisher.... $appPub"
@@ -1316,12 +1320,13 @@ function Import-CmxApplications {
             Write-Log -Category "info" -Message "application created successfully"
         }
         catch {
-            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-                Write-Log -Category "info" -Message "Application already defined"
+            if ($_.Exception.Message -like "*already exists*") {
+                Write-Log -Category "info" -Message "item already exists"
                 $app = Get-CMApplication -Name $appName
             }
             else {
-                Write-Error $_.Exception.Message
+                Write-Log -Category error -Message $_.Exception.Message
+                $result = $False
                 $app = $null
             }
         }
@@ -1388,7 +1393,7 @@ function Import-CmxApplications {
                         Write-Log -Category "info" -Message "deployment type created"
                     }
                     catch {
-                        if ($_.Exception.Message -like '*same name already exists.') {
+                        if ($_.Exception.Message -like '*already exists.') {
                             Write-Log -Category "info" -Message "deployment type already exists"
                         }
                         else {
@@ -1478,11 +1483,11 @@ catch {}
                         Write-Log -Category "info" -Message "deployment type created"
                     }
                     catch {
-                        if ($_.Exception.Message -like '*same name already exists.') {
-                            Write-Log -Category "info" -Message "deployment type already exists"
+                        if ($_.Exception.Message -like '*already exists.') {
+                            Write-Log -Category "info" -Message "deployment type already exists: $depName"
                         }
                         else {
-                            Write-Error $_
+                            Write-Error $_.Exception.Message
                         }
                     }
                 } # if
@@ -1492,42 +1497,41 @@ catch {}
                     $app | Move-CMObject -FolderPath "Application\$appFolder" | Out-Null
                 }
             } # foreach - deployment type
-            Write-Log -Category "info" -Message "-------------------------------------------------"
+            Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
         } # if
+        Write-Log -Category info -Message "task runtime: $(Get-TimeOffset $timex)"
     } # foreach - application
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
 function Import-CmxAccounts {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
         $DataSet
     )
     Write-Host "Configuring accounts" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function Import-CmxAccounts"
     $result = $true
     $time1  = Get-Date
-    foreach ($acct in $DataSet.configuration.cmsite.accounts.account | Where-Object {$_.enabled -eq 'true'}) {
-        $acctName = $acct.name
-        $acctPwd  = $acct.password
+    foreach ($item in $DataSet.configuration.cmsite.accounts.account | Where-Object {$_.use -eq '1'}) {
+        $acctName = $item.name
+        $acctPwd  = $item.password
         $pwd = ConvertTo-SecureString -String $acctPwd -AsPlainText -Force
         Write-Log -Category "info" -Message "adding account: $acctName"
         try {
             New-CMAccount -UserName $acctName -Password $pwd -SiteCode $sitecode | Out-Null
-            Write-Log -Category info -Message "account created successfully"
+            Write-Log -Category info -Message "item created successfully: $acctName"
         }
         catch {
-            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-                Write-Log -Category warning -Message "account already exists"
+            if ($_.Exception.Message -like "*already exists*") {
+                Write-Log -Category warning -Message "item already exists"
             }
             else {
-                Write-Log -Category error -Message "Oh shit. They gonna fry yo ass now!"
                 Write-Log -Category error -Message $_.Exception.Message
-                Write-Error $_
                 $Result = $False
+                break
             }
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
@@ -1537,33 +1541,64 @@ function Import-CmxAccounts {
 }
 
 function Import-CmxDPGroups {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param (
         [parameter(Mandatory=$True)]
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
     Write-Host "Configuring distribution point groups" -ForegroundColor Green
-    Write-Log -Category "info" -Message "----------------------------------------------------"
-    Write-Log -Category "info" -Message "function set-CMSiteDPGroups"
     $result = $true
     $Time1  = Get-Date
-    foreach ($dpgroup in $DataSet.configuration.cmsite.dpgroups.dpgroup | Where-Object {$_.enabled -eq 'true'}) {
-        $dpgName = $dpgroup.name
-        $dpgComm = $dpgroup.comment
+    foreach ($item in $DataSet.configuration.cmsite.dpgroups.dpgroup | Where-Object {$_.use -eq '1'}) {
+        $dpgName = $item.name
+        $dpgComm = $item.comment
         try {
             New-CMDistributionPointGroup -Name $dpgName -Description $dpgComm | Out-Null
-            Write-Log -Category info -Message "dp group created: $dpgName"
+            Write-Log -Category info -Message "item created successfully: $dpgName"
         }
         catch {
-            if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-                Write-Log -Category info -Message "dp group already exists"
+            if ($_.Exception.Message -like "*already exists*") {
+                Write-Log -Category info -Message "item already exists: dpgName"
             }
             else {
-                Write-Log -Category error -Message "Oh shit. You gonna be drinking some drano now!"
                 Write-Log -Category error -Message $_.Exception.Message
-                Write-Error $_
                 $Result = $False
+            }
+        }
+        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+    } # foreach
+    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Output $result
+}
+
+function Import-CmxMalwarePolicies {
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    param (
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        $DataSet
+    )
+    Write-Host "Configuring antimalware policies" -ForegroundColor Green
+    $result = $true
+    $Time1  = Get-Date
+    foreach ($item in $DataSet.configuration.cmsite.malwarepolicies.malwarepolicy | Where-Object {$_.use -eq '1'}) {
+        $itemName = $item.name
+        $itemComm = $item.comment
+        $itemPath = $item.path
+        Write-Log -Category "info" -Message "policy name: $itemName"
+        try {
+            Import-CMAntimalwarePolicy -Path "$itemPath" -ErrorAction SilentlyContinue | Out-Null
+            Write-Log -Category "info" -Message "item created successfully"
+        }
+        catch {
+            if ($_.Exception.Message -like "*already exists*") {
+                Write-Log -Category info -Message "item already exists: $itemName"
+            }
+            else {
+                Write-Log -Category error -Message $_.Exception.Message
+                $result = $False
+                break
             }
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
@@ -1576,7 +1611,8 @@ function Import-CmxDPGroups {
 
 Set-Location $env:USERPROFILE
 
-Write-Log -Category "info" -Message "loading xml data"
+Write-Log -Category "info" -Message "loading xml data from $XmlFile"
+if (-not(Test-Path $XmlFile)) {Write-Warning "XmlFile not found: $XmlFile"; break}
 [xml]$xmldata = Get-Content $XmlFile
 $sitecode = $xmldata.configuration.cmsite.sitecode
 if (($sitecode -eq "") -or (-not($sitecode))) {
@@ -1605,7 +1641,7 @@ if ($Override) {
     $controlset = $xmldata.configuration.cmsite.control.ci | Out-GridView -Title "Select Features to Run" -PassThru
 }
 else {
-    $controlset = $xmldata.configuration.cmsite.control.ci | Where-Object {$_.enabled -eq 'true'}
+    $controlset = $xmldata.configuration.cmsite.control.ci | Where-Object {$_.use -eq '1'}
 }
 
 foreach ($control in $controlset) {
@@ -1695,6 +1731,10 @@ foreach ($control in $controlset) {
         }
         'APPLICATIONS' {
             Import-CmxApplications -DataSet $xmldata | Out-Null
+            break
+        }
+        'MALWAREPOLICIES' {
+            Import-CmxMalwarePolicies -DataSet $xmldata | Out-Null
             break
         }
     }
