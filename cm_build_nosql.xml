@@ -9,7 +9,7 @@
     </references>
     <packages comment="Controls the order and links of execution">
         <package use="1" name="LOCALACCOUNTS" type="function" comment="Configure local accounts and groups" dependson="" />
-		<package use="1" name="SERVERROLES" type="feature" comment="Server Roles and Features" note="change feature to payload to invoke external file" />
+	<package use="1" name="SERVERROLES" type="feature" comment="Server Roles and Features" note="change feature to payload to invoke external file" />
         <package use="1" name="ADK" type="payload" comment="Windows 10 ADK 1703" dependson="" />
         <package use="1" name="MDT" type="payload" comment="Microsoft Deployment Toolkit 8443" dependson="" />
         <package use="0" name="SQLSERVER" type="payload" comment="SQL Server 2016" dependson="" />
@@ -21,11 +21,11 @@
         <package use="1" name="CMTOOLKIT" type="payload" comment="ConfigMgr Toolkit 2012 R2" dependson="CONFIGMGR" />
         <package use="1" name="RCTOOLS" type="payload" comment="Recast RightClick Tools" dependson="CONFIGMGR" />
     </packages>
-	<localaccounts comment="Local Accounts and Group Memberships">
-		<localaccount use="0" name="CONTOSO\sql-svc" memberof="Administrators" rights="SeServiceLogonRight,SeDenyInteractiveLogonRight" comment="rights are based on http://get-carbon.org/Grant-Privilege.html" />
-		<localaccount use="1" name="CONTOSO\sccmadmin" memberof="Administrators" rights="" comment="" />
-		<localaccount use="1" name="CONTOSO\IT sccm admins" memberof="Administrators" rights="" comment="" />
-	</localaccounts>
+    <localaccounts comment="Local Accounts and Group Memberships">
+	<localaccount use="0" name="CONTOSO\sql-svc" memberof="Administrators" rights="SeServiceLogonRight,SeDenyInteractiveLogonRight" comment="rights are based on http://get-carbon.org/Grant-Privilege.html" />
+	<localaccount use="1" name="CONTOSO\sccmadmin" memberof="Administrators" rights="" comment="" />
+	<localaccount use="1" name="CONTOSO\IT sccm admins" memberof="Administrators" rights="" comment="" />
+    </localaccounts>
     <payloads comment="Describes execution details for each package">
         <payload name="SERVERROLES" path="Install-WindowsFeature" file="roles.xml" params="" comment="only used if the package type is payload, must reside in same path as cm_build.xml" />
         <payload name="ADSCHEMA" path="\\FS1\apps\CM_BUILD\ConfigMgr\SMSSETUP\BIN\X64" file="extadsch.exe" params="" comment="" />
@@ -41,7 +41,7 @@
     </payloads>
     <detections comment="Describes criteria to indicate install status">
         <detect name="LOCALACCOUNTS" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="LOCALACCOUNTS" type="synthetic" />
-		<detect name="SERVERROLES" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SERVERROLES" type="synthetic" />
+	<detect name="SERVERROLES" path="HKLM:\SOFTWARE\CM_BUILD\PROCESSED" value="SERVERROLES" type="synthetic" />
         <detect name="ADK" path="HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots" value="" type="automatic" />
         <detect name="MDT" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9547DE37-4A70-4194-97EA-ACC3E747254B}" value="" type="automatic" />
         <detect name="SQLSERVER" path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft SQL Server 13" value="" type="automatic" />
