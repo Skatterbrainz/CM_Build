@@ -1017,11 +1017,11 @@ function Set-CMSiteConfigFolders {
         $folderPath = $item.path
         try {
             New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "item created successfully: $folderPath"
+            Write-Log -Category "info" -Message "item created successfully: $folderPath\$folderName"
         }
         catch {
 			if ($_.Exception.Message -like "*already exists*") {
-				Write-Log -Category "info" -Message "item already exists: $folderPath"
+				Write-Log -Category "info" -Message "item already exists: $folderPath\folderName"
 			}
 			else {
 				Write-Log -Category "error" -Message $_.Exception.Message
