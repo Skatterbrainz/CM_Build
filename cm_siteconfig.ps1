@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.26 - DS - 2017.09.10
+    1.2.27 - DS - 2017.09.10
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.26'
+$ScriptVersion = '1.2.27'
 $ScriptPath    = Get-ScriptDirectory
 $HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder    = "$ScriptPath\Logs"
@@ -72,7 +72,6 @@ function Write-Log {
     if ($Detailed) {
         Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" -ForegroundColor Cyan
     }
-    #"$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
 }
 
 $RunTime1 = Get-Date
@@ -1229,7 +1228,7 @@ function Import-CmxMaintenanceTasks {
             Write-Log -Category "info" -Message "enabling task: $mtName"
             try {
                 Set-CMSiteMaintenanceTask -MaintenanceTaskName $mtName -Enabled $True -SiteCode $sitecode | Out-Null
-                Write-Log -Category "info" -Message "enabled task: $mtName"
+                #Write-Log -Category "info" -Message "enabled task: $mtName"
             }
             catch {
                 Write-Log -Category error -Message $_.Exception.Message
@@ -1241,10 +1240,10 @@ function Import-CmxMaintenanceTasks {
             Write-Log -Category "info" -Message "disabling task: $mtName"
             try {
                 Set-CMSiteMaintenanceTask -MaintenanceTaskName $mtName -Enabled $False -SiteCode $sitecode | Out-Null
-                Write-Log -Category "info" -Message "disabled task: $mtName"
+                #Write-Log -Category "info" -Message "disabled task: $mtName"
             }
             catch {
-                Write-Error $_
+                Write-Log -Category "error" -Message $_.Exception.Message
                 $result = $False
                 break
             }
@@ -1336,7 +1335,7 @@ function Import-CmxApplications {
             }
         }
         if ($app) {
-            if ($appKeys -ne "") {
+            if ($appKeys.Length -gt 0) {
                 Write-Log -Category "info" -Message "assigning keywords: $appKeys"
                 try {
                     $app | Set-CMApplication -Keyword $appKeys -ErrorAction SilentlyContinue
@@ -1346,7 +1345,7 @@ function Import-CmxApplications {
                     Write-Log -Category "info" -Message "the object is locked by an evil person"
                 }
             }
-            if ($appCats -ne "") {
+            if ($appCats.Length -gt 0) {
                 Write-Log -Category "info" -Message "assigning categories: $appCats"
                 try {
                     $app | Set-CMApplication -AppCategories $appCats.Split(',') -ErrorAction SilentlyContinue
@@ -1361,6 +1360,11 @@ function Import-CmxApplications {
                     }
                 }
             }
+			if ($appFolder.Length -gt 0) {
+				Write-Log -Category "info" -Message "Moving application object to folder: $appFolder"
+				#$app = Get-CMApplication -Name $appName
+				$app | Move-CMObject -FolderPath "Application\$appFolder" | Out-Null
+			}
             foreach ($depType in $appSet.deptypes.deptype) {
                 $depName   = $depType.name
                 $depSource = $depType.source
@@ -1496,11 +1500,6 @@ catch {}
                         }
                     }
                 } # if
-                if ($appFolder) {
-                    Write-Log -Category "info" -Message "Moving application object to folder: $appFolder"
-                    $app = Get-CMApplication -Name $appName
-                    $app | Move-CMObject -FolderPath "Application\$appFolder" | Out-Null
-                }
             } # foreach - deployment type
             Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
         } # if
@@ -1612,6 +1611,38 @@ function Import-CmxMalwarePolicies {
     Write-Output $result
 }
 
+function Test-CMxAdContainer {
+	param()
+	Write-Host "Searching for AD container: System Management" -ForegroundColor Green
+	$strFilter = "(&(objectCategory=Container)(Name=System Management))"
+	$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+	$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+	$objSearcher.SearchRoot = $objDomain
+	$objSearcher.PageSize = 1000
+	$objSearcher.Filter = $strFilter
+	$objSearcher.SearchScope = "Subtree"
+	$colProplist = "name"
+	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i)}
+	$colResults = $objSearcher.FindAll()
+	Write-Output ($colResults.Count -gt 0)
+}
+
+function Test-CMxAdSchema {
+	param ()
+	Write-Host "Verifying for AD Schema extension" -ForegroundColor Green
+	$strFilter = "(&(objectClass=mSSMSSite)(Name=*))"
+	$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+	$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+	$objSearcher.SearchRoot = $objDomain
+	$objSearcher.PageSize = 1000
+	$objSearcher.Filter = $strFilter
+	$objSearcher.SearchScope = "Subtree"
+	$colProplist = "name"
+	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i)}
+	$colResults = $objSearcher.FindAll()
+	Write-Output ($colResults.Count -gt 0)
+}
+
 # --------------------------------------------------------------------
 
 Set-Location $env:USERPROFILE
@@ -1653,7 +1684,22 @@ foreach ($control in $controlset) {
     $controlCode = $control.name
     Write-Log -Category info -Message "processing control code group: $controlCode"
     switch ($controlCode) {
-        'ACCOUNTS' {
+        'ENVIRONMENT' {
+			if (Test-CMxAdContainer) {
+				Write-Log -Category "info" -Message "AD container verified"
+			}
+			else {
+				Write-Log -Category "warning" -Message "AD container could not be verified"
+			}
+			if (Test-CMxAdSchema) {
+				Write-Log -Category "info" -Message "AD schema has been extended"
+			}
+			else {
+				Write-Log -Category "warning" -Message "AD schema has not been extended"
+			}
+			break
+		}
+		'ACCOUNTS' {
             Import-CmxAccounts -DataSet $xmldata | Out-Null
             break
         }
