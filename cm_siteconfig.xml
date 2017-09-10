@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.24 - DS - 2017-09-05 -->
-<configuration>
+<!-- Version 1.2.25 - DS - 2017-09-09 -->
+<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - DS - 9/9/2017">
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
             <ci use="1" name="ACCOUNTS" comment="site accounts" />
@@ -39,10 +39,10 @@
             <discovery use="1" name="HeartbeatDiscovery" PollingSchedule="DEFAULT" />
         </discoveries>
         <boundarygroups comment="Configure Boundary Groups">
-            <boundarygroup use="1" name="NA-US-VA-Norfolk" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Norfolk" />
-            <boundarygroup use="1" name="NA-US-VA-VB" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
-            <boundarygroup use="1" name="NA-US-CA-Fremont" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="Fremont" />
-            <boundarygroup use="1" name="NA-US-NY-NewYork" SiteSystemServer="cm02.contoso.com" LinkType="FastLink" comment="New York" />
+            <boundarygroup use="1" name="NA-US-VA-Norfolk" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Norfolk" />
+            <boundarygroup use="1" name="NA-US-VA-VB" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
+            <boundarygroup use="1" name="NA-US-CA-Fremont" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Fremont" />
+            <boundarygroup use="1" name="NA-US-NY-NewYork" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="New York" />
         </boundarygroups>
         <boundaries comment="Configure Site Boundaries if not set to AD discovery-automatic">
             <boundary use="1" name="NA-US-VA-Norfolk-Servers" type="IPRange" value="192.168.0.10-192.168.0.99" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
@@ -196,12 +196,12 @@
             <query use="1" name="Contoso - Windows Server Features" comment="Windows Server Feature Names" class="SMS_R_System" expression="select distinct SMS_G_System_SERVER_FEATURE.Name from  SMS_R_System inner join SMS_G_System_SERVER_FEATURE on SMS_G_System_SERVER_FEATURE.ResourceID = SMS_R_System.ResourceId order by SMS_G_System_SERVER_FEATURE.Name" />
         </queries>
         <osimages comment="For bare-metal and build-and-capture installs">
-            <osimage use="1" name="Windows 10 x64 Ent 1703" path="\\contoso.com\software\OSD\w10x64ent\sources\install.wim" comment="Windows 10 x64 Enterprise 1703" />
-            <osimage use="1" name="Windows Server 2016 Datacenter" path="\\contoso.com\software\OSD\ws2016dc\sources\install.wim" comment="Windows Server 2016 Datacenter" />
+            <osimage use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent\sources\install.wim" comment="Windows 10 x64 Enterprise 1703" />
+            <osimage use="1" name="Windows Server 2016 Datacenter" path="\\Fs1\SOURCES\ws2016dc\sources\install.wim" comment="Windows Server 2016 Datacenter" />
         </osimages>
         <osinstallers comment="For in-place upgrades">
-            <osinstaller use="1" name="Windows 10 x64 Ent 1703" path="\\contoso.com\software\OSD\w10x64ent" comment="Windows 10 x64 Enterprise 1703" version="1703.15063.540" />
-            <osinstaller use="0" name="Windows Server 2016 Datacenter 1607" path="\\contoso.com\software\OSD\ws2016dc" comment="Windows Server 2016 Datacenter" version="1607.14393.1593" />
+            <osinstaller use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent" comment="Windows 10 x64 Enterprise 1703" version="1703.15063.540" />
+            <osinstaller use="0" name="Windows Server 2016 Datacenter 1607" path="\\Fs1\SOURCES\ws2016dc" comment="Windows Server 2016 Datacenter" version="1607.14393.1593" />
         </osinstallers>
         <collections comment="Custom Collections">
             <collection use="1" name="Users - Title - Research Analysts" type="User" comment="Users by Job Title: Research Analyst" parent="All Users" folder="UserCollection\Inventory Organization" ruletype="query" rule="select SMS_R_USER.ResourceID,SMS_R_USER.ResourceType,SMS_R_USER.Name,SMS_R_USER.UniqueUserName,SMS_R_USER.WindowsNTDomain from SMS_R_User where sms_R_User.title = 'Research Analyst'" />
@@ -232,33 +232,52 @@
             <appcategory use="1" name="Sales" enabled="true" comment="" />
         </appcategories>
         <applications comment="Applications">
-            <application name="7-Zip" use="1" publisher="7-Zip" version="16.04" categories="General" comment="File compression utility" folder="Utilities" keywords="file,zip,utility,archive,compression">
+            <application use="1" name="7-Zip" publisher="7-Zip" version="17.01" categories="General" comment="File compression utility" folder="Utilities" keywords="file,zip,utility,archive,compression">
                 <deptypes comment="Deployment Types">
-                    <deptype name="x64 installer" platform="64" source="\\contoso.com\software\apps\7-zip\1701\7z1701-x64.msi" options="auto" comment="64-bit installer" />
-                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\7-zip\1701\7z1701.msi" options="auto" comment="32-bit installer" />
+                    <deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\7-Zip\7z1701-x64.msi" options="auto" comment="64-bit installer" />
+                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\7-Zip\7z1701.msi" options="auto" comment="32-bit installer" />
                 </deptypes>
             </application>
-            <application name="Notepad++ 7.5" use="1" publisher="Notepad++" version="7.5" categories="Developer,Engineering" comment="Text and Code editor" folder="Utilities" keywords="editor,text,code,programming,script">
+            <application use="1" name="Notepad++ 7.5" publisher="Notepad++" version="7.5.1" categories="Developer,Engineering" comment="Text and Code editor" folder="Utilities" keywords="editor,text,code,programming,script">
                 <deptypes comment="Deployment Types">
-                    <deptype name="x64 installer" platform="64" source="\\contoso.com\software\Apps\Notepad++\7.5\npp.7.5.installer.x64.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="64-bit installer" />
-                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\Apps\Notepad++\7.5\npp.7.5.installer.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="32-bit installer" />
+                    <deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\Notepad++\npp.7.5.1.installer.x64.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="64-bit installer" />
+                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Notepad++\npp.7.5.1.installer.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="32-bit installer" />
                 </deptypes>
             </application>
-            <application name="Microsoft RDC Manager" use="1" publisher="Microsoft" version="2.7" categories="IT,Developer" comment="Remote Desktop Connection Manager" folder="Microsoft" keywords="remote,rdc,rdp,desktop">
+            <application use="1" name="Microsoft RDC Manager" publisher="Microsoft" version="2.7" categories="IT,Developer" comment="Remote Desktop Connection Manager" folder="Microsoft" keywords="remote,rdc,rdp,desktop">
                 <deptypes comment="Deployment Types">
-                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\Microsoft\RDCman\rdcman.msi" options="auto" comment="32-bit installer" />
+                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Microsoft\RDC Manager\rdcman.msi" options="auto" comment="32-bit installer" />
                 </deptypes>
             </application>
-            <application name="Google Earth" use="1" publisher="Google" version="7.1" categories="Developer" comment="Mapping and visualization" folder="Google" keywords="google,earth,maps,model,3d">
+            <application use="1" name="Google Earth" publisher="Google" version="7.1" categories="Developer" comment="Mapping and visualization" folder="Google" keywords="google,earth,maps,model,3d">
                 <deptypes comment="Deployment Types">
-                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\Google\Earth\GoogleEarth7.1.5.1557.msi" options="auto" comment="32-bit installer" />
+                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Google\EarthPro\GoogleEarth7.1.5.1557.msi" options="auto" comment="32-bit installer" />
                 </deptypes>
             </application>
-            <application name="VLC Player" use="1" publisher="VideoLAN" version="2.2.6" categories="General" comment="Media player" folder="Utilities" keywords="vlc,video,audio,media,player">
+            <application use="1" name="VLC Player" publisher="VideoLAN" version="2.2.6" categories="General" comment="Media player" folder="Utilities" keywords="vlc,video,audio,media,player">
                 <deptypes comment="Deployment Types">
-                    <deptype name="x86 installer" platform="32" source="\\contoso.com\software\apps\vlc_player\vlc-2.2.6-win32.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="32-bit installer" />
+                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\VLC Player\vlc-2.2.6-win32.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="32-bit installer" />
+					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\VLC Player\vlc-2.2.6-win64.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="64-bit installer" />
                 </deptypes>
             </application>
+			<application use="1" name="Paint.Net" publisher="dotPDN LLC" version="4.0.17" categories="General" keywords="paint,net,image,graphic,media" comment="Paint.Net" folder="Utilities\Tools">
+				<deptypes comment="Deployment Types">
+					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\Paint.Net\PaintDotNet_x64.msi" options="auto" uninstall="" detect="" comment="64-bit installer" />
+					<deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Paint.Net\PaintDotNet_x86.msi" options="auto" uninstall="" detect="" comment="32-bit installer" />
+				</deptypes>
+			</application>
+			<application use="1" name="SQL Server Management Studio" publisher="Microsoft" version="2017.2" categories="IT,Developer" comment="SQL Server Management Studio" folder="Microsoft" keywords="sql,ssms,management,database">
+				<deptypes comment="Deployment Types">
+					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\CM_BUILD\SSMS\SSMS-Setup-ENU.exe" options="/S" uninstall="" comment="" />
+				</deptypes>
+			</application>
+			<!--
+			<application use="1" name="" publisher="" version="" categories="" keywords="" comment="" folder="">
+				<deptypes comment="Deployment Types">
+					<deptype name="" platform="" source="" options="" uninstall="" detect="" comment="" />
+				</deptypes>
+			</application>
+			-->
         </applications>
         <mtasks comment="Site Maintenance Tasks">
             <mtask use="1" name="Backup SMS Site Server" enabled="false" options="F:\BACKUPS" />
