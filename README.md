@@ -12,7 +12,8 @@ Part 1 of 2 = builds on top of a standard Windows Server instance to having Conf
 
 Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigMgr instance).  Configures AD forest connection, discovery methods, boundary groups, collections, queries, client settings, applications, operating system images, operating system upgrade installers, site maintenance tasks, application categories and antimalware policies. 
 
-* Latest version : 1.2.24
+* 1.2.25 - Fixed bugs in creating boundary groups
+* 1.2.24 - Fixed bugs in importing apps, queries and folders. Fixed inconsistencies in cm_siteconfig.xml
 
 # Noteable Updates
 
