@@ -15,7 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-    1.2.19 - DS - 2017.09.08
+    1.2.20 - DS - 2017.09.10
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
     1.1.0  - DS - 2017.08.16
@@ -43,7 +43,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.2.19'
+$ScriptVersion = '1.2.20'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -64,17 +64,17 @@ function Write-Log {
             [string] $Message
     )
     if ($Detailed) {
-        Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" -ForegroundColor Cyan
+        Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:mm:ss')`t$Category`t$Message" -ForegroundColor Cyan
     }
-    #"$(Get-Date -f 'yyyy-M-dd HH:MM:ss')  $Category  $Message" | Out-File -FilePath $logFile -Append -Force
 }
 
 $ScriptPath   = Get-ScriptDirectory
 $successcodes = (0,1003,3010,1605,1618,1641,1707)
 $LogsFolder   = "$ScriptPath\Logs"
+$HostName     = $env:COMPUTERNAME
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
-$tsFile  = "$LogsFolder\cm_build_$($env:COMPUTERNAME)_transaction.log"
-$logFile = "$LogsFolder\cm_build_$($env:COMPUTERNAME)_details.log"
+$tsFile  = "$LogsFolder\cm_build`_$HostName`_transaction.log"
+$logFile = "$LogsFolder\cm_build`_$HostName`_details.log"
 
 try {stop-transcript -ErrorAction SilentlyContinue} catch {}
 try {Start-Transcript -Path $tsFile -Force} catch {}
