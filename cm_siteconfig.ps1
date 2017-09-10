@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.27 - DS - 2017.09.10
+    1.2.28 - DS - 2017.09.10
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.27'
+$ScriptVersion = '1.2.28'
 $ScriptPath    = Get-ScriptDirectory
 $HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder    = "$ScriptPath\Logs"
@@ -1525,15 +1525,21 @@ function Import-CmxAccounts {
         $pwd = ConvertTo-SecureString -String $acctPwd -AsPlainText -Force
         Write-Log -Category "info" -Message "adding account: $acctName"
         try {
-            New-CMAccount -UserName $acctName -Password $pwd -SiteCode $sitecode | Out-Null
-            Write-Log -Category info -Message "item created successfully: $acctName"
+			if (Test-CMxAdUser -UserName $acctName) {
+				New-CMAccount -UserName $acctName -Password $pwd -SiteCode $sitecode | Out-Null
+				Write-Log -Category "info" -Message "account added successfully: $acctName"
+			}
+			else {
+				Write-Log -Category "error" -Message "account not found in domain: $acctName"
+				$result = $False
+			}
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category warning -Message "item already exists"
+                Write-Log -Category "warning" -Message "account already added"
             }
             else {
-                Write-Log -Category error -Message $_.Exception.Message
+                Write-Log -Category "error" -Message $_.Exception.Message
                 $Result = $False
                 break
             }
@@ -1622,7 +1628,7 @@ function Test-CMxAdContainer {
 	$objSearcher.Filter = $strFilter
 	$objSearcher.SearchScope = "Subtree"
 	$colProplist = "name"
-	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i)}
+	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i) | Out-Null}
 	$colResults = $objSearcher.FindAll()
 	Write-Output ($colResults.Count -gt 0)
 }
@@ -1638,7 +1644,30 @@ function Test-CMxAdSchema {
 	$objSearcher.Filter = $strFilter
 	$objSearcher.SearchScope = "Subtree"
 	$colProplist = "name"
-	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i)}
+	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i) | Out-Null}
+	$colResults = $objSearcher.FindAll()
+	Write-Output ($colResults.Count -gt 0)
+}
+
+function Test-CMxAdUser {
+    [CmdletBinding(SupportsShouldProcess=$True)]
+	param(
+        [parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        [string] $UserName
+    )
+    $tmpuser = $UserName.Split('\')[$UserName.Split('\').Count - 1]
+	Write-Host "Searching for AD user: $UserName" -ForegroundColor Green
+	$strFilter = "(&(objectCategory=user)(cn=$tmpuser))"
+    Write-Verbose $strFilter
+	$objDomain   = New-Object System.DirectoryServices.DirectoryEntry
+	$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+	$objSearcher.SearchRoot = $objDomain
+	$objSearcher.PageSize = 1000
+	$objSearcher.Filter = $strFilter
+	$objSearcher.SearchScope = "Subtree"
+	$colProplist = "name"
+	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i) | out-null}
 	$colResults = $objSearcher.FindAll()
 	Write-Output ($colResults.Count -gt 0)
 }
