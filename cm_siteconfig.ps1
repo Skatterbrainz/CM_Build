@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.24 - DS - 2017.09.05
+    1.2.25 - DS - 2017.09.09
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.24'
+$ScriptVersion = '1.2.25'
 $ScriptPath    = Get-ScriptDirectory
 $LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
@@ -1017,10 +1017,15 @@ function Set-CMSiteConfigFolders {
         $folderPath = $item.path
         try {
             New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "item created successfully: $folderName"
+            Write-Log -Category "info" -Message "item created successfully: $folderPath"
         }
         catch {
-            Write-Log -Category "warning" -Message "item already exists: $folderName"
+			if ($_.Exception.Message -like "*already exists*") {
+				Write-Log -Category "info" -Message "item already exists: $folderPath"
+			}
+			else {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
@@ -1049,7 +1054,7 @@ function Import-CmxQueries {
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists: $queryname"
+                Write-Log -Category "info" -Message "item already exists: $queryname"
             }
             else {
                 Write-Log -Category "error" -Message $_.Exception.Message
@@ -1559,7 +1564,7 @@ function Import-CmxDPGroups {
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists: dpgName"
+                Write-Log -Category info -Message "item already exists: $dpgName"
             }
             else {
                 Write-Log -Category error -Message $_.Exception.Message
