@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.25 - DS - 2017.09.09
+    1.2.26 - DS - 2017.09.10
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,13 +46,13 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.25'
+$ScriptVersion = '1.2.26'
 $ScriptPath    = Get-ScriptDirectory
+$HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder    = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
-$tsFile        = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_transaction.log"
-$logFile       = "$LogsFolder\cm_siteconfig_$($env:COMPUTERNAME)_details.log"
-$HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
+$tsFile        = "$LogsFolder\cm_siteconfig`_$HostName`_transaction.log"
+$logFile       = "$LogsFolder\cm_siteconfig`_$HostName`_details.log"
 
 try {stop-transcript -ErrorAction SilentlyContinue} catch {}
 try {Start-Transcript -Path $tsFile -Force} catch {}
@@ -343,17 +343,17 @@ function Import-CmxBoundaryGroups {
         $bgServer = $item.SiteSystemServer
         $bgLink   = $item.LinkType
         Write-Log -Category "info" -Message "boundary group name = $bgName"
-        if ($bgServer) {
+        if ($bgServer.Length -gt 0) {
             $bgSiteServer = @{$bgServer = $bgLink}
             Write-Log -Category "info" -Message "site server assigned: $bgServer ($bgLink)"
             try {
-                New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -AddSiteSystemServer $bgSiteServer -ErrorAction SilentlyContinue | Out-Null
+                New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -AddSiteSystemServerName $bgServer -ErrorAction SilentlyContinue | Out-Null
                 Write-Log -Category "info" -Message "boundary group $bgName created"
             }
             catch {
                 Write-Log -Category "info" -Message "boundary group $bgName already exists."
                 try {
-                    Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -AddSiteSystemServer $bgSiteServer -ErrorAction SilentlyContinue | Out-Null
+                    Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -AddSiteSystemServerName $bgServer -ErrorAction SilentlyContinue | Out-Null
                     Write-Log -Category "info" -Message "boundary group $bgName has been updated"
                 }
                 catch {
