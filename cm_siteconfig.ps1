@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.28 - DS - 2017.09.10
+    1.2.29 - DS - 2017.09.10
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.28'
+$ScriptVersion = '1.2.29'
 $ScriptPath    = Get-ScriptDirectory
 $HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder    = "$ScriptPath\Logs"
@@ -1658,7 +1658,7 @@ function Test-CMxAdUser {
     )
     $tmpuser = $UserName.Split('\')[$UserName.Split('\').Count - 1]
 	Write-Host "Searching for AD user: $UserName" -ForegroundColor Green
-	$strFilter = "(&(objectCategory=user)(cn=$tmpuser))"
+	$strFilter = "(&(objectCategory=user)(sAMAccountName=$tmpuser))"
     Write-Verbose $strFilter
 	$objDomain   = New-Object System.DirectoryServices.DirectoryEntry
 	$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
@@ -1666,10 +1666,84 @@ function Test-CMxAdUser {
 	$objSearcher.PageSize = 1000
 	$objSearcher.Filter = $strFilter
 	$objSearcher.SearchScope = "Subtree"
-	$colProplist = "name"
+	$colProplist = "sAMAccountName"
 	foreach ($i in $colProplist){$objSearcher.PropertiesToLoad.Add($i) | out-null}
 	$colResults = $objSearcher.FindAll()
 	Write-Output ($colResults.Count -gt 0)
+}
+
+function Import-CmxClientPush {
+	[CmdletBinding(SupportsShouldProcess=$True)]
+	param (
+		[parameter(Mandatory=$True)]
+		[ValidateNotNullOrEmpty()]
+		$DataSet
+	)
+	foreach ($set in $DataSet.configuration.cmsite.clientoptions.CMClientPushInstallation | Where-Object {$_.use -eq '1'}) {
+		if ($set.AutomaticInstall -eq 'true') {
+			try {
+				Set-CMClientPushInstallation -SiteCode "$sitecode" -EnableAutomaticClientPushInstallation $True | Out-Null
+				Write-Log -Category "info" -Message "client push: enabled automatic client push installation"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
+		}
+		if ($set.ClientCMServer -eq 'true') {
+			try {
+				Set-CMClientPushInstallation -SiteCode "$sitecode" -EnableSystemTypeConfigurationManager $True | Out-Null
+				Write-Log -Category "info" -Message "client push: enabled client install on CM site systems"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
+		}
+		if ($set.ClientServer -eq 'true') {
+			try {
+				Set-CMClientPushInstallation -SiteCode "$sitecode" -EnableSystemTypeServer $True | Out-Null
+				Write-Log -Category "info" -Message "client push: enabled client install on servers"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
+		}
+		if ($set.ClientDC -eq 'true') {
+			try {
+				Set-CMClientPushInstallation -SiteCode "$sitecode" -InstallClientToDomainController $True | Out-Null
+				Write-Log -Category "info" -Message "client push: enabled client install on domain controllers"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
+		}
+		if ($set.ClientWorkstation -eq 'true') {
+			try {
+				Set-CMClientPushInstallation -SiteCode "$sitecode" -EnableSystemTypeWorkstation $True | Out-Null
+				Write-Log -Category "info" -Message "client push: enabled client install on workstations"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
+		}
+		if ($set.ChosenAccount.length -gt 0) {
+			try {
+				Set-CMClientPushInstallation -SiteCode "$sitecode" -ChosenAccount $set.ChosenAccount | Out-Null
+				Write-Log -Category "info" -Message "client push: set installation account to $($set.ChosenAccount)"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
+		}
+		if ($set.InstallationProperty.Length -gt 0) {
+			try {
+				Set-CMClientPushInstallation -SiteCode "$sitecode" -InstallationProperty $set.InstallationProperty | Out-Null
+				Write-Log -Category "info" -Message "client push: set installation property $($set.InstallationProperty)"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+			}
+		}
+	} # foreach
 }
 
 # --------------------------------------------------------------------
@@ -1765,6 +1839,7 @@ foreach ($control in $controlset) {
             break
         }
         'CLIENTINSTALL' {
+			Import-CmxClientPush -DataSet $xmldata | Out-Null
             break
         }
         'FOLDERS' {
