@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.25 - DS - 2017-09-09 -->
-<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - DS - 9/9/2017">
+<!-- Version 1.2.28 - DS - 2017-09-10 -->
+<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - DS - 9/10/2017">
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
+			<ci use="1" name="ENVIRONMENT" comment="platform environment checks" />
             <ci use="1" name="ACCOUNTS" comment="site accounts" />
             <ci use="1" name="ADFOREST" comment="assign AD forest" />
             <ci use="1" name="SERVERSETTINGS" comment="site system settings" />
@@ -232,34 +233,34 @@
             <appcategory use="1" name="Sales" enabled="true" comment="" />
         </appcategories>
         <applications comment="Applications">
-            <application use="1" name="7-Zip" publisher="7-Zip" version="17.01" categories="General" comment="File compression utility" folder="Utilities" keywords="file,zip,utility,archive,compression">
-                <deptypes comment="Deployment Types">
-                    <deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\7-Zip\7z1701-x64.msi" options="auto" comment="64-bit installer" />
-                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\7-Zip\7z1701.msi" options="auto" comment="32-bit installer" />
-                </deptypes>
-            </application>
-            <application use="1" name="Notepad++ 7.5" publisher="Notepad++" version="7.5.1" categories="Developer,Engineering" comment="Text and Code editor" folder="Utilities" keywords="editor,text,code,programming,script">
-                <deptypes comment="Deployment Types">
-                    <deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\Notepad++\npp.7.5.1.installer.x64.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="64-bit installer" />
-                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Notepad++\npp.7.5.1.installer.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="32-bit installer" />
-                </deptypes>
-            </application>
-            <application use="1" name="Microsoft RDC Manager" publisher="Microsoft" version="2.7" categories="IT,Developer" comment="Remote Desktop Connection Manager" folder="Microsoft" keywords="remote,rdc,rdp,desktop">
-                <deptypes comment="Deployment Types">
-                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Microsoft\RDC Manager\rdcman.msi" options="auto" comment="32-bit installer" />
-                </deptypes>
-            </application>
-            <application use="1" name="Google Earth" publisher="Google" version="7.1" categories="Developer" comment="Mapping and visualization" folder="Google" keywords="google,earth,maps,model,3d">
-                <deptypes comment="Deployment Types">
-                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Google\EarthPro\GoogleEarth7.1.5.1557.msi" options="auto" comment="32-bit installer" />
-                </deptypes>
-            </application>
-            <application use="1" name="VLC Player" publisher="VideoLAN" version="2.2.6" categories="General" comment="Media player" folder="Utilities" keywords="vlc,video,audio,media,player">
-                <deptypes comment="Deployment Types">
-                    <deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\VLC Player\vlc-2.2.6-win32.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="32-bit installer" />
+			<application use="1" name="7-Zip" publisher="7-Zip" version="17.01" categories="General" comment="File compression utility" folder="Utilities" keywords="file,zip,utility,archive,compression">
+				<deptypes comment="Deployment Types">
+					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\7-Zip\7z1701-x64.msi" options="auto" comment="64-bit installer" />
+					<deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\7-Zip\7z1701.msi" options="auto" comment="32-bit installer" />
+				</deptypes>
+			</application>
+			<application use="1" name="Notepad++ 7.5" publisher="Notepad++" version="7.5.1" categories="Developer,Engineering" comment="Text and Code editor" folder="Utilities" keywords="editor,text,code,programming,script">
+				<deptypes comment="Deployment Types">
+					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\Notepad++\npp.7.5.1.installer.x64.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="64-bit installer" />
+					<deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Notepad++\npp.7.5.1.installer.exe" options="/s" uninstall="C:\Program Files\Notepad++\uninstall.exe" detect="registry:HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++,DisplayVersion,-ge,7.5" requires="" comment="32-bit installer" />
+				</deptypes>
+			</application>
+			<application use="1" name="Microsoft RDC Manager" publisher="Microsoft" version="2.7" categories="IT,Developer" comment="Remote Desktop Connection Manager" folder="Microsoft" keywords="remote,rdc,rdp,desktop">
+				<deptypes comment="Deployment Types">
+					<deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Microsoft\RDC Manager\rdcman.msi" options="auto" comment="32-bit installer" />
+				</deptypes>
+			</application>
+			<application use="1" name="Google Earth" publisher="Google" version="7.1" categories="Developer" comment="Mapping and visualization" folder="Google" keywords="google,earth,maps,model,3d">
+				<deptypes comment="Deployment Types">
+					<deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\Google\EarthPro\GoogleEarth7.1.5.1557.msi" options="auto" comment="32-bit installer" />
+				</deptypes>
+			</application>
+			<application use="1" name="VLC Player" publisher="VideoLAN" version="2.2.6" categories="General" comment="Media player" folder="Utilities" keywords="vlc,video,audio,media,player">
+				<deptypes comment="Deployment Types">
+					<deptype name="x86 installer" platform="32" source="\\Fs1\APPS\Packages\VLC Player\vlc-2.2.6-win32.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="32-bit installer" />
 					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\VLC Player\vlc-2.2.6-win64.exe" options="/S" uninstall="C:\Program Files\VideoLAN\VLC\uninstall.exe /S" detect="file:\Program Files\VideoLAN\VLC\vlc.exe" comment="64-bit installer" />
-                </deptypes>
-            </application>
+				</deptypes>
+			</application>
 			<application use="1" name="Paint.Net" publisher="dotPDN LLC" version="4.0.17" categories="General" keywords="paint,net,image,graphic,media" comment="Paint.Net" folder="Utilities\Tools">
 				<deptypes comment="Deployment Types">
 					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\Packages\Paint.Net\PaintDotNet_x64.msi" options="auto" uninstall="" detect="" comment="64-bit installer" />
