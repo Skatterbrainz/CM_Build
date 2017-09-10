@@ -6,7 +6,9 @@ Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
 Part 1 of 2 = builds on top of a standard Windows Server instance to having Configuration Manager.  This includes server roles and features, ADK, MDT, SQL Server, WSUS, and Configuration Manager.  It also includes things like SQL memory and recovery settings, registry keys, custom folders and files, and optional tools (ConfigMgr Toolkit, Right-click Tools, etc.).
 
-* Latest version : 1.2.19
+* 1.2.19 - Fixed bugs in parsing SQL setup.ini when multiple sqladmins are configured
+* 1.2.18 - Added -Override feature like cm_siteconfig has
+* 1.2.17 - Fixed bugs in function output consistency and output handling
  
 # CM_SITECONFIG
 
