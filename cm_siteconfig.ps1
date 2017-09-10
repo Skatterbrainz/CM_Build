@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.29 - DS - 2017.09.10
+    1.2.30 - DS - 2017.09.10
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.29'
+$ScriptVersion = '1.2.30'
 $ScriptPath    = Get-ScriptDirectory
 $HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder    = "$ScriptPath\Logs"
@@ -70,7 +70,7 @@ function Write-Log {
             [string] $Message
     )
     if ($Detailed) {
-        Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:MM:ss')`t$Category`t$Message" -ForegroundColor Cyan
+        Write-Host "DETAILED`: $(Get-Date -f 'yyyy-M-dd HH:mm:ss')`t$Category`t$Message" -ForegroundColor Cyan
     }
 }
 
@@ -1725,14 +1725,16 @@ function Import-CmxClientPush {
 				Write-Log -Category "error" -Message $_.Exception.Message
 			}
 		}
-		if ($set.ChosenAccount.length -gt 0) {
-			try {
-				Set-CMClientPushInstallation -SiteCode "$sitecode" -ChosenAccount $set.ChosenAccount | Out-Null
-				Write-Log -Category "info" -Message "client push: set installation account to $($set.ChosenAccount)"
-			}
-			catch {
-				Write-Log -Category "error" -Message $_.Exception.Message
-			}
+		if ($set.Accounts.length -gt 0) {
+			foreach ($acct in $set.Accounts.Split(",")) {
+				try {
+					Set-CMClientPushInstallation -SiteCode "$sitecode" -AddAccount $acct | Out-Null
+					Write-Log -Category "info" -Message "client push: set installation account to $($acct)"
+				}
+				catch {
+					Write-Log -Category "error" -Message $_.Exception.Message
+				}
+			} # foreach
 		}
 		if ($set.InstallationProperty.Length -gt 0) {
 			try {
