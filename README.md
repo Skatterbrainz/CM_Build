@@ -10,17 +10,24 @@ Part 1 of 2 = builds on top of a standard Windows Server instance to having Conf
 * 1.2.19 - Fixed bugs in parsing SQL setup.ini when multiple sqladmins are configured
 * 1.2.18 - Added -Override feature like cm_siteconfig has
 * 1.2.17 - Fixed bugs in function output consistency and output handling
+* 1.2.00 - breakfast and then coffee
+* 1.1.00 - second cup of coffee
+* 1.0.00 - first cup of coffee
  
 # CM_SITECONFIG
 
 Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigMgr instance).  Configures AD forest connection, discovery methods, boundary groups, collections, queries, client settings, applications, operating system images, operating system upgrade installers, site maintenance tasks, application categories and antimalware policies. 
 
+* 1.2.31 - Fixed bugs in site roles, discovery methods, and software update point settings
 * 1.2.30 - Fixed bug in Write-Log function affecting HH:mm:ss format display, and client push installation code
 * 1.2.28 - Added checks for AD accounts before importing, fixed bug with applications import and folder assignments
 * 1.2.27 - Added checks for AD schema extension and AD container
 * 1.2.26 - Fixed logfile path declaration
 * 1.2.25 - Fixed bugs in creating boundary groups
 * 1.2.24 - Fixed bugs in importing apps, queries and folders. Fixed inconsistencies in cm_siteconfig.xml
+* 1.2.00 - first time getting 8 hrs of sleep in almost 5 months
+* 1.1.00 - second cup of coffee
+* 1.0.00 - first cup of coffee
 
 # Noteable Updates
 
