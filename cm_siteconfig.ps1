@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.30 - DS - 2017.09.10
+    1.2.31 - DS - 2017.09.11
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.30'
+$ScriptVersion = '1.2.31'
 $ScriptPath    = Get-ScriptDirectory
 $HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder    = "$ScriptPath\Logs"
@@ -183,9 +183,10 @@ function Import-CmxDiscoveryMethods {
                     foreach ($opt in $discOpts.Split("|")) {
                         $optx = $opt.Split(':')
                         Write-Log -Category info -Message "option = $($optx[0])"
+						Write-Log -Category info -Message "value  = $($optx[$optx.Count-1])"
                         switch ($optx[0]) {
                             'ADContainer' {
-                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$ADContainer" -Recursive | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$($optx[1])" -Recursive | Out-Null
                                 break
                             }
                             'EnableDetaDiscovery' {
@@ -213,28 +214,45 @@ function Import-CmxDiscoveryMethods {
                 try {
                     Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -Enabled $True -ErrorAction SilentlyContinue | Out-Null
                     Write-Log -Category info -Message "discovery has been enabled. configuring options"
-                    foreach ($opt in $discOpts.Split("|")) {
-                        $optx = $opt.Split(':')
-                        Write-Log -Category info -Message "option = $($optx[0])"
-                        switch ($optx[0]) {
-                            'EnableDeltaDiscovery' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True | Out-Null
-                                break
-                            }
-                            'EnableFilteringExpiredLogon' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] | Out-Null
-                                break
-                            }
-                            'EnableFilteringExpiredPassword' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays 90 | Out-Null
-                                break
-                            }
-                        } # switch
-                    } # foreach
-                }
+				}
                 catch {
-                    Write-Log -Category error -Message "AD group discovery setting failed!"
+                    Write-Log -Category error -Message $_.Exception.Message
+					break
                 }
+				foreach ($opt in $discOpts.Split("|")) {
+					$optx = $opt.Split(':')
+					Write-Log -Category info -Message "option = $($optx[0])"
+					Write-Log -Category info -Message "value  = $($optx[$optx.Count-1])"
+					switch ($optx[0]) {
+						'EnableDeltaDiscovery' {
+							Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True | Out-Null
+							break
+						}
+						'ADContainer' {
+							$scope = New-CMADGroupDiscoveryScope -LdapLocation "LDAP://$($optx[1])" -Name "Domain Root" -RecursiveSearch $True
+							try {
+								Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -AddGroupDiscoveryScope $scope | Out-Null
+							}
+							catch {
+								if ($_.Exception.Message -like "*already exists*") {
+									Write-Log -Category info -Message "ldap path is already configured"
+								}
+								else {
+									Write-Log -Category error -Message $_.Exception.Message
+								}
+							}
+							break
+						}
+						'EnableFilteringExpiredLogon' {
+							Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] | Out-Null
+							break
+						}
+						'EnableFilteringExpiredPassword' {
+							Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays $optx[1] | Out-Null
+							break
+						}
+					} # switch
+				} # foreach
                 break
             }
             'ActiveDirectoryUserDiscovery' {
@@ -244,9 +262,10 @@ function Import-CmxDiscoveryMethods {
                     foreach ($opt in $discOpts.Split("|")) {
                         $optx = $opt.Split(':')
                         Write-Log -Category info -Message "option = $($optx[0])"
+						Write-Log -Category info -Message "value  = $($optx[$optx.Count-1])"
                         switch ($optx[0]) {
                             'ADContainer' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$ADContainer" -Recursive | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$($optx[1])" -Recursive | Out-Null
                                 break
                             }
                             'EnableDetaDiscovery' {
@@ -289,7 +308,7 @@ function Import-CmxDiscoveryMethods {
                 break
             }
         } # switch
-        Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+        Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
@@ -564,38 +583,116 @@ function Set-CmxSiteServerRoles {
             'sup' {
                 if (Get-CMSoftwareUpdatePoint) {
                     Write-Log -Category info -Message "software update point has already been configured"
+					$code1 = ""
+					$code2 = "Set-CMSoftwareUpdatePointComponent `-SiteCode `"$sitecode`" `-EnableSynchronization `$True"
                 }
                 else {
-                    $code = "Add-CMSoftwareUpdatePoint `-SiteSystemServerName `"$hostname`" `-SiteCode `"$sitecode`""
-                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
-                        $optname = $roleopt.name
-                        $params  = $roleopt.params
-                        if ($optName -eq 'WsusAccessAccount') {
-                            if ($params -eq 'NULL') {
-                                $code += " `-WsusAccessAccount `$null"
-                            }
-                            else {
-                                $code += "` -WsusAccessAccount `"$params`""
-                            }
-                        }
-                        else {
-                            $code += " `-$optName $params"
-                        }
-                    } # foreach
-                    Write-Log -Category "info" -Message "command >> $code"
+                    $code1 = "Add-CMSoftwareUpdatePoint `-SiteSystemServerName `"$hostname`" `-SiteCode `"$sitecode`""
+					$code2 = "Set-CMSoftwareUpdatePointComponent `-SiteCode `"$sitecode`" `-EnableSynchronization `$True"
+				}
+				foreach ($roleopt in $item.roleoptions.roleoption | Where-Object {$_.use -eq '1'}) {
+					$optname = $roleopt.name
+					$params  = $roleopt.params
+					switch ($optname) {
+						'WsusAccessAccount' {
+							if ($code1.Length -gt 0) {
+								if ($params -eq 'NULL') {
+									$code1 += " `-WsusAccessAccount `$null"
+								}
+								else {
+									$code1 += " `-WsusAccessAccount `"$params`""
+								}
+							}
+							break
+						}
+						'HttpPort' {
+							if ($code1.Length -gt 0) {
+								$code1 += " `-HttpPort $params"
+							}
+							break
+						}
+						'HttpsPort' {
+							if ($code1.Length -gt 0) {
+								$code1 += " `-HttpsPort $params"
+							}
+							break
+						}
+						'ClientConnectionType' {
+							if ($code1.Length -gt 0) {
+								$code1 += " `-ClientConnectionType $params"
+							}
+							break
+						}
+						'SynchronizeAction' {
+							$code2 += " `-SynchronizeAction $params"
+							break
+						}
+						'AddUpdateClassifications' {
+							$code2 += " `-AddUpdateClassification "
+							foreach ($uclass in $params.Split(',')) {
+								if ($code2.EndsWith("AddUpdateClassification ")) {
+									$code2 += " `"$uclass`""
+								}
+								else {
+									$code2 += ",`"$uclass`""
+								}
+							}
+							break
+						}
+						'AddProducts' {
+							$code2 += " `-AddProduct "
+							foreach ($product in $params.Split(',')) {
+								if ($code2.EndsWith("AddProduct ")) {
+									$code2 += " `"$product`""
+								}
+								else {
+									$code2 += ",`"$product`""
+								}
+							}
+							break
+						}
+						'ImmediatelyExpireSupersedence' {
+							$code2 += " `-ImmediatelyExpireSupersedence `$$params"
+							break
+						}
+						'EnableCallWsusCleanupWizard' {
+							$code2 += " `-EnableCallWsusCleanupWizard `$$params"
+							break
+						}
+						'ContentFileOption' {
+							$code2 += " `-ContentFileOption `"$params`""
+							break
+						}
+					} # switch
+				} # foreach
+				if ($code1.Length -gt 0) {
+					Write-Log -Category "info" -Message "command1 >> $code1"
                     try {
-                        Invoke-Expression -Command $code -ErrorAction Stop
+                        Invoke-Expression -Command $code1 -ErrorAction Stop
                         Write-Log -Category info -Message "expression has been applied successfully"
                     }
                     catch {
                         Write-Log -Category error -Message $_.Exception.Message
                         $result = $False
+						break
                     }
-                }
+				}
+				if ($code2.Length -gt 0) {
+					Write-Log -Category "info" -Message "command2 >> $code2"
+					try {
+						Invoke-Expression -Command $code2 -ErrorAction Stop
+						Write-Log -Category info -Message "expression has been applied successfully"
+					}
+                    catch {
+                        Write-Log -Category error -Message $_.Exception.Message
+                        $result = $False
+						break
+                    }
+				} # if
                 break
             }
             'scp' {
-                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq '1'}) {
                     switch ($roleopt.name) {
                         'Mode' {
                             Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
