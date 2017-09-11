@@ -1,49 +1,48 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Version 1.2.29 - DS - 2017-09-10 -->
-<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - DS - 9/10/2017">
+<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - 1.2.31 - 9/11/2017">
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
 			<ci use="1" name="ENVIRONMENT" comment="platform environment checks" />
-            <ci use="1" name="ACCOUNTS" comment="site accounts" />
-            <ci use="1" name="ADFOREST" comment="assign AD forest" />
-            <ci use="1" name="SERVERSETTINGS" comment="site system settings" />
-            <ci use="1" name="DISCOVERY" comment="discovery methods" />
-            <ci use="1" name="BOUNDARIES" comment="site boundaries" />
-            <ci use="1" name="BOUNDARYGROUPS" comment="boundary groups" />
-            <ci use="1" name="SITEROLES" comment="site roles and featurs" />
-            <ci use="1" name="CLIENTSETTINGS" comment="client settings" />
-            <ci use="1" name="CLIENTINSTALL" comment="client push install settings" />
-            <ci use="1" name="DPGROUPS" comment="distribution point groups" />
-            <ci use="1" name="FOLDERS" comment="console folders" />
-            <ci use="1" name="QUERIES" comment="custom queries" />
-            <ci use="1" name="COLLECTIONS" comment="device and user collections" />
-            <ci use="1" name="OSIMAGES" comment="OS images" />
-            <ci use="1" name="OSINSTALLERS" comment="OS upgrade installers" />
-            <ci use="1" name="MTASKS" comment="site maintenance tasks" />
-            <ci use="1" name="APPCATEGORIES" comment="application categories" />
-            <ci use="1" name="APPLICATIONS" comment="applications" />
-            <ci use="1" name="MALWAREPOLICIES" comment="endpoint protection policies" />
+			<ci use="1" name="ACCOUNTS" comment="site accounts" />
+			<ci use="1" name="ADFOREST" comment="assign AD forest" />
+			<ci use="1" name="SERVERSETTINGS" comment="site system settings" />
+			<ci use="1" name="DISCOVERY" comment="discovery methods" />
+			<ci use="1" name="BOUNDARIES" comment="site boundaries" />
+			<ci use="1" name="BOUNDARYGROUPS" comment="boundary groups" />
+			<ci use="1" name="SITEROLES" comment="site roles and featurs" />
+			<ci use="1" name="CLIENTSETTINGS" comment="client settings" />
+			<ci use="1" name="CLIENTINSTALL" comment="client push install settings" />
+			<ci use="1" name="DPGROUPS" comment="distribution point groups" />
+			<ci use="1" name="FOLDERS" comment="console folders" />
+			<ci use="1" name="QUERIES" comment="custom queries" />
+			<ci use="1" name="COLLECTIONS" comment="device and user collections" />
+			<ci use="1" name="OSIMAGES" comment="OS images" />
+			<ci use="1" name="OSINSTALLERS" comment="OS upgrade installers" />
+			<ci use="1" name="MTASKS" comment="site maintenance tasks" />
+			<ci use="1" name="APPCATEGORIES" comment="application categories" />
+			<ci use="1" name="APPLICATIONS" comment="applications" />
+			<ci use="1" name="MALWAREPOLICIES" comment="endpoint protection policies" />
         </control>
         <schedules>
-            <!-- still working on this one -->
-            <schedule use="0" name="sch15min" unit="minutes" value="15" />
-            <schedule use="0" name="schDaily" unit="days" value="1" />
-            <schedule use="0" name="schWeekly" unit="days" value="7" />
+			<!-- still working on this one -->
+			<schedule use="0" name="sch15min" unit="minutes" value="15" />
+			<schedule use="0" name="schDaily" unit="days" value="1" />
+			<schedule use="0" name="schWeekly" unit="days" value="7" />
         </schedules>
         <discoveries comment="https://docs.microsoft.com/en-us/powershell/sccm/configurationmanager/vlatest/set-cmdiscoverymethod">
-            <discovery use="1" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />
-            <!--<discovery use="0" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableActiveDirectorySiteBoundaryCreation" />-->
-            <discovery use="1" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
-            <discovery use="1" name="ActiveDirectoryGroupDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15" />
-            <discovery use="1" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
-            <discovery use="0" name="NetworkDiscovery" PollingSchedule="schDaily" />
-            <discovery use="1" name="HeartbeatDiscovery" PollingSchedule="DEFAULT" />
+			<discovery use="1" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableSubnetBoundaryCreation" />
+			<!--<discovery use="0" name="ActiveDirectoryForestDiscovery" PollingSchedule="sch15mins" options="EnableActiveDirectorySiteBoundaryCreation" />-->
+			<discovery use="1" name="ActiveDirectorySystemDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
+			<discovery use="1" name="ActiveDirectoryGroupDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
+			<discovery use="1" name="ActiveDirectoryUserDiscovery" PollingSchedule="schDaily" options="EnableDeltaDiscovery:15|ADAttributes:title,department,division|ADContainer:dc=contoso,dc=com|EnableFilteringExpiredLogon:90|EnableFilteringExpiredPassword:90" />
+			<discovery use="0" name="NetworkDiscovery" PollingSchedule="" />
+			<discovery use="0" name="HeartbeatDiscovery" PollingSchedule="" />
         </discoveries>
         <boundarygroups comment="Configure Boundary Groups">
-            <boundarygroup use="1" name="NA-US-VA-Norfolk" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Norfolk" />
-            <boundarygroup use="1" name="NA-US-VA-VB" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
-            <boundarygroup use="1" name="NA-US-CA-Fremont" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Fremont" />
-            <boundarygroup use="1" name="NA-US-NY-NewYork" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="New York" />
+			<boundarygroup use="1" name="NA-US-VA-Norfolk" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Norfolk" />
+			<boundarygroup use="1" name="NA-US-VA-VB" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
+			<boundarygroup use="1" name="NA-US-CA-Fremont" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Fremont" />
+			<boundarygroup use="1" name="NA-US-NY-NewYork" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="New York" />
         </boundarygroups>
         <boundaries comment="Configure Site Boundaries if not set to AD discovery-automatic">
             <boundary use="1" name="NA-US-VA-Norfolk-Servers" type="IPRange" value="192.168.0.10-192.168.0.99" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
@@ -52,7 +51,7 @@
         </boundaries>
         <clientoptions comment="Configure Default Client Push Installation settings">
             <!-- still working on this one -->
-            <CMClientPushInstallation use="1" AutomaticInstall="false" ClientCMServer="false" ClientDC="true" ClientServer="true" ClientWorkstation="true" ChosenAccount="CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
+            <CMClientPushInstallation use="1" AutomaticInstall="false" ClientCMServer="false" ClientDC="true" ClientServer="true" ClientWorkstation="true" Accounts="CONTOSO\cm-clientinstall,CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
         </clientoptions>
         <serversettings comment="Server Settings">
             <serversetting use="1" name="CMSoftwareDistributionComponent" comment="Software Distribution Settings" key="NetworkAccessAccountName" value="CONTOSO\cm-naa" />
@@ -60,16 +59,16 @@
         <clientsettings comment="Client Settings">
             <clientsetting use="1" name="Workstations" comment="Workstation Client Settings" type="Device" priority="1">
                 <settings>
-                    <setting use="1" name="BITS" options="EnableBitsMaxBandwidth" />
-                    <setting use="1" name="ComputerAgent" options="AddPortalToTrustedSiteList,AllowPortalToHaveElevatedTrust,BrandingTitle=Contoso IT,EnableThirdPartyOrchestration,FinalReminderMinutesInterval=25,InitialReminderHoursInterval=6,InstallRestriction=OnlyAdministrators,PortalUrl=http://cm02.contoso.com,PowerShellExecutionPolicy=Bypass,SuspendBitLocker=Always" />
-                    <setting use="1" name="ComputerRestart" />
-                    <setting use="0" name="EndpointProtection" />
-                    <setting use="1" name="HardwareInventory" />
-                    <setting use="0" name="PowerOptions" />
-                    <setting use="1" name="RemoteTools" />
-                    <setting use="1" name="SoftwareDeployment" />
-                    <setting use="1" name="SoftwareInventory" />
-                    <setting use="1" name="SoftwareUpdates" />
+					<setting use="1" name="BITS" options="EnableBitsMaxBandwidth" />
+					<setting use="1" name="ComputerAgent" options="AddPortalToTrustedSiteList,AllowPortalToHaveElevatedTrust,BrandingTitle=Contoso IT,EnableThirdPartyOrchestration,FinalReminderMinutesInterval=25,InitialReminderHoursInterval=6,InstallRestriction=OnlyAdministrators,PortalUrl=http://cm02.contoso.com,PowerShellExecutionPolicy=Bypass,SuspendBitLocker=Always" />
+					<setting use="1" name="ComputerRestart" />
+					<setting use="0" name="EndpointProtection" />
+					<setting use="1" name="HardwareInventory" />
+					<setting use="0" name="PowerOptions" />
+					<setting use="1" name="RemoteTools" />
+					<setting use="1" name="SoftwareDeployment" />
+					<setting use="1" name="SoftwareInventory" />
+					<setting use="1" name="SoftwareUpdates" />
                 </settings>
             </clientsetting>
             <clientsetting use="1" name="Servers" comment="Server Client Settings" type="Device" priority="2">
@@ -87,82 +86,83 @@
             <dpgroup use="1" name="Azure DPs" comment="DP servers in Azure" />
         </dpgroups>
         <sitesystemroles>
-            <sitesystemrole name="aisp" enabled="true" comment="Asset Intelligence Synchronization Point">
+            <sitesystemrole use="1" name="aisp" comment="Asset Intelligence Synchronization Point">
                 <roleoptions comment="Configure Asset Intelligence Classes">
-                    <roleoption use="1" name="EnableAllReportingClass" params="" />
-                    <roleoption use="0" name="EnableReportingClass" params="SMS_BrowserHelperObject" />
-                    <roleoption use="0" name="EnableReportingClass" params="SMS_InstalledExecutable" />
-                    <roleoption use="0" name="EnableReportingClass" params="SMS_InstalledSoftware" />
-                    <roleoption use="0" name="EnableReportingClass" params="SMS_SoftwareShortcut" />
-                    <roleoption use="0" name="EnableReportingClass" params="SMS_SoftwareTag" />
-                    <roleoption use="0" name="EnableReportingClass" params="SMS_SystemConsoleUsage" />
-                    <roleoption use="0" name="EnableReportingClass" params="SMS_SystemConsoleUser" />
-                    <roleoption use="0" name="EnableReportingClass" params="SoftwareLicensingProduct" />
-                    <roleoption use="0" name="EnableReportingClass" params="SoftwareLicensingService" />"
-                    <roleoption use="0" name="EnableReportingClass" params="Win32_USBDevice" />
+					<roleoption use="1" name="EnableAllReportingClass" params="" />
+					<roleoption use="0" name="EnableReportingClass" params="SMS_BrowserHelperObject" />
+					<roleoption use="0" name="EnableReportingClass" params="SMS_InstalledExecutable" />
+					<roleoption use="0" name="EnableReportingClass" params="SMS_InstalledSoftware" />
+					<roleoption use="0" name="EnableReportingClass" params="SMS_SoftwareShortcut" />
+					<roleoption use="0" name="EnableReportingClass" params="SMS_SoftwareTag" />
+					<roleoption use="0" name="EnableReportingClass" params="SMS_SystemConsoleUsage" />
+					<roleoption use="0" name="EnableReportingClass" params="SMS_SystemConsoleUser" />
+					<roleoption use="0" name="EnableReportingClass" params="SoftwareLicensingProduct" />
+					<roleoption use="0" name="EnableReportingClass" params="SoftwareLicensingService" />"
+					<roleoption use="0" name="EnableReportingClass" params="Win32_USBDevice" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="scp" enabled="true" comment="Service Connection Point">
+            <sitesystemrole use="1" name="scp" comment="Service Connection Point">
                 <roleoptions comment="">
                     <roleoption use="1" name="Mode" params="Online" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="mp" enabled="true" comment="Management Point">
+            <sitesystemrole use="1" name="mp" comment="Management Point">
                 <roleoptions comment="">
-                    <roleoption use="1" name="PublicFqdn" params="cm02.contoso.com" />
-                    <roleoption use="1" name="FdmOperation" params="False" />
-                    <roleoption use="1" name="AccountName" params="NULL" />
-                    <roleoption use="0" name="EnableProxy" params="ProxyAccessAccount=NAME,ProxyServerName=NAME,ProxyServerPort=INT" />
-                    <roleoption use="1" name="PublishDNS" params="True" />
+					<roleoption use="1" name="PublicFqdn" params="cm02.contoso.com" />
+					<roleoption use="1" name="FdmOperation" params="False" />
+					<roleoption use="1" name="AccountName" params="NULL" />
+					<roleoption use="0" name="EnableProxy" params="ProxyAccessAccount=NAME,ProxyServerName=NAME,ProxyServerPort=INT" />
+					<roleoption use="1" name="PublishDNS" params="True" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="ssrp" enabled="true" comment="Reporting Services Point">
+            <sitesystemrole use="1" name="ssrp" comment="Reporting Services Point">
                 <roleoptions comment="">
-                    <roleoption use="1" name="DatabaseServerName" params="cm02.contoso.com" />
-                    <roleoption use="1" name="DatabaseName" params="CM_P01" />
-                    <roleoption use="1" name="UserName" params="CONTOSO\svc-sql" />
-                    <roleoption use="0" name="FolderName" params="" />
-                    <roleoption use="0" name="ReportServerInstance" params="" />
+					<roleoption use="1" name="DatabaseServerName" params="cm02.contoso.com" />
+					<roleoption use="1" name="DatabaseName" params="CM_P01" />
+					<roleoption use="1" name="UserName" params="CONTOSO\svc-sql" />
+					<roleoption use="0" name="FolderName" params="" />
+					<roleoption use="0" name="ReportServerInstance" params="" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="cmg" enabled="false" comment="Cloud Management Gateway">
+            <sitesystemrole use="1" name="cmg" comment="Cloud Management Gateway">
                 <roleoptions comment="">
                     <roleoption use="1" name="CloudManagementGatewayName" params="" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="dp" enabled="true" comment="Distribution Point">
+            <sitesystemrole use="1" name="dp" comment="Distribution Point">
                 <roleoptions comment="">
-                    <roleoption use="1" name="Description" params="Distribution Point 1" />
-                    <roleoption use="1" name="ClientCommunicationType" params="http" />
-                    <roleoption use="1" name="ClientConnectionType" params="InternetAndIntranet" />
-                    <roleoption use="1" name="ContentMonitoringPriority" params="Highest" />
-                    <roleoption use="1" name="EnableAnonymous" params="True" />
-                    <roleoption use="1" name="EnableContentValidation" params="True" />
-                    <roleoption use="1" name="EnableUnknownComputerSupport" params="True" />
-                    <roleoption use="1" name="EnablePxe" params="True" />
-                    <roleoption use="1" name="AllowPxeResponse" params="True" />
-                    <roleoption use="1" name="PxePassword" params="123" />
+					<roleoption use="1" name="Description" params="Distribution Point 1" />
+					<roleoption use="1" name="ClientCommunicationType" params="http" />
+					<roleoption use="1" name="ClientConnectionType" params="InternetAndIntranet" />
+					<roleoption use="1" name="ContentMonitoringPriority" params="Highest" />
+					<roleoption use="1" name="EnableAnonymous" params="True" />
+					<roleoption use="1" name="EnableContentValidation" params="True" />
+					<roleoption use="1" name="EnableUnknownComputerSupport" params="True" />
+					<roleoption use="1" name="EnablePxe" params="True" />
+					<roleoption use="1" name="AllowPxeResponse" params="True" />
+					<roleoption use="1" name="PxePassword" params="123" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="sup" enabled="true" comment="Software Update Point">
-                <roleoptions comment="">
+            <sitesystemrole use="1" name="sup" comment="Software Update Point">
+                <roleoptions comment="Software Update Point Communications Options">
                     <roleoption use="1" name="HttpPort" params="8530" />
                     <roleoption use="1" name="HttpsPort" params="8531" />
                     <roleoption use="1" name="ClientConnectionType" params="InternetAndIntranet" />
                     <roleoption use="1" name="WsusAccessAccount" params="NULL" />
+                    <roleoption use="1" name="SynchronizeAction" params="SynchronizeFromMicrosoftUpdate" />
+                    <roleoption use="1" name="AddUpdateClassifications" params="Definition Updates,Critical Updates,Updates" />
+                    <roleoption use="1" name="AddProducts" params="Windows Server Manager - Windows Server Update Services (WSUS) Dynamic Installer" />
+					<roleoption use="1" name="ImmediatelyExpireSupersedence" params="True" />
+					<roleoption use="1" name="EnableCallWsusCleanupWizard" params="True" />
+					<roleoption use="1" name="ContentFileOption" params="ExpressForWindows10Only" />
                 </roleoptions>
-                <features comment="">
-                    <feature name="SynchronizeAction" params="SynchronizeFromMicrosoftUpdate" />
-                    <feature name="AddUpdateClassifications" params="Definition Updates,Critical Updates,Updates" />
-                    <feature name="AddProducts" params="Windows Server Manager - Windows Server Update Services (WSUS) Dynamic Installer" />
-                </features>
             </sitesystemrole>
-            <sitesystemrole name="acwsp" enabled="true" comment="Application Catalog Web Service Point">
+            <sitesystemrole use="1" name="acwsp" comment="Application Catalog Web Service Point">
                 <roleoptions>
                     <roleoption use="0" name="" params="" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole name="acwp" enabled="true" comment="Application Catalog Website Point">
+            <sitesystemrole use="1" name="acwp" comment="Application Catalog Website Point">
                 <roleoptions>
                     <roleoption use="1" name="CommuncationType" params="Https" />
                     <roleoption use="1" name="ClientConnectionType" params="Intranet" />
