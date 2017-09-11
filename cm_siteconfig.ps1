@@ -14,7 +14,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.31 - DS - 2017.09.11
+    1.2.32 - DS - 2017.09.11
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -46,7 +46,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.31'
+$ScriptVersion = '1.2.32'
 $ScriptPath    = Get-ScriptDirectory
 $HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder    = "$ScriptPath\Logs"
@@ -161,10 +161,10 @@ function Import-CmxDiscoveryMethods {
                             Write-Log -Category info -Message "option = $opt"
                             switch ($opt) {
                                 'EnableActiveDirectorySiteBoundaryCreation' {
-                                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableActiveDirectorySiteBoundaryCreation $True | Out-Null
+                                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableActiveDirectorySiteBoundaryCreation $True -ErrorAction SilentlyContinue | Out-Null
                                 }
                                 'EnableSubnetBoundaryCreation' {
-                                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $True | Out-Null
+                                    Set-CMDiscoveryMethod -ActiveDirectoryForestDiscovery -SiteCode $sitecode -Enabled $True -EnableSubnetBoundaryCreation $True -ErrorAction SilentlyContinue | Out-Null
                                 }
                             }
                         } # foreach
@@ -186,15 +186,15 @@ function Import-CmxDiscoveryMethods {
 						Write-Log -Category info -Message "value  = $($optx[$optx.Count-1])"
                         switch ($optx[0]) {
                             'ADContainer' {
-                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$($optx[1])" -Recursive | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$($optx[1])" -Recursive -ErrorAction SilentlyContinue | Out-Null
                                 break
                             }
                             'EnableDetaDiscovery' {
-                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True -ErrorAction SilentlyContinue | Out-Null
                                 break
                             }
                             'EnableFilteringExpiredLogon' {
-                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectorySystemDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] -ErrorAction SilentlyContinue | Out-Null
                                 break
                             }
                             'EnableFilteringExpiredPassword' {
@@ -231,7 +231,7 @@ function Import-CmxDiscoveryMethods {
 						'ADContainer' {
 							$scope = New-CMADGroupDiscoveryScope -LdapLocation "LDAP://$($optx[1])" -Name "Domain Root" -RecursiveSearch $True
 							try {
-								Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -AddGroupDiscoveryScope $scope | Out-Null
+								Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -AddGroupDiscoveryScope $scope -ErrorAction SilentlyContinue | Out-Null
 							}
 							catch {
 								if ($_.Exception.Message -like "*already exists*") {
@@ -244,11 +244,11 @@ function Import-CmxDiscoveryMethods {
 							break
 						}
 						'EnableFilteringExpiredLogon' {
-							Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] | Out-Null
+							Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredLogon $True -TimeSinceLastLogonDays $optx[1] -ErrorAction SilentlyContinue | Out-Null
 							break
 						}
 						'EnableFilteringExpiredPassword' {
-							Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays $optx[1] | Out-Null
+							Set-CMDiscoveryMethod -ActiveDirectoryGroupDiscovery -SiteCode $sitecode -EnableFilteringExpiredPassword $True -TimeSinceLastPasswordUpdateDays $optx[1] -ErrorAction SilentlyContinue | Out-Null
 							break
 						}
 					} # switch
@@ -265,15 +265,15 @@ function Import-CmxDiscoveryMethods {
 						Write-Log -Category info -Message "value  = $($optx[$optx.Count-1])"
                         switch ($optx[0]) {
                             'ADContainer' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$($optx[1])" -Recursive | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -ActiveDirectoryContainer "LDAP://$($optx[1])" -Recursive -ErrorAction SilentlyContinue | Out-Null
                                 break
                             }
                             'EnableDetaDiscovery' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -EnableDeltaDiscovery $True -ErrorAction SilentlyContinue | Out-Null
                                 break
                             }
                             'ADAttributes' {
-                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -AddAdditionalAttribute $optx[1].split(',') | Out-Null
+                                Set-CMDiscoveryMethod -ActiveDirectoryUserDiscovery -SiteCode $sitecode -AddAdditionalAttribute $optx[1].split(',') -ErrorAction SilentlyContinue | Out-Null
                                 break
                             }
                         } # switch
