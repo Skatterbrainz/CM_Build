@@ -59,31 +59,120 @@
         <clientsettings comment="Client Settings">
             <clientsetting use="1" name="Workstations" comment="Workstation Client Settings" type="Device" priority="1">
                 <settings>
-					<setting use="1" name="BITS" options="EnableBitsMaxBandwidth" />
-					<setting use="1" name="ComputerAgent" options="AddPortalToTrustedSiteList,AllowPortalToHaveElevatedTrust,BrandingTitle=Contoso IT,EnableThirdPartyOrchestration,FinalReminderMinutesInterval=25,InitialReminderHoursInterval=6,InstallRestriction=OnlyAdministrators,PortalUrl=http://cm02.contoso.com,PowerShellExecutionPolicy=Bypass,SuspendBitLocker=Always" />
-					<setting use="1" name="ComputerRestart" />
-					<setting use="0" name="EndpointProtection" />
-					<setting use="1" name="HardwareInventory" />
-					<setting use="0" name="PowerOptions" />
-					<setting use="1" name="RemoteTools" />
-					<setting use="1" name="SoftwareDeployment" />
-					<setting use="1" name="SoftwareInventory" />
-					<setting use="1" name="SoftwareUpdates" />
+					<setting use="1" name="BackgroundIntelligentTransfer">
+						<options>
+							<option name="EnableBitsMaxBandwidth" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="ClientCache">
+						<options>
+							<option name="ConfigureBranchCache" value="True" />
+							<option name="EnableBranchCache" value="True" />
+							<option name="ConfigureCacheSize" value="True" />
+							<option name="MaxCacheSize" value="10240" />
+							<option name="EnableSuperPeer" value="True" />
+							<option name="EnableHttps" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="ComputerAgent">
+						<options>
+							<option name="AddPortalToTrustedSiteList" value="True" />
+							<option name="AllowPortalToHaveElevatedTrust" value="True" />
+							<option name="BrandingTitle" value="Contoso IT" />
+							<option name="EnableThirdPartyOrchestration" value="Yes" />
+							<option name="FinalReminderMinutesInterval" value="25" />
+							<option name="InitialReminderHoursInterval" value="6" />
+							<option name="InstallRestriction" value="OnlyAdministrators" />
+							<option name="PortalUrl" value="http://cm02.contoso.com" />
+							<option name="PowerShellExecutionPolicy" value="Bypass" />
+							<option name="SuspendBitLocker" value="Always" />
+						</options>
+					</setting>
+					<setting use="1" name="ComputerRestart">
+						<options>
+							<option name="CountdownMins" value="90" />
+							<option name="FinalWindowMins" value="15" />
+						</options>
+					</setting>
+					<setting use="1" name="EndpointProtection">
+						<options>
+							<option name="Enable" value="True" />
+							<option name="InstallEndpointProtectionClient" value="True" />
+							<option name="RemoveThirdParty" value="True" />
+							<option name="SuppressReboot" value="True" />
+							<option name="OverrideMaintenanceWindow" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="HardwareInventory">
+						<options>
+							<option name="Enable" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="PowerManagement">
+						<options>
+							<option name="Enable" value="True" />
+							<option name="AllowUserToOptOutFromPowerPlan" value="False" />
+							<option name="EnableWakeupProxy" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="RemoteTool">
+						<options>
+							<option name="AllowUnattendedComputer" value="True" />
+							<option name="PromptUserForPermission" value="False" />
+							<option name="AllowClientChange" value="False" />
+							<option name="AccessLevel" value="FullControl" />
+							<option name="ManageUnsolicitedRemoteAssistance" value="True" />
+							<option name="ManageRemoteDesktopSetting" value="True" />
+							<option name="PromptUserForClipboardPermission" value="False" />
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareDeployment">
+						<options>
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareInventory">
+						<options>
+							<option name="SWINVConfiguration" value="Filename=*.exe|Path=*|Subdirectories=True|ExcludeWindirAndSubfolders=False|ExcludeEncryptedAndCompressedFiles=True" />
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareUpdate">
+						<options>
+							<option name="Enable" value="True" />
+							<option name="EnforceMandatory" value="True" />
+							<option name="Office365ManagementType" value="True" />
+							<option name="BatchingTimeout" value="1" />
+							<option name="TimeUnit" value="Days" />
+						</options>
+					</setting>
                 </settings>
             </clientsetting>
-            <clientsetting use="1" name="Servers" comment="Server Client Settings" type="Device" priority="2">
+            <clientsetting use="0" name="Servers" comment="Server Client Settings" type="Device" priority="2">
 				<settings>
 					<setting use="1" name="HardwareInventory" />
-					<setting use="1" name="RemoteTools" />
-					<setting use="1" name="SoftwareInventory" />
+					<setting use="1" name="RemoteTool">
+						<options>
+							<option name="AllowUnattendedComputer" value="True" />
+							<option name="PromptUserForPermission" value="False" />
+							<option name="AllowClientChange" value="False" />
+							<option name="AccessLevel" value="FullControl" />
+							<option name="ManageUnsolicitedRemoteAssistance" value="True" />
+							<option name="ManageRemoteDesktopSetting" value="True" />
+							<option name="PromptUserForClipboardPermission" value="False" />
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareInventory">
+						<options>
+							<option name="SWINVConfiguration" value="Filename=*.exe|Path=*|Subdirectories=True|ExcludeWindirAndSubfolders=False|ExcludeEncryptedAndCompressedFiles=True" />
+						</options>
+					</setting>
 				</settings>
             </clientsetting>
         </clientsettings>
         <dpgroups comment="Distribution Point Groups">
             <dpgroup use="1" name="All Distribution Points" comment="All DP servers throughout the organization" />
             <dpgroup use="1" name="Virginia DPs" comment="DP servers in Virginia" />
-            <dpgroup use="1" name="California DPs" comment="DP servers in California" />
-            <dpgroup use="1" name="Azure DPs" comment="DP servers in Azure" />
+            <dpgroup use="0" name="California DPs" comment="DP servers in California" />
+            <dpgroup use="0" name="Azure DPs" comment="DP servers in Azure" />
         </dpgroups>
         <sitesystemroles>
             <sitesystemrole use="1" name="aisp" comment="Asset Intelligence Synchronization Point">
