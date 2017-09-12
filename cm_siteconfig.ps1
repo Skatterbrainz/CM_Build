@@ -970,127 +970,88 @@ function Import-CmxClientSettings {
     Write-Host "Configuring Client Settings" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    foreach ($item in $DataSet.configuration.cmsite.clientsettings.clientsetting | Where-Object {$_.use -eq '1'}) {
-        $csName = $item.name
-        $csComm = $item.comment
-        $csPri  = $item.priority
-        $csType = $item.type
-        Write-Log -Category info -Message "client setting.... $csName"
-        try {
-            New-CMClientSetting -Name "$csName" -Description "$csComm" -Type $csType -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category info -Message "client setting was created successfully."
-        }
-        catch {
-            if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists: $csName"
-            }
-            else {
+	
+	foreach ($item in $DataSet.configuration.cmsite.clientsettings.clientsetting | Where-Object {$_.use -eq '1'}) {
+		$csName = $item.Name
+		$csComm = $item.comment 
+		$csPri  = $item.priority
+		$csType = $item.type
+		Write-Log -Category "info" -Message "setting group name... $csName"
+		if (Get-CMClientSetting -Name $csName) {
+			Write-Log -Category info -Message "client setting is already created"
+		}
+		else {
+			try {
+				New-CMClientSetting -Name "$csName" -Description "$csComm" -Type $csType -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category info -Message "client setting was created successfully."
+			}
+			catch {
                 Write-Log -Category error -Message "your client setting just fell into a woodchipper. what a mess."
                 Write-Error $_.Exception.Message
                 $result = $False
                 break
             }
         }
-        foreach ($csopt in $cs.settings.setting | Where-Object {$_.use -eq '1'}) {
-            $csoName = $csopt.name
-            $csoComm = $csopt.comment
-            $csoOpts = $csopt.options
-            Write-Log -Category info -Message "client option.... $csoName"
-            if ($csoOpts) {
-                foreach ($opt in $csoOpts.Split(',')) {
-                    Write-Log -Category info -Message "option setting: $opt"
-                    $xx = $opt.Split('=')
-                    switch ($csName) {
-                        'BITS' {
-                            switch ($xx[0]) {
-                                'EnableBitsMaxBandwidth' {
-                                    Set-CMClientSettingBackgroundIntelligentTransfer -Name $csName -EnableBitsMaxBandwidth $True
-                                    break
-                                }
-                            } # switch
-                            break
-                        }
-                        'ComputerAgent' {
-                            Write-Log -Category info -Message "....setting: $($xx[0])"
-                            switch ($xx[0]) {
-                                'PortalUrl' {
-                                    Set-CMClientSettingComputerAgent -PortalUrl $xx[1] -Name $csName
-                                    break
-                                }
-                                'BrandingTitle' {
-                                    Set-CMClientSettingComputerAgent -BrandingTitle $xx[1] -Name $csName
-                                    break
-                                }
-                                'AddPortalToTrustedSiteList' {
-                                    Set-CMClientSettingComputerAgent -AddPortalToTrustedSiteList $True -Name $csName
-                                    break
-                                }
-                                'SuspendBitLocker' {
-                                    Set-CMClientSettingComputerAgent -SuspendBitLocker $xx[1] -Name $csName
-                                    break
-                                }
-                                'AllowPortalToHaveElevatedTrust' {
-                                    Set-CMClientSettingComputerAgent -AllowPortalToHaveElevatedTrust $True -Name $csName
-                                    break
-                                }
-                                'EnableThirdPartyOrchestration' {
-                                    Set-CMClientSettingComputerAgent -EnableThirdPartyOrchestration Yes -Name $csName
-                                    break
-                                }
-                                'FinalReminderMinutesInterval' {
-                                    Set-CMClientSettingComputerAgent -FinalReminderMins $xx[1] -Name $csName
-                                    break
-                                }
-                                'InitialReminderHoursInterval' {
-                                    Set-CMClientSettingComputerAgent -InitialReminderHoursInterval $xx[1] -Name $csName
-                                    break
-                                }
-                                'InstallRestriction' {
-                                    Set-CMClientSettingComputerAgent -InstallRestriction $xx[1] -Name $csName
-                                    break
-                                }
-                                'PowerShellExecutionPolicy=Bypass' {
-                                    Set-CMClientSettingComputerAgent -PowerShellExecutionPolicy $xx[1] -Name $csName
-                                    break
-                                }
-                            } # switch
-                            break
-                        }
-                        'EndpointProtection' {
-                            Write-Log -Category info -Message "....setting: $($xx[0])"
-                            switch ($xx[0]) {
-                                'InstallEndpointProtectionClient' {
-                                    Set-CMClientSettingEndpointProtection -InstallEndpointProtectionClient $True -Name $csName
-                                    break
-                                }
-                                'RemoveThirdParty' {
-                                    Set-CMClientSettingEndpointProtection -RemoveThirdParty $True -Name $csName
-                                    break
-                                }
-                                'SuppressReboot' {
-                                    Set-CMClientSettingEndpointProtection -SuppressReboot $True -Name $csName
-                                    break
-                                }
-                                'ForceRebootHr' {
-                                    Set-CMClientSettingEndpointProtection -ForceRebootHr $xx[1] -Name $csName
-                                    break
-                                }
-                                'DisableFirstSignatureUpdate' {
-                                    Set-CMClientSettingEndpointProtection -DisableFirstSignatureUpdate $True -Name $csName
-                                    break
-                                }
-                                'PersistInstallation' {
-                                    Set-CMClientSettingEndpointProtection -PersistInstallation $True -Name $csName
-                                    break
-                                }
-                            } # switch 
-                            break
-                        }
-                    } # switch
-                } # foreach
-            }
-        } # foreach
-    } # foreach
+		foreach ($csSet in $item.settings.setting | Where-Object {$_.use -eq '1'}) {
+			$setName = $csSet.name
+			Write-Log -Category "info" -Message "setting name......... $setName"
+			$code = "Set-CMClientSetting$setName `-Name `"$csName`""
+			foreach ($opt in $csSet.options.option) {
+				$optName = $opt.name
+				$optVal  = $opt.value
+				Write-Log -Category "info" -Message "setting option name.. $optName --> $optVal"
+				switch ($optVal) {
+					'true' {
+						$param = " `-$optName `$true"
+						break
+					}
+					'false' {
+						$param = " `-$optName `$false"
+						break
+					}
+					'null' {
+						$param = " `-$optName `$null"
+						break
+					}
+					default {
+						if ($optName -eq 'SWINVConfiguration') {
+							$paramx = "`@`{"
+							foreach ($opt in $optVal.Split('|')) {
+								$opx = $opt.Split('=')
+								$op1 = $opx[0]
+								$op2 = $opx[1]
+								if (('False','True','null') -icontains $op2) {
+									$y = "$op1`=`$$op2`;"
+								}
+								else {
+									$y = "$op1`=`"$op2`"`;"
+								}
+								$paramx += $y
+							}
+							$paramx += "`}"
+							$param = " `-AddInventoryFileType $paramx"
+						}
+						else {
+							$param = " `-$optName `"$optVal`""
+						}
+						break
+					}
+				} # switch
+				$code += $param
+			} # foreach - setting option
+			Write-Log -Category "info" -Message "CODE >> $code"
+			try {
+				Invoke-Expression -Command $code -ErrorAction Stop
+				Write-Log -Category info -Message "client setting has been applied successfully"
+			}
+			catch {
+				Write-Log -Category error -Message $_.Exception.Message
+				$result = $False
+				break
+			}
+			Write-Log -Category "info" -Message "............................................................"
+		} # foreach - setting group
+	} # foreach - client setting policy
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset -StartTime $Time1)"
     Write-Output $result
 }
