@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - 1.3.00 - 9/11/2017">
-    <cmsite sitecode="P01" forest="contoso.com">
+<configuration comment="ConfigMgr Site PS1 on CM1.contoso.com - 1.3.00 - 9/14/2017">
+    <cmsite sitecode="PS1" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
 			<ci use="1" name="ENVIRONMENT" comment="platform environment checks" />
 			<ci use="1" name="ACCOUNTS" comment="site accounts" />
@@ -39,10 +39,10 @@
 			<discovery use="0" name="HeartbeatDiscovery" PollingSchedule="" />
         </discoveries>
         <boundarygroups comment="Configure Boundary Groups">
-			<boundarygroup use="1" name="NA-US-VA-Norfolk" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Norfolk" />
-			<boundarygroup use="0" name="NA-US-VA-VB" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
-			<boundarygroup use="0" name="NA-US-CA-Fremont" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Fremont" />
-			<boundarygroup use="0" name="NA-US-NY-NewYork" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="New York" />
+			<boundarygroup use="1" name="NA-US-VA-Norfolk" SiteSystemServer="CM1.contoso.com" LinkType="FastLink" comment="Norfolk" />
+			<boundarygroup use="0" name="NA-US-VA-VB" SiteSystemServer="CM1.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
+			<boundarygroup use="0" name="NA-US-CA-Fremont" SiteSystemServer="CM1.contoso.com" LinkType="FastLink" comment="Fremont" />
+			<boundarygroup use="0" name="NA-US-NY-NewYork" SiteSystemServer="CM1.contoso.com" LinkType="FastLink" comment="New York" />
         </boundarygroups>
         <boundaries comment="Configure Site Boundaries if not set to AD discovery-automatic">
             <boundary use="1" name="NA-US-VA-Norfolk-Servers" type="IPRange" value="192.168.0.10-192.168.0.99" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
@@ -51,7 +51,7 @@
         </boundaries>
         <clientoptions comment="Configure Default Client Push Installation settings">
             <!-- still working on this one -->
-            <CMClientPushInstallation use="1" AutomaticInstall="false" ClientCMServer="false" ClientDC="true" ClientServer="true" ClientWorkstation="true" Accounts="CONTOSO\cm-clientinstall,CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=P01" />
+            <CMClientPushInstallation use="1" AutomaticInstall="false" ClientCMServer="false" ClientDC="true" ClientServer="true" ClientWorkstation="true" Accounts="CONTOSO\cm-clientinstall,CONTOSO\sccmclient" InstallationProperty="SMSSITECODE=PS1" />
         </clientoptions>
         <serversettings comment="Server Settings">
             <serversetting use="1" name="CMSoftwareDistributionComponent" comment="Software Distribution Settings" key="NetworkAccessAccountName" value="CONTOSO\cm-naa" />
@@ -83,7 +83,7 @@
 							<option name="FinalReminderMinutesInterval" value="25" />
 							<option name="InitialReminderHoursInterval" value="6" />
 							<option name="InstallRestriction" value="OnlyAdministrators" />
-							<option name="PortalUrl" value="http://cm02.contoso.com" />
+							<option name="PortalUrl" value="http://CM1.contoso.com" />
 							<option name="PowerShellExecutionPolicy" value="Bypass" />
 							<option name="SuspendBitLocker" value="Always" />
 						</options>
@@ -197,7 +197,7 @@
             </sitesystemrole>
             <sitesystemrole use="1" name="mp" comment="Management Point">
                 <roleoptions comment="">
-					<roleoption use="1" name="PublicFqdn" params="cm02.contoso.com" />
+					<roleoption use="1" name="PublicFqdn" params="CM1.contoso.com" />
 					<roleoption use="1" name="FdmOperation" params="False" />
 					<roleoption use="1" name="AccountName" params="NULL" />
 					<roleoption use="0" name="EnableProxy" params="ProxyAccessAccount=NAME,ProxyServerName=NAME,ProxyServerPort=INT" />
@@ -206,8 +206,8 @@
             </sitesystemrole>
             <sitesystemrole use="1" name="ssrp" comment="Reporting Services Point">
                 <roleoptions comment="">
-					<roleoption use="1" name="DatabaseServerName" params="cm01.contoso.com" />
-					<roleoption use="1" name="DatabaseName" params="CM_P01" />
+					<roleoption use="1" name="DatabaseServerName" params="CM1.contoso.com" />
+					<roleoption use="1" name="DatabaseName" params="CM_PS1" />
 					<roleoption use="1" name="UserName" params="CONTOSO\sql-svc" />
 					<roleoption use="0" name="FolderName" params="" />
 					<roleoption use="0" name="ReportServerInstance" params="" />
@@ -375,49 +375,50 @@
         </applications>
         <mtasks comment="Site Maintenance Tasks">
             <mtask use="1" name="Backup SMS Site Server" enabled="false" options="F:\BACKUPS" />
-            <mtask use="1" name="Rebuild Indexes" enabled="false" options="" />
-            <mtask use="1" name="Monitor Keys" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Inventory History" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Status Messages" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Discovery Data" enabled="true" options="" />
+            <mtask use="1" name="Check Application Title with Inventory Information" enabled="true" options="" />
+			<mtask use="1" name="Clear Install Flag" enabled="false" options="" />
+            <mtask use="1" name="Clear Undiscovered Clients" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Application Request Data" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Application Revisions" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Client Download History" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Client Operations" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Cloud Management Gateway Traffic Data" enabled="true" options="" />
             <mtask use="1" name="Delete Aged Collected Files" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Computer Association Data" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Console Connection Data" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Delete Detection Data" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Device Wipe Record" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Discovery Data" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Distribution Point Usage Stats" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged EP Health Status History Data" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Enrolled Devices" enabled="false" options="" />
+            <mtask use="1" name="Delete Aged Exchange Partnership" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Inventory History" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Log Data" enabled="true" options="" />
             <mtask use="1" name="Delete Aged Metering Data" enabled="true" options="" />
             <mtask use="1" name="Delete Aged Metering Summary Data" enabled="true" options="" />
-            <mtask use="1" name="Summarize File Usage Metering Data" enabled="true" options="" />
-            <mtask use="1" name="Summarize Monthly Usage Metering Data" enabled="true" options="" />
-            <mtask use="1" name="Clear Undiscovered Clients" enabled="true" options="" />
-            <mtask use="1" name="Delete Inactive Client Discovery Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Obsolete Client Discovery Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Computer Association Data" enabled="true" options="" />
-            <mtask use="1" name="Evaluate Provisioned AMT Computer Certificates" enabled="true" options="" />
-            <mtask use="1" name="Delete Obsolete Alerts" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Application Revisions" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Log Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Client Download History" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Notification Server History" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Notification Task History" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Passcode Records" enabled="true" options="" />
             <mtask use="1" name="Delete Aged Replication Data" enabled="true" options="" />
             <mtask use="1" name="Delete Aged Replication Summary Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Application Request Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Exchange Partnership" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Device Wipe Record" enabled="true" options="" />
-            <mtask use="1" name="Delete Obsolete Forest Discovery Sites And Subnets" enabled="true" options="" />
-            <mtask use="1" name="Check Application Title with Inventory Information" enabled="true" options="" />
-            <mtask use="1" name="Summarize Installed Software Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Enrolled Devices" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged Status Messages" enabled="true" options="" />
             <mtask use="1" name="Delete Aged Threat Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged EP Health Status History Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Client Operations" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged User Device Affinity Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Delete Detection Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Notification Task History" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Notification Server History" enabled="true" options="" />
             <mtask use="1" name="Delete Aged Unknown Computers" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Distribution Point Usage Stats" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Passcode Records" enabled="true" options="" />
-            <mtask use="1" name="Update Application Available Targeting" enabled="true" options="" />
+            <mtask use="1" name="Delete Aged User Device Affinity Data" enabled="true" options="" />
             <mtask use="1" name="Delete Expired MDM Bulk Enroll Package Records" enabled="true" options="" />
+            <mtask use="1" name="Delete Inactive Client Discovery Data" enabled="false" options="" />
+            <mtask use="1" name="Delete Obsolete Alerts" enabled="true" options="" />
+            <mtask use="1" name="Delete Obsolete Client Discovery Data" enabled="false" options="" />
+            <mtask use="1" name="Delete Obsolete Forest Discovery Sites And Subnets" enabled="true" options="" />
             <mtask use="1" name="Delete Orphaned Client Deployment State Records" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Console Connection Data" enabled="true" options="" />
-            <mtask use="1" name="Delete Aged Cloud Management Gateway Traffic Data" enabled="true" options="" />
+            <mtask use="1" name="Evaluate Provisioned AMT Computer Certificates" enabled="true" options="" />
+            <mtask use="1" name="Monitor Keys" enabled="true" options="" />
+            <mtask use="1" name="Rebuild Indexes" enabled="false" options="" />
+            <mtask use="1" name="Summarize File Usage Metering Data" enabled="true" options="" />
+            <mtask use="1" name="Summarize Installed Software Data" enabled="true" options="" />
+            <mtask use="1" name="Summarize Monthly Usage Metering Data" enabled="true" options="" />
+            <mtask use="1" name="Update Application Available Targeting" enabled="true" options="" />
         </mtasks>
         <accounts comment="Site System Accounts">
             <account use="1" name="CONTOSO\sccmadmin" password="P@ssW0rd!" comment="Full site administrator" />
