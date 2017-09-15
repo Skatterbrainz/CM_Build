@@ -12,7 +12,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.3.00 - DS - 2017.09.11
+    1.3.00 - DS - 2017.09.14
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -120,26 +120,6 @@ function Import-CmxDiscoveryMethods {
         $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
-    <#
-    Write-Verbose "info: defining one-year time span values"
-    $StartDate = Get-Date -f "yyyy/M/dd 00:00:00"
-    $EndDate   = (Get-Date).AddYears(1) -f "yyyy/M/dd 00:00:00"
-    Write-Verbose "info: startDate = $StartDate"
-    Write-Verbose "info: endDate = $EndDate"
-
-    Write-Verbose "info: defining interval schedules"
-    foreach ($sch in $DataSet.schedules.schedule) {
-        $schName = $sch.name
-        $schUnit = $sch.units
-        $schVal  = $sch.value
-        Write-Verbose "schedule: $schName"
-        # create schedule object
-        # $sch15min  = New-CMSchedule -RecurInterval Minutes -Start "$StartDate" -End "$EndDate" -RecurCount 15
-        # $schHourly = New-CMSchedule -RecurInterval Hours -Start "$StartDate" -End "$EndDate" -RecurCount 1
-        # $schDaily  = New-CMSchedule -RecurInterval Days -Start "$StartDate" -End "$EndDate" -RecurCount 1
-        # $schWeekly = New-CMSchedule -RecurInterval Days -Start "$StartDate" -End "$EndDate" -RecurCount 7
-    }
-    #>
     Write-Host "Configuring Discovery Methods" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -357,45 +337,33 @@ function Import-CmxBoundaryGroups {
         $bgServer = $item.SiteSystemServer
         $bgLink   = $item.LinkType
         Write-Log -Category "info" -Message "boundary group name = $bgName"
+		if (Get-CMBoundaryGroup -Name $bgName) {
+			Write-Log -Category "info" -Message "boundary group already exists"
+		}
+		else {
+			try {
+				New-CMBoundaryGroup -Name $bgName -Description "$bgComm" -DefaultSiteCode $sitecode | Out-Null
+				Write-Log -Category "info" -Message "boundary group $bgName created"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+				$result = $false
+				break
+			}
+		}
         if ($bgServer.Length -gt 0) {
             $bgSiteServer = @{$bgServer = $bgLink}
             Write-Log -Category "info" -Message "site server assigned: $bgServer ($bgLink)"
-            try {
-                New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -AddSiteSystemServerName $bgServer -ErrorAction SilentlyContinue | Out-Null
-                Write-Log -Category "info" -Message "boundary group $bgName created"
-            }
-            catch {
-                Write-Log -Category "info" -Message "boundary group $bgName already exists."
-                try {
-                    Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -AddSiteSystemServerName $bgServer -ErrorAction SilentlyContinue | Out-Null
-                    Write-Log -Category "info" -Message "boundary group $bgName has been updated"
-                }
-                catch {
-                    Write-Log -Category error -Message $_.Exception.Message
-                    $result = $False
-                    break
-                }
-            }
-        }
-        else {
-            Write-Log -Category "info" -Message "boundary group $bgName does not have an assigned site server."
-            try {
-                New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -ErrorAction SilentlyContinue | Out-Null
-                Write-Log -Category "info" -Message "boundary group $bgName created"
-            }
-            catch {
-                Write-Log -Category "info" -Message "boundary group $bgName already exists."
-                try {
-                    Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -ErrorAction SilentlyContinue | Out-Null
-                    Write-Log -Category "info" -Message "boundary group $bgName has been updated"
-                }
-                catch {
-                    Write-Log -Category error -Message $_.Exception.Message
-                    $result = $false
-                    break
-                }
-            }
-        } # if
+			try {
+				Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -AddSiteSystemServer $bgSiteServer -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category "info" -Message "boundary group $bgName has been updated"
+			}
+			catch {
+				Write-Log -Category error -Message $_.Exception.Message
+				$result = $False
+				break
+			}
+		}
         Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -1071,18 +1039,19 @@ function Set-CMSiteConfigFolders {
     foreach ($item in $DataSet.configuration.cmsite.folders.folder | Where-Object {$_.use -eq '1'}) {
         $folderName = $item.name
         $folderPath = $item.path
-        try {
-            New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "item created successfully: $folderPath\$folderName"
-        }
-        catch {
-			if ($_.Exception.Message -like "*already exists*") {
-				Write-Log -Category "info" -Message "item already exists: $folderPath\folderName"
+		Write-Log -Category "info" -Message "folder path: $folderPath\folderName"
+		if (Test-Path "$folderPath\$folderName") {
+			Write-Log -Category "info" -Message "folder already exists"
+		}
+		else {
+			try {
+				New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category "info" -Message "folder created successfully"
 			}
-			else {
+			catch {
 				Write-Log -Category "error" -Message $_.Exception.Message
 			}
-        }
+		}
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
