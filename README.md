@@ -38,6 +38,16 @@ Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigM
 * Added [localaccounts] section to cm_build.xml and cm_build_nosql.xml - adds domain accounts to local admins group and assigns policy privileges like Logon as a Service, etc.
 * Fixed numerous bugs with control flow logic, especially for handling step failures and terminating gracefully.
 
+# Requirements
+
+* Physical or Virtual machine running Windows Server 2012 R2 or 2016
+* Static IPv4 Address
+* AD domain joined
+* Internet Connection
+* Local administrator rights
+* PowerShell Execution Policy set to ByPass or Unrestricted
+* Installation Media for SQL Server 2016, MDT 8443, ADK 1703 and ConfigMgr 1702 (or latest appropriate versions)
+
 # Recommended Platforms and Resources
 
 * Recommended Software
