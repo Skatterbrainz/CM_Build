@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <configuration>
-	<project comment="Contoso SCCM primary site server build for CM01.contoso.com, 1.2.20 by DS 2017-09-10" />
+	<project comment="Contoso SCCM primary site server build for CM01.contoso.com, 1.2.21 by DS 2017-09-13" />
 	<references>
 		<reference use="0" name="WindowsServer" type="AltSource" path="\\FS1\sources\win2016dc\sources\sxs" file="" comment="Windows Server 2016 install media" />
 		<reference use="1" name="Windows10" type="AltSource" path="\\Fs1\sources\Win10x64ent\sources\sxs" file="" comment="Windows 10 x64 enterprise" />
@@ -79,7 +79,7 @@
 				<key name="QUIETSIMPLE" value="False" />
 				<key name="UpdateEnabled" value="True" />
 				<key name="USEMICROSOFTUPDATE" value="True" />
-				<key name="FEATURES" value="SQLENGINE,RS,CONN,IS,BC,SDK,BOL" />
+				<key name="FEATURES" value="SQLENGINE,RS,CONN,IS,TOOLS" />
 				<key name="UpdateSource" value="MU" comment="Update source is MS Update" />
 				<key name="HELP" value="False" />
 				<key name="INDICATEPROGRESS" value="False" />
@@ -116,7 +116,7 @@
 				<key name="ENABLERANU" value="False" />
 				<key name="SQLCOLLATION" value="SQL_Latin1_General_CP1_CI_AS" />
 				<key name="SQLSVCINSTANTFILEINIT" value="False" />
-				<key name="SQLSYSADMINACCOUNTS" value="CONTOSO\sccmadmin,CONTOSO\sql-svc" comment="SQL administrator accounts" />
+				<key name="SQLSYSADMINACCOUNTS" value="BUILTIN\ADMINISTRATORS,CONTOSO\sccmadmin,CONTOSO\sql-svc" comment="SQL administrator accounts" />
 				<key name="SQLTEMPDBFILECOUNT" value="1" comment="Number of Temp DB files" />
 				<key name="SQLTEMPDBFILESIZE" value="8" comment="Temp DB file size 8 MB" />
 				<key name="SQLTEMPDBFILEGROWTH" value="64" comment="Temp DB file growth increment 64 MB" />

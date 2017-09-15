@@ -7,14 +7,12 @@
     Yeah, what he said.
 .PARAMETER XmlFile
     [string](optional) Path and Name of XML input file
-.PARAMETER ForceBoundaries
-    [switch](optional) Force custom site boundaries
 .PARAMETER Detailed
     [switch](optional) Verbose output without using -Verbose
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.2.32 - DS - 2017.09.11
+    1.3.00 - DS - 2017.09.14
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -25,6 +23,8 @@
     .\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Override
 .EXAMPLE
     .\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Detailed -Override
+.EXAMPLE
+	.\cm_siteconfig.ps1 -XmlFile .\cm_siteconfig.xml -Detailed -WhatIf
 #>
 
 [CmdletBinding(SupportsShouldProcess=$True)]
@@ -32,8 +32,6 @@ param (
     [parameter(Mandatory=$True, HelpMessage="Path and name of XML input file")]
         [ValidateNotNullOrEmpty()]
         [string] $XmlFile,
-    [parameter(Mandatory=$False, HelpMessage="Force custom site boundary creation from XML file")]
-        [switch] $ForceBoundaries,
     [parameter(Mandatory=$False, HelpMessage="Display verbose output")]
         [switch] $Detailed,
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
@@ -45,14 +43,15 @@ function Get-ScriptDirectory {
     Split-Path $Invocation.MyCommand.Path
 }
 
-$basekey       = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion = '1.2.32'
-$ScriptPath    = Get-ScriptDirectory
-$HostName      = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
-$LogsFolder    = "$ScriptPath\Logs"
+$basekey        = 'HKLM:\SOFTWARE\CM_SITECONFIG'
+$ScriptVersion  = '1.3.00'
+$ScriptPath     = Get-ScriptDirectory
+$HostName       = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
+$LogsFolder     = "$ScriptPath\Logs"
 if (-not(Test-Path $LogsFolder)) {New-Item -Path $LogsFolder -Type Directory}
-$tsFile        = "$LogsFolder\cm_siteconfig`_$HostName`_transaction.log"
-$logFile       = "$LogsFolder\cm_siteconfig`_$HostName`_details.log"
+$tsFile         = "$LogsFolder\cm_siteconfig`_$HostName`_transaction.log"
+$logFile        = "$LogsFolder\cm_siteconfig`_$HostName`_details.log"
+$AutoBoundaries = $False
 
 try {stop-transcript -ErrorAction SilentlyContinue} catch {}
 try {Start-Transcript -Path $tsFile -Force} catch {}
@@ -83,10 +82,7 @@ if (-not(Test-Path $XmlFile)) {
     break
 }
 
-$AutoBoundaries = $False
-
-# --------------------------------------------------------------------
-# functions
+### functions
 
 function Get-TimeOffset {
     param (
@@ -124,26 +120,6 @@ function Import-CmxDiscoveryMethods {
         $DataSet
     )
     Write-Log -Category "info" -Message "----------------------------------------------------"
-    <#
-    Write-Verbose "info: defining one-year time span values"
-    $StartDate = Get-Date -f "yyyy/M/dd 00:00:00"
-    $EndDate   = (Get-Date).AddYears(1) -f "yyyy/M/dd 00:00:00"
-    Write-Verbose "info: startDate = $StartDate"
-    Write-Verbose "info: endDate = $EndDate"
-
-    Write-Verbose "info: defining interval schedules"
-    foreach ($sch in $DataSet.schedules.schedule) {
-        $schName = $sch.name
-        $schUnit = $sch.units
-        $schVal  = $sch.value
-        Write-Verbose "schedule: $schName"
-        # create schedule object
-        # $sch15min  = New-CMSchedule -RecurInterval Minutes -Start "$StartDate" -End "$EndDate" -RecurCount 15
-        # $schHourly = New-CMSchedule -RecurInterval Hours -Start "$StartDate" -End "$EndDate" -RecurCount 1
-        # $schDaily  = New-CMSchedule -RecurInterval Days -Start "$StartDate" -End "$EndDate" -RecurCount 1
-        # $schWeekly = New-CMSchedule -RecurInterval Days -Start "$StartDate" -End "$EndDate" -RecurCount 7
-    }
-    #>
     Write-Host "Configuring Discovery Methods" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -361,45 +337,33 @@ function Import-CmxBoundaryGroups {
         $bgServer = $item.SiteSystemServer
         $bgLink   = $item.LinkType
         Write-Log -Category "info" -Message "boundary group name = $bgName"
+		if (Get-CMBoundaryGroup -Name $bgName) {
+			Write-Log -Category "info" -Message "boundary group already exists"
+		}
+		else {
+			try {
+				New-CMBoundaryGroup -Name $bgName -Description "$bgComm" -DefaultSiteCode $sitecode | Out-Null
+				Write-Log -Category "info" -Message "boundary group $bgName created"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+				$result = $false
+				break
+			}
+		}
         if ($bgServer.Length -gt 0) {
             $bgSiteServer = @{$bgServer = $bgLink}
             Write-Log -Category "info" -Message "site server assigned: $bgServer ($bgLink)"
-            try {
-                New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -AddSiteSystemServerName $bgServer -ErrorAction SilentlyContinue | Out-Null
-                Write-Log -Category "info" -Message "boundary group $bgName created"
-            }
-            catch {
-                Write-Log -Category "info" -Message "boundary group $bgName already exists."
-                try {
-                    Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -AddSiteSystemServerName $bgServer -ErrorAction SilentlyContinue | Out-Null
-                    Write-Log -Category "info" -Message "boundary group $bgName has been updated"
-                }
-                catch {
-                    Write-Log -Category error -Message $_.Exception.Message
-                    $result = $False
-                    break
-                }
-            }
-        }
-        else {
-            Write-Log -Category "info" -Message "boundary group $bgName does not have an assigned site server."
-            try {
-                New-CMBoundaryGroup -Name $bgName -Description $bgComm -DefaultSiteCode $sitecode -ErrorAction SilentlyContinue | Out-Null
-                Write-Log -Category "info" -Message "boundary group $bgName created"
-            }
-            catch {
-                Write-Log -Category "info" -Message "boundary group $bgName already exists."
-                try {
-                    Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -ErrorAction SilentlyContinue | Out-Null
-                    Write-Log -Category "info" -Message "boundary group $bgName has been updated"
-                }
-                catch {
-                    Write-Log -Category error -Message $_.Exception.Message
-                    $result = $false
-                    break
-                }
-            }
-        } # if
+			try {
+				Set-CMBoundaryGroup -Name $bgName -DefaultSiteCode $sitecode -AddSiteSystemServer $bgSiteServer -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category "info" -Message "boundary group $bgName has been updated"
+			}
+			catch {
+				Write-Log -Category error -Message $_.Exception.Message
+				$result = $False
+				break
+			}
+		}
         Write-Log -Category "info" -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -488,100 +452,103 @@ function Set-CmxSiteServerRoles {
     foreach ($item in $DataSet.configuration.cmsite.sitesystemroles.sitesystemrole | Where-Object {$_.use -eq '1'}) {
         $roleName = $item.name
         $roleComm = $item.comment
+		$roleopts = $item.roleoptions.roleoption | Where-Object {$_.use -eq '1'}
         Write-Log -Category "info" -Message "configuring site system role: $roleComm [$roleName]"
         switch ($RoleName) {
             'aisp' {
-                try {
-                    Set-CMAssetIntelligenceSynchronizationPoint -Enable $True -EnableSynchronization $True -ErrorAction SilentlyContinue
-                    Write-Log -Category "info" -Message "asset intelligence sync point is now enabled"
-                    $x = $True
-                }
-                catch {
-                    try {
-                        $x = Get-CMAssetIntelligenceSynchronizationPoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -ErrorAction SilentlyContinue
-                        Write-Log -Category "info" -Message "asset intelligence sync point was already enabled"
-                        $ExistingDP = $True
-                    }
-                    catch {
-                        Write-Log -Category error -Message $_.Exception.Message
-                    }
-                }
-                if ($x) {
-                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
-                        switch ($roleopt.name) {
-                            'EnableAllReportingClass' {
-                                Write-Log -Category info -Message "enabling all reporting classes"
-                                try {
-                                    Set-CMAssetIntelligenceClass -EnableAllReportingClass | Out-Null
-                                }
-                                catch {
-                                    Write-Log -Category error -Message $_.Exception.Message
-                                }
-                                break
-                            }
-                            'EnabledReportingClass' {
-                                Write-Log -Category info -Message "enabling class: $($roleopt.params)"
-                                try {
-                                    Set-CMAssetIntelligenceClass -EnableReportingClass $roleopt.params | Out-Null
-                                }
-                                catch {
-                                    Write-Log -Category error -Message $_.Exception.Message
-                                }
-                                break
-                            }
-                        } # switch
-                    } # foreach
-                }
-                else {
-                    Write-Log -Category "error" -Message "failed to configure asset intelligence sync point!"
-                }
+				if (Get-CMAssetIntelligenceSynchronizationPoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname") {
+					Write-Log -Category "info" -Message "asset intelligence sync point was already enabled"
+				}
+				else {
+					try {
+						Add-CMAssetIntelligenceSynchronizationPoint -SiteSystemServerName "$hostname" -ErrorAction SilentlyContinue | Out-Null
+						Write-Log -Category "info" -Message "asset intelligence sync point enabled successfully"
+						Set-CMAssetIntelligenceSynchronizationPoint -EnableSynchronization $True -ErrorAction SilentlyContinue | Out-Null
+					}
+					catch {
+						Write-Log -Category error -Message $_.Exception.Message
+						$result = $False
+						break
+					}
+				}
+				foreach ($roleopt in $roleopts) {
+					switch ($roleopt.name) {
+						'EnableAllReportingClass' {
+							Write-Log -Category info -Message "enabling all reporting classes"
+							try {
+								Set-CMAssetIntelligenceClass -EnableAllReportingClass | Out-Null
+							}
+							catch {
+								Write-Log -Category error -Message $_.Exception.Message
+								$result = $False
+							}
+							break
+						}
+						'EnabledReportingClass' {
+							Write-Log -Category info -Message "enabling class: $($roleopt.params)"
+							try {
+								Set-CMAssetIntelligenceClass -EnableReportingClass $roleopt.params | Out-Null
+							}
+							catch {
+								Write-Log -Category error -Message $_.Exception.Message
+								$result = $False
+							}
+							break
+						}
+					} # switch
+				} # foreach
                 break
             }
             'dp' {
-                try {
-                    $dp = Get-CMDistributionPoint -SiteSystemServerName "$hostname" -ErrorAction SilentlyContinue
-                    Write-Log -Category "info" -Message "$hostname is already a distribution point"
+				if (Get-CMDistributionPoint -SiteSystemServerName "$hostname" -ErrorAction SilentlyContinue) {
+                    Write-Log -Category "info" -Message "distribution point role already added"
                 }
-                catch {
-                    Write-Log -Category "info" -Message "$hostname is not a distribution point"
-                    $dp = Add-CMDistributionPoint -SiteSystemServerName "$hostname"
-                }
-                if ($dp) {
-                    $code = "Set-CMDistributionPoint `-SiteCode `"$sitecode`" `-SiteSystemServerName `"$hostname`""
-                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
-                        $param = $roleopt.params
-                        if ($param -eq '@') {
-                            $param = "`-$($roleopt.name)"
-                        }
-                        elseif ($param -eq 'true') {
-                            $param = "`-$($roleopt.name) `$True"
-                        }
-                        elseif ($param -eq 'false') {
-                            $param = "`-$($roleopt.name) `$False"
-                        }
-                        elseif ($roleopt.name -like "*password*") {
-                            $param = "`-$($roleopt.name) `$(ConvertTo-SecureString -String `"$param`" -AsPlainText -Force)"
-                        }
-                        else {
-                            $param = "`-$($roleopt.name) `"$($roleopt.params)`""
-                        }
-                        $code += " $param"
-                        Write-Log -Category "info" -Message "dp option >> $param"
-                    } # foreach
-                    Write-Log -Category "info" -Message "command >> $code"
-                    try {
-                        Invoke-Expression -Command $code -ErrorAction Stop
-                        Write-Log -Category info -Message "expression has been applied successfully"
-                    }
-                    catch {
-                        Write-Log -Category error -Message $_.Exception.Message
-                        $result = $False
-                    }
-                }
+				else {
+					try {
+						Add-CMDistributionPoint -SiteSystemServerName "$hostname" -ErrorAction SilentlyContinue | Out-Null
+						Write-Log -Category "info" -Message "distribution point role added successfully"
+					}
+					catch {
+						Write-Log -Category error -Message $_.Exception.Message
+						$result = $False
+						break
+					}
+				}
+				$code = "Set-CMDistributionPoint `-SiteCode `"$sitecode`" `-SiteSystemServerName `"$hostname`""
+				foreach ($roleopt in $roleopts) {
+					$param = $roleopt.params
+					if ($param -eq '@') {
+						$param = "`-$($roleopt.name)"
+					}
+					elseif ($param -eq 'true') {
+						$param = "`-$($roleopt.name) `$True"
+					}
+					elseif ($param -eq 'false') {
+						$param = "`-$($roleopt.name) `$False"
+					}
+					elseif ($roleopt.name -like "*password*") {
+						$param = "`-$($roleopt.name) `$(ConvertTo-SecureString -String `"$param`" -AsPlainText -Force)"
+					}
+					else {
+						$param = "`-$($roleopt.name) `"$($roleopt.params)`""
+					}
+					$code += " $param"
+					Write-Log -Category "info" -Message "dp option >> $param"
+				} # foreach
+				Write-Log -Category "info" -Message "command >> $code"
+				try {
+					Invoke-Expression -Command $code -ErrorAction Stop
+					Write-Log -Category info -Message "expression has been applied successfully"
+				}
+				catch {
+					Write-Log -Category error -Message $_.Exception.Message
+					$result = $False
+					break
+				}
                 break
             }
             'sup' {
-                if (Get-CMSoftwareUpdatePoint) {
+                if (Get-CMSoftwareUpdatePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname") {
                     Write-Log -Category info -Message "software update point has already been configured"
 					$code1 = ""
 					$code2 = "Set-CMSoftwareUpdatePointComponent `-SiteCode `"$sitecode`" `-EnableSynchronization `$True"
@@ -590,11 +557,11 @@ function Set-CmxSiteServerRoles {
                     $code1 = "Add-CMSoftwareUpdatePoint `-SiteSystemServerName `"$hostname`" `-SiteCode `"$sitecode`""
 					$code2 = "Set-CMSoftwareUpdatePointComponent `-SiteCode `"$sitecode`" `-EnableSynchronization `$True"
 				}
-				foreach ($roleopt in $item.roleoptions.roleoption | Where-Object {$_.use -eq '1'}) {
+				foreach ($roleopt in $roleopts) {
 					$optname = $roleopt.name
 					$params  = $roleopt.params
 					switch ($optname) {
-						'WsusAccessAccount' {
+<#						'WsusAccessAccount' {
 							if ($code1.Length -gt 0) {
 								if ($params -eq 'NULL') {
 									$code1 += " `-WsusAccessAccount `$null"
@@ -605,15 +572,16 @@ function Set-CmxSiteServerRoles {
 							}
 							break
 						}
+#>
 						'HttpPort' {
 							if ($code1.Length -gt 0) {
-								$code1 += " `-HttpPort $params"
+								$code1 += " `-WsusIisPort $params"
 							}
 							break
 						}
 						'HttpsPort' {
 							if ($code1.Length -gt 0) {
-								$code1 += " `-HttpsPort $params"
+								$code1 += " `-WsusIisSslPort $params"
 							}
 							break
 						}
@@ -704,7 +672,7 @@ function Set-CmxSiteServerRoles {
                 break
             }
             'mp' {
-                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                foreach ($roleopt in $roleopts) {
                     switch ($roleopt.name) {
                         'PublicFqdn' {
                             Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
@@ -779,7 +747,7 @@ function Set-CmxSiteServerRoles {
             }
             'ssrp' {
                 # sql server reporting services point
-                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+                foreach ($roleopt in $roleopts) {
                     Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
                     switch ($roleopt.name) {
                         'DatabaseServerName' {
@@ -820,7 +788,8 @@ function Set-CmxSiteServerRoles {
             }
             'cmg' {
                 # cloud management gateway
-                foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
+				Write-Log -Category "info" -Message "configuring role options"
+                foreach ($roleopt in $roleopts) {
                     switch ($roleopt.name) {
                         'CloudManagementGatewayName' {
                             try {
@@ -847,74 +816,72 @@ function Set-CmxSiteServerRoles {
                     }
                     catch {
                         Write-Log -Category error -Message $_.Exception.Message
+						Write-Log -Category error -Message $_
                         $result = $False
+						break
                     }
                 }
                 break
             }
             'acwp' {
-                try {
-                    Add-CMApplicationCatalogWebsitePoint -SiteSystemServerName "$hostname" -ApplicationWebServicePointServerName "$hostname" | Out-Null
-                    Write-Log -Category info -Message "application website point role added successfully"
-                    $go = $True
-                }
-                catch {
-                    if (Get-CMApplicationCatalogWebsitePoint) {
-                        $go = $True
-                    }
-                    else {
+				if (Get-CMApplicationCatalogWebsitePoint) {
+					Write-Log -Category "info" -Message "application website point site role already added"
+				}
+				else {
+					$code = "Add-CMApplicationCatalogWebsitePoint `-SiteSystemServerName `"$hostname`" `-SiteCode `"$sitecode`""
+					$code += " `-ApplicationWebServicePointServerName `"$hostname`""
+					foreach ($roleopt in $roleopts) {
+						$optName = $roleopt.name
+						$optData = $roleopt.params
+						switch ($optName) {
+							'CommuncationType' {
+								$code += " `-CommunicationType $optData"
+								break
+							}
+							'ClientConnectionType' {
+								$code += " `-ClientConnectionType $optData"
+								break
+							}
+							'OrganizationName' {
+								$code += " `-OrganizationName `"$optData`""
+								break
+							}
+							'ThemeColor' {
+								$code += " `-Color $optData"
+								break
+							}
+						} # switch
+					} # foreach
+					Write-Log -Category "info" -Message "command >> $code"
+					try {
+						Invoke-Expression -Command $code -ErrorAction Stop
+						Write-Log -Category info -Message "expression has been applied successfully"
+					}
+                    catch {
                         Write-Log -Category error -Message $_.Exception.Message
-                        $go = $False
                         $result = $False
+						break
                     }
-                }
-                if ($go) {
-                    foreach ($roleopt in $siterole.roleoptions.roleoption | Where-Object {$_.use -eq "1"}) {
-                        $optName = $roleopt.name
-                        $optData = $roleopt.params
-                        Write-Log -Category info -Message "setting: $optName == $optData"
-                        switch ($optName) {
-                            'CommuncationType' {
-                                try {
-                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -CommunicationType $optData | Out-Null
-                                }
-                                catch {
-                                    Write-Log -Category error -Message "failed to apply setting!"
-                                }
-                                break
-                            }
-                            'ClientConnectionType' {
-                                try {
-                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -ClientConnectionType $optData | Out-Null
-                                }
-                                catch {
-                                    Write-Log -Category error -Message "failed to apply setting!"
-                                }
-                                break
-                            }
-                            'OrganizationName' {
-                                try {
-                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -OrganizationName "$optData" | Out-Null
-                                }
-                                catch {
-                                    Write-Log -Category error -Message "failed to apply setting!"
-                                }
-                                break
-                            }
-                            'ThemeColor' {
-                                try {
-                                    Set-CMApplicationCatalogWebsitePoint -SiteCode "$sitecode" -SiteSystemServerName "$hostname" -Color $optData | Out-Null
-                                }
-                                catch {
-                                    Write-Log -Category error -Message "failed to apply setting!"
-                                }
-                                break
-                            }
-                        } # switch
-                    } # foreach
-                }
+				} # if
                 break
             }
+			'epp' {
+				if (Get-CMEndpointProtectionPoint -SiteCode "P01") {
+					Write-Log -Category "info" -Message "endpoint protection role already added"
+				}
+				else {
+					try {
+						Add-CMEndpointProtectionPoint -SiteCode "P01" -SiteSystemServerName $hostname -ProtectionService BasicMembership -ErrorAction SilentlyContinue | Out-Null
+						Write-Log -Category "info" -Message "endpoint protection role added successfully"
+					}
+					catch {
+						Write-Log -Category "error" -Message $_.Exception.Message
+						$result = $False
+						break
+					}
+				}
+				break
+			}
         } # switch
         Write-Log -Category info -Message "- - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
@@ -971,127 +938,88 @@ function Import-CmxClientSettings {
     Write-Host "Configuring Client Settings" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    foreach ($item in $DataSet.configuration.cmsite.clientsettings.clientsetting | Where-Object {$_.use -eq '1'}) {
-        $csName = $item.name
-        $csComm = $item.comment
-        $csPri  = $item.priority
-        $csType = $item.type
-        Write-Log -Category info -Message "client setting.... $csName"
-        try {
-            New-CMClientSetting -Name "$csName" -Description "$csComm" -Type $csType -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category info -Message "client setting was created successfully."
-        }
-        catch {
-            if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists: $csName"
-            }
-            else {
+	
+	foreach ($item in $DataSet.configuration.cmsite.clientsettings.clientsetting | Where-Object {$_.use -eq '1'}) {
+		$csName = $item.Name
+		$csComm = $item.comment 
+		$csPri  = $item.priority
+		$csType = $item.type
+		Write-Log -Category "info" -Message "setting group name... $csName"
+		if (Get-CMClientSetting -Name $csName) {
+			Write-Log -Category info -Message "client setting is already created"
+		}
+		else {
+			try {
+				New-CMClientSetting -Name "$csName" -Description "$csComm" -Type $csType -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category info -Message "client setting was created successfully."
+			}
+			catch {
                 Write-Log -Category error -Message "your client setting just fell into a woodchipper. what a mess."
                 Write-Error $_.Exception.Message
                 $result = $False
                 break
             }
         }
-        foreach ($csopt in $cs.settings.setting | Where-Object {$_.use -eq '1'}) {
-            $csoName = $csopt.name
-            $csoComm = $csopt.comment
-            $csoOpts = $csopt.options
-            Write-Log -Category info -Message "client option.... $csoName"
-            if ($csoOpts) {
-                foreach ($opt in $csoOpts.Split(',')) {
-                    Write-Log -Category info -Message "option setting: $opt"
-                    $xx = $opt.Split('=')
-                    switch ($csName) {
-                        'BITS' {
-                            switch ($xx[0]) {
-                                'EnableBitsMaxBandwidth' {
-                                    Set-CMClientSettingBackgroundIntelligentTransfer -Name $csName -EnableBitsMaxBandwidth $True
-                                    break
-                                }
-                            } # switch
-                            break
-                        }
-                        'ComputerAgent' {
-                            Write-Log -Category info -Message "....setting: $($xx[0])"
-                            switch ($xx[0]) {
-                                'PortalUrl' {
-                                    Set-CMClientSettingComputerAgent -PortalUrl $xx[1] -Name $csName
-                                    break
-                                }
-                                'BrandingTitle' {
-                                    Set-CMClientSettingComputerAgent -BrandingTitle $xx[1] -Name $csName
-                                    break
-                                }
-                                'AddPortalToTrustedSiteList' {
-                                    Set-CMClientSettingComputerAgent -AddPortalToTrustedSiteList $True -Name $csName
-                                    break
-                                }
-                                'SuspendBitLocker' {
-                                    Set-CMClientSettingComputerAgent -SuspendBitLocker $xx[1] -Name $csName
-                                    break
-                                }
-                                'AllowPortalToHaveElevatedTrust' {
-                                    Set-CMClientSettingComputerAgent -AllowPortalToHaveElevatedTrust $True -Name $csName
-                                    break
-                                }
-                                'EnableThirdPartyOrchestration' {
-                                    Set-CMClientSettingComputerAgent -EnableThirdPartyOrchestration Yes -Name $csName
-                                    break
-                                }
-                                'FinalReminderMinutesInterval' {
-                                    Set-CMClientSettingComputerAgent -FinalReminderMins $xx[1] -Name $csName
-                                    break
-                                }
-                                'InitialReminderHoursInterval' {
-                                    Set-CMClientSettingComputerAgent -InitialReminderHoursInterval $xx[1] -Name $csName
-                                    break
-                                }
-                                'InstallRestriction' {
-                                    Set-CMClientSettingComputerAgent -InstallRestriction $xx[1] -Name $csName
-                                    break
-                                }
-                                'PowerShellExecutionPolicy=Bypass' {
-                                    Set-CMClientSettingComputerAgent -PowerShellExecutionPolicy $xx[1] -Name $csName
-                                    break
-                                }
-                            } # switch
-                            break
-                        }
-                        'EndpointProtection' {
-                            Write-Log -Category info -Message "....setting: $($xx[0])"
-                            switch ($xx[0]) {
-                                'InstallEndpointProtectionClient' {
-                                    Set-CMClientSettingEndpointProtection -InstallEndpointProtectionClient $True -Name $csName
-                                    break
-                                }
-                                'RemoveThirdParty' {
-                                    Set-CMClientSettingEndpointProtection -RemoveThirdParty $True -Name $csName
-                                    break
-                                }
-                                'SuppressReboot' {
-                                    Set-CMClientSettingEndpointProtection -SuppressReboot $True -Name $csName
-                                    break
-                                }
-                                'ForceRebootHr' {
-                                    Set-CMClientSettingEndpointProtection -ForceRebootHr $xx[1] -Name $csName
-                                    break
-                                }
-                                'DisableFirstSignatureUpdate' {
-                                    Set-CMClientSettingEndpointProtection -DisableFirstSignatureUpdate $True -Name $csName
-                                    break
-                                }
-                                'PersistInstallation' {
-                                    Set-CMClientSettingEndpointProtection -PersistInstallation $True -Name $csName
-                                    break
-                                }
-                            } # switch 
-                            break
-                        }
-                    } # switch
-                } # foreach
-            }
-        } # foreach
-    } # foreach
+		foreach ($csSet in $item.settings.setting | Where-Object {$_.use -eq '1'}) {
+			$setName = $csSet.name
+			Write-Log -Category "info" -Message "setting name......... $setName"
+			$code = "Set-CMClientSetting$setName `-Name `"$csName`""
+			foreach ($opt in $csSet.options.option) {
+				$optName = $opt.name
+				$optVal  = $opt.value
+				Write-Log -Category "info" -Message "setting option name.. $optName --> $optVal"
+				switch ($optVal) {
+					'true' {
+						$param = " `-$optName `$true"
+						break
+					}
+					'false' {
+						$param = " `-$optName `$false"
+						break
+					}
+					'null' {
+						$param = " `-$optName `$null"
+						break
+					}
+					default {
+						if ($optName -eq 'SWINVConfiguration') {
+							$paramx = "`@`{"
+							foreach ($opt in $optVal.Split('|')) {
+								$opx = $opt.Split('=')
+								$op1 = $opx[0]
+								$op2 = $opx[1]
+								if (('False','True','null') -icontains $op2) {
+									$y = "$op1`=`$$op2`;"
+								}
+								else {
+									$y = "$op1`=`"$op2`"`;"
+								}
+								$paramx += $y
+							}
+							$paramx += "`}"
+							$param = " `-AddInventoryFileType $paramx"
+						}
+						else {
+							$param = " `-$optName `"$optVal`""
+						}
+						break
+					}
+				} # switch
+				$code += $param
+			} # foreach - setting option
+			Write-Log -Category "info" -Message "CODE >> $code"
+			try {
+				Invoke-Expression -Command $code -ErrorAction Stop
+				Write-Log -Category info -Message "client setting has been applied successfully"
+			}
+			catch {
+				Write-Log -Category error -Message $_.Exception.Message
+				$result = $False
+				break
+			}
+			Write-Log -Category "info" -Message "............................................................"
+		} # foreach - setting group
+	} # foreach - client setting policy
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset -StartTime $Time1)"
     Write-Output $result
 }
@@ -1111,18 +1039,19 @@ function Set-CMSiteConfigFolders {
     foreach ($item in $DataSet.configuration.cmsite.folders.folder | Where-Object {$_.use -eq '1'}) {
         $folderName = $item.name
         $folderPath = $item.path
-        try {
-            New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "item created successfully: $folderPath\$folderName"
-        }
-        catch {
-			if ($_.Exception.Message -like "*already exists*") {
-				Write-Log -Category "info" -Message "item already exists: $folderPath\folderName"
+		Write-Log -Category "info" -Message "folder path: $folderPath\folderName"
+		if (Test-Path "$folderPath\$folderName") {
+			Write-Log -Category "info" -Message "folder already exists"
+		}
+		else {
+			try {
+				New-Item -Path "$SiteCode`:\$folderPath" -Name $folderName -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category "info" -Message "folder created successfully"
 			}
-			else {
+			catch {
 				Write-Log -Category "error" -Message $_.Exception.Message
 			}
-        }
+		}
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -1178,30 +1107,36 @@ function Import-CmxOSImages {
         $imageName = $item.name
         $imagePath = $item.path
         $imageDesc = $item.comment
-        $oldLoc = Get-Location
-        Set-Location c:
-        if (Test-Path $imagePath) {
-            Set-Location $oldLoc
-            Write-Log -Category "info" -Message "image name: $imageName"
-            try {
-                New-CMOperatingSystemImage -Name $imageName -Path $imagePath -Description $imageDesc | Out-Null
-                Write-Log -Category "info" -Message "item created successfully"
-            }
-            catch {
-                if ($_.Exception.Message -like "*already exists*") {
-                    Write-Log -Category "info" -Message "item already exists: $imageName"
-                }
-                else {
+		$imgFolder = $item.folder
+        $oldLoc    = Get-Location
+		if ($osi = Get-CMOperatingSystemImage -Name "$imageName") {
+			Write-Log -Category "info" -Message "operating system image already created"
+		}
+		else {
+			Set-Location c:
+			if (Test-Path $imagePath) {
+				Set-Location $oldLoc
+				Write-Log -Category "info" -Message "image name: $imageName"
+				Write-Log -Category "info" -Message "image path: $imagePath"
+				try {
+					$osi = New-CMOperatingSystemImage -Name "$imageName" -Path $imagePath -Description "$imageDesc" -ErrorAction SilentlyContinue
+					Write-Log -Category "info" -Message "item created successfully"
+				}
+				catch {
                     Write-Log -Category "error" -Message $_.Exception.Message
+					Write-Error $_
                     $result = $False
                     break
                 }
             }
-        }
-        else {
-            Set-Location $oldLoc
-            Write-Log -Category "error" -Message "failed to locate: $imagePath"
-        }
+			else {
+				Write-Log -Category "error" -Message "failed to locate image source: $imagePath"
+				$result = $False
+				break
+			}
+		}
+		Write-Log -Category "info" -Message "moving object to folder: $imgFolder"
+		$osi | Move-CMObject -FolderPath $imgFolder | Out-Null
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -1219,29 +1154,32 @@ function Import-CmxOSInstallers {
     $result = $True
     $Time1  = Get-Date
     foreach ($item in $DataSet.configuration.cmsite.osinstallers.osinstaller | Where-Object {$_.use -eq '1'}) {
-        $instName = $item.name
-        $instPath = $item.path
-        $instDesc = $item.comment
-        $instVer  = $item.version
-        $oldLoc   = Get-Location
+        $instName  = $item.name
+        $instPath  = $item.path
+        $instDesc  = $item.comment
+        $instVer   = $item.version
+		$imgFolder = $item.folder
+        $oldLoc    = Get-Location
         Set-Location c:
         if (Test-Path $instPath) {
             Set-Location $oldLoc
             Write-Log -Category "info" -Message "installer name: $instName"
-            try {
-                New-CMOperatingSystemInstaller -Name $instName -Path $instPath -Description $instDesc -Version $instVer -ErrorAction SilentlyContinue | Out-Null
-                Write-Log -Category "info" -Message "item created successfully"
-            }
-            catch {
-                if ($_.Exception.Message -like "*already exists*") {
-                    Write-Log -Category "info" -Message "item already exists: instName"
-                }
-                else {
-                    Write-Log -Category "error" -Message $_.Exception.Message
-                    $result = $False
-                    break
-                }
-            }
+			if ($osi = Get-CMOperatingSystemInstaller -Name $instName) {
+				Write-Log -Category "info" -Message "operating system installer already created"
+			}
+			else {
+				try {
+					$osi = New-CMOperatingSystemInstaller -Name $instName -Path $instPath -Description $instDesc -Version $instVer -ErrorAction SilentlyContinue
+					Write-Log -Category "info" -Message "operating system installer created successfully"
+				}
+				catch {
+					Write-Log -Category "error" -Message $_.Exception.Message
+					$result = $False
+					break
+				}
+			}
+			Write-Log -Category "info" -Message "moving object to folder: $imgFolder"
+            $osi | Move-CMObject -FolderPath $imgFolder | Out-Null
         }
         else {
             Set-Location $oldLoc
@@ -1271,36 +1209,35 @@ function Import-CmxCollections {
         $collPath     = $item.folder
         $collRuleType = $item.ruletype
         $collRuleText = $item.rule
-        try {
-            $coll = New-CMCollection -Name $collName -CollectionType $collType -Comment $collComm -LimitingCollectionName $collBase -ErrorAction SilentlyContinue
-            if ($coll) {
-                Write-Log -Category "info" -Message "collection created: $collName"
-                Write-Log -Category "info" -Message "moving object to folder: $collPath"
-                $coll | Move-CMObject -FolderPath $collPath | Out-Null
-                switch ($collRuleType) {
-                    'direct' {
-                        Write-Log -Category "info" -Message "associating direct membership rule"
-                        break
-                    }
-                    'query' {
-                        Write-Log -Category "info" -Message "associating query membership rule"
-                        Add-CMUserCollectionQueryMembershipRule -CollectionName $collName -RuleName "1" -QueryExpression $collRuleText
-                        break
-                    }
-                } # switch
-            }
-            Write-Log -Category "info" -Message "item created successfully."
-        }
-        catch {
-            if ($_.ToString() -eq 'An object with the specified name already exists.') {
-                Write-Log -Category "info" -Message "item already exists: collName"
-            }
-            else {
-                Write-Log -Category "error" -Message $_.Exception.Message
-                $result = $False
-                break
-            }
-        }
+		Write-Log -Category "info" -Message "collection: $collName"
+		if ($coll = Get-CMCollection -Name $collName) {
+			Write-Log -Category "info" -Message "collection already created"
+		}
+		else {
+			try {
+				$coll = New-CMCollection -Name $collName -CollectionType $collType -Comment $collComm -LimitingCollectionName $collBase -ErrorAction SilentlyContinue
+				Write-Log -Category "info" -Message "collection created successfully"
+			}
+			catch {
+				Write-Log -Category "error" -Message $_.Exception.Message
+				$result = $False
+				break
+			}
+		}
+		Write-Log -Category "info" -Message "moving object to folder: $collPath"
+		$coll | Move-CMObject -FolderPath $collPath | Out-Null
+		Write-Log -Category "info" -Message "configuring membership rules"
+		switch ($collRuleType) {
+			'direct' {
+				Write-Log -Category "info" -Message "associating direct membership rule"
+				break
+			}
+			'query' {
+				Write-Log -Category "info" -Message "associating query membership rule"
+				Add-CMUserCollectionQueryMembershipRule -CollectionName $collName -RuleName "1" -QueryExpression $collRuleText
+				break
+			}
+		} # switch
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -1325,7 +1262,6 @@ function Import-CmxMaintenanceTasks {
             Write-Log -Category "info" -Message "enabling task: $mtName"
             try {
                 Set-CMSiteMaintenanceTask -MaintenanceTaskName $mtName -Enabled $True -SiteCode $sitecode | Out-Null
-                #Write-Log -Category "info" -Message "enabled task: $mtName"
             }
             catch {
                 Write-Log -Category error -Message $_.Exception.Message
@@ -1337,7 +1273,6 @@ function Import-CmxMaintenanceTasks {
             Write-Log -Category "info" -Message "disabling task: $mtName"
             try {
                 Set-CMSiteMaintenanceTask -MaintenanceTaskName $mtName -Enabled $False -SiteCode $sitecode | Out-Null
-                #Write-Log -Category "info" -Message "disabled task: $mtName"
             }
             catch {
                 Write-Log -Category "error" -Message $_.Exception.Message
@@ -1364,21 +1299,22 @@ function Import-CmxAppCategories {
     foreach ($item in $DataSet.configuration.cmsite.appcategories.appcategory | Where-Object {$_.use -eq '1'}) {
         $catName = $item.name
         $catComm = $item.comment
-        try {
-            New-CMCategory -CategoryType AppCategories -Name $catName -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "item created successfully: $catName"
-        }
-        catch {
-            if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category "info" -Message "item already exists: $catName"
-            }
-            else {
-                Write-Log -Category error -Message $_.Exception.Message
-                $result = $False
-                break
-            }
-        }
-    }
+		Write-Log -Category "info" -Message "application category: $catName"
+		if (Get-CMCategory -Name $catName -CategoryType AppCategories) {
+			Write-Log -Category "info" -Message "category already exists"
+		}
+		else {
+			try {
+				New-CMCategory -CategoryType AppCategories -Name $catName -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category "info" -Message "category was created successfully"
+			}
+			catch {
+				Write-Log -Category error -Message $_.Exception.Message
+				$result = $False
+				break
+			}
+		}
+    } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
@@ -1619,27 +1555,28 @@ function Import-CmxAccounts {
     foreach ($item in $DataSet.configuration.cmsite.accounts.account | Where-Object {$_.use -eq '1'}) {
         $acctName = $item.name
         $acctPwd  = $item.password
-        $pwd = ConvertTo-SecureString -String $acctPwd -AsPlainText -Force
-        Write-Log -Category "info" -Message "adding account: $acctName"
-        try {
+		Write-Log -Category "info" -Message "account: $acctName"
+        if (Get-CMAccount -UserName $acctName) {
+			Write-Log -Category "info" -Message "account already created"
+		}
+		else {
 			if (Test-CMxAdUser -UserName $acctName) {
-				New-CMAccount -UserName $acctName -Password $pwd -SiteCode $sitecode | Out-Null
-				Write-Log -Category "info" -Message "account added successfully: $acctName"
+				try {
+					$pwd = ConvertTo-SecureString -String $acctPwd -AsPlainText -Force
+					New-CMAccount -UserName $acctName -Password $pwd -SiteCode $sitecode | Out-Null
+					Write-Log -Category "info" -Message "account added successfully: $acctName"
+				}
+				catch {
+					Write-Log -Category "error" -Message $_.Exception.Message
+					$Result = $False
+					break
+				}
 			}
 			else {
 				Write-Log -Category "error" -Message "account not found in domain: $acctName"
 				$result = $False
+				break
 			}
-        }
-        catch {
-            if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category "warning" -Message "account already added"
-            }
-            else {
-                Write-Log -Category "error" -Message $_.Exception.Message
-                $Result = $False
-                break
-            }
         }
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
@@ -1660,19 +1597,21 @@ function Import-CmxDPGroups {
     foreach ($item in $DataSet.configuration.cmsite.dpgroups.dpgroup | Where-Object {$_.use -eq '1'}) {
         $dpgName = $item.name
         $dpgComm = $item.comment
-        try {
-            New-CMDistributionPointGroup -Name $dpgName -Description $dpgComm | Out-Null
-            Write-Log -Category info -Message "item created successfully: $dpgName"
-        }
-        catch {
-            if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists: $dpgName"
-            }
-            else {
-                Write-Log -Category error -Message $_.Exception.Message
-                $Result = $False
-            }
-        }
+		Write-Log -Category info -Message "distribution point group: $dpgName"
+		if (Get-CMDistributionPointGroup -Name $dpgName) {
+			Write-Log -Category info -Message "dp group already exists"
+		}
+		else {
+			try {
+				New-CMDistributionPointGroup -Name $dpgName -Description $dpgComm | Out-Null
+				Write-Log -Category info -Message "dp group created successfully"
+			}
+			catch {
+				Write-Log -Category error -Message $_.Exception.Message
+				$Result = $False
+				break
+			}
+		}
         Write-Verbose "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -1694,15 +1633,15 @@ function Import-CmxMalwarePolicies {
         $itemComm = $item.comment
         $itemPath = $item.path
         Write-Log -Category "info" -Message "policy name: $itemName"
-        try {
-            Import-CMAntimalwarePolicy -Path "$itemPath" -ErrorAction SilentlyContinue | Out-Null
-            Write-Log -Category "info" -Message "item created successfully"
-        }
-        catch {
-            if ($_.Exception.Message -like "*already exists*") {
-                Write-Log -Category info -Message "item already exists: $itemName"
-            }
-            else {
+		if (Get-CMAntimalwarePolicy -Name $itemName) {
+			Write-Log -Category info -Message "po;icy already exists"
+		}
+		else {
+			try {
+				Import-CMAntimalwarePolicy -Path "$itemPath" -NewName "$itemName" -ErrorAction SilentlyContinue | Out-Null
+				Write-Log -Category "info" -Message "policy created successfully"
+			}
+			catch {
                 Write-Log -Category error -Message $_.Exception.Message
                 $result = $False
                 break

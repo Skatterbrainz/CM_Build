@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - 1.2.31 - 9/11/2017">
+<configuration comment="ConfigMgr Site P01 on CM01.contoso.com - 1.3.00 - 9/11/2017">
     <cmsite sitecode="P01" forest="contoso.com">
         <control comment="Enable configuration steps and specify sequence order">
 			<ci use="1" name="ENVIRONMENT" comment="platform environment checks" />
@@ -40,9 +40,9 @@
         </discoveries>
         <boundarygroups comment="Configure Boundary Groups">
 			<boundarygroup use="1" name="NA-US-VA-Norfolk" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Norfolk" />
-			<boundarygroup use="1" name="NA-US-VA-VB" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
-			<boundarygroup use="1" name="NA-US-CA-Fremont" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Fremont" />
-			<boundarygroup use="1" name="NA-US-NY-NewYork" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="New York" />
+			<boundarygroup use="0" name="NA-US-VA-VB" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Virginia Beach" />
+			<boundarygroup use="0" name="NA-US-CA-Fremont" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="Fremont" />
+			<boundarygroup use="0" name="NA-US-NY-NewYork" SiteSystemServer="cm01.contoso.com" LinkType="FastLink" comment="New York" />
         </boundarygroups>
         <boundaries comment="Configure Site Boundaries if not set to AD discovery-automatic">
             <boundary use="1" name="NA-US-VA-Norfolk-Servers" type="IPRange" value="192.168.0.10-192.168.0.99" boundarygroup="NA-US-VA-Norfolk" comment="Norfolk" />
@@ -59,31 +59,120 @@
         <clientsettings comment="Client Settings">
             <clientsetting use="1" name="Workstations" comment="Workstation Client Settings" type="Device" priority="1">
                 <settings>
-					<setting use="1" name="BITS" options="EnableBitsMaxBandwidth" />
-					<setting use="1" name="ComputerAgent" options="AddPortalToTrustedSiteList,AllowPortalToHaveElevatedTrust,BrandingTitle=Contoso IT,EnableThirdPartyOrchestration,FinalReminderMinutesInterval=25,InitialReminderHoursInterval=6,InstallRestriction=OnlyAdministrators,PortalUrl=http://cm02.contoso.com,PowerShellExecutionPolicy=Bypass,SuspendBitLocker=Always" />
-					<setting use="1" name="ComputerRestart" />
-					<setting use="0" name="EndpointProtection" />
-					<setting use="1" name="HardwareInventory" />
-					<setting use="0" name="PowerOptions" />
-					<setting use="1" name="RemoteTools" />
-					<setting use="1" name="SoftwareDeployment" />
-					<setting use="1" name="SoftwareInventory" />
-					<setting use="1" name="SoftwareUpdates" />
+					<setting use="1" name="BackgroundIntelligentTransfer">
+						<options>
+							<option name="EnableBitsMaxBandwidth" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="ClientCache">
+						<options>
+							<option name="ConfigureBranchCache" value="True" />
+							<option name="EnableBranchCache" value="True" />
+							<option name="ConfigureCacheSize" value="True" />
+							<option name="MaxCacheSize" value="10240" />
+							<option name="EnableSuperPeer" value="True" />
+							<option name="EnableHttps" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="ComputerAgent">
+						<options>
+							<option name="AddPortalToTrustedSiteList" value="True" />
+							<option name="AllowPortalToHaveElevatedTrust" value="True" />
+							<option name="BrandingTitle" value="Contoso IT" />
+							<option name="EnableThirdPartyOrchestration" value="Yes" />
+							<option name="FinalReminderMinutesInterval" value="25" />
+							<option name="InitialReminderHoursInterval" value="6" />
+							<option name="InstallRestriction" value="OnlyAdministrators" />
+							<option name="PortalUrl" value="http://cm02.contoso.com" />
+							<option name="PowerShellExecutionPolicy" value="Bypass" />
+							<option name="SuspendBitLocker" value="Always" />
+						</options>
+					</setting>
+					<setting use="1" name="ComputerRestart">
+						<options>
+							<option name="CountdownMins" value="90" />
+							<option name="FinalWindowMins" value="15" />
+						</options>
+					</setting>
+					<setting use="1" name="EndpointProtection">
+						<options>
+							<option name="Enable" value="True" />
+							<option name="InstallEndpointProtectionClient" value="True" />
+							<option name="RemoveThirdParty" value="True" />
+							<option name="SuppressReboot" value="True" />
+							<option name="OverrideMaintenanceWindow" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="HardwareInventory">
+						<options>
+							<option name="Enable" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="PowerManagement">
+						<options>
+							<option name="Enable" value="True" />
+							<option name="AllowUserToOptOutFromPowerPlan" value="False" />
+							<option name="EnableWakeupProxy" value="True" />
+						</options>
+					</setting>
+					<setting use="1" name="RemoteTool">
+						<options>
+							<option name="AllowUnattendedComputer" value="True" />
+							<option name="PromptUserForPermission" value="False" />
+							<option name="AllowClientChange" value="False" />
+							<option name="AccessLevel" value="FullControl" />
+							<option name="ManageUnsolicitedRemoteAssistance" value="True" />
+							<option name="ManageRemoteDesktopSetting" value="True" />
+							<option name="PromptUserForClipboardPermission" value="False" />
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareDeployment">
+						<options>
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareInventory">
+						<options>
+							<option name="SWINVConfiguration" value="Filename=*.exe|Path=*|Subdirectories=True|ExcludeWindirAndSubfolders=False|ExcludeEncryptedAndCompressedFiles=True" />
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareUpdate">
+						<options>
+							<option name="Enable" value="True" />
+							<option name="EnforceMandatory" value="True" />
+							<option name="Office365ManagementType" value="True" />
+							<option name="BatchingTimeout" value="1" />
+							<option name="TimeUnit" value="Days" />
+						</options>
+					</setting>
                 </settings>
             </clientsetting>
-            <clientsetting use="1" name="Servers" comment="Server Client Settings" type="Device" priority="2">
+            <clientsetting use="0" name="Servers" comment="Server Client Settings" type="Device" priority="2">
 				<settings>
 					<setting use="1" name="HardwareInventory" />
-					<setting use="1" name="RemoteTools" />
-					<setting use="1" name="SoftwareInventory" />
+					<setting use="1" name="RemoteTool">
+						<options>
+							<option name="AllowUnattendedComputer" value="True" />
+							<option name="PromptUserForPermission" value="False" />
+							<option name="AllowClientChange" value="False" />
+							<option name="AccessLevel" value="FullControl" />
+							<option name="ManageUnsolicitedRemoteAssistance" value="True" />
+							<option name="ManageRemoteDesktopSetting" value="True" />
+							<option name="PromptUserForClipboardPermission" value="False" />
+						</options>
+					</setting>
+					<setting use="1" name="SoftwareInventory">
+						<options>
+							<option name="SWINVConfiguration" value="Filename=*.exe|Path=*|Subdirectories=True|ExcludeWindirAndSubfolders=False|ExcludeEncryptedAndCompressedFiles=True" />
+						</options>
+					</setting>
 				</settings>
             </clientsetting>
         </clientsettings>
         <dpgroups comment="Distribution Point Groups">
             <dpgroup use="1" name="All Distribution Points" comment="All DP servers throughout the organization" />
             <dpgroup use="1" name="Virginia DPs" comment="DP servers in Virginia" />
-            <dpgroup use="1" name="California DPs" comment="DP servers in California" />
-            <dpgroup use="1" name="Azure DPs" comment="DP servers in Azure" />
+            <dpgroup use="0" name="California DPs" comment="DP servers in California" />
+            <dpgroup use="0" name="Azure DPs" comment="DP servers in Azure" />
         </dpgroups>
         <sitesystemroles>
             <sitesystemrole use="1" name="aisp" comment="Asset Intelligence Synchronization Point">
@@ -117,14 +206,14 @@
             </sitesystemrole>
             <sitesystemrole use="1" name="ssrp" comment="Reporting Services Point">
                 <roleoptions comment="">
-					<roleoption use="1" name="DatabaseServerName" params="cm02.contoso.com" />
+					<roleoption use="1" name="DatabaseServerName" params="cm01.contoso.com" />
 					<roleoption use="1" name="DatabaseName" params="CM_P01" />
-					<roleoption use="1" name="UserName" params="CONTOSO\svc-sql" />
+					<roleoption use="1" name="UserName" params="CONTOSO\sql-svc" />
 					<roleoption use="0" name="FolderName" params="" />
 					<roleoption use="0" name="ReportServerInstance" params="" />
                 </roleoptions>
             </sitesystemrole>
-            <sitesystemrole use="1" name="cmg" comment="Cloud Management Gateway">
+            <sitesystemrole use="0" name="cmg" comment="Cloud Management Gateway">
                 <roleoptions comment="">
                     <roleoption use="1" name="CloudManagementGatewayName" params="" />
                 </roleoptions>
@@ -170,6 +259,8 @@
                     <roleoption use="1" name="ThemeColor" params="Orange" />
                 </roleoptions>
             </sitesystemrole>
+			<sitesystemrole use="1" name="epp" comment="Endpoint Protection Point">
+			</sitesystemrole>
         </sitesystemroles>
         <folders comment="Console Folders to create">
             <folder use="1" name="Deploy Applications" path="DeviceCollection" comment="" />
@@ -180,12 +271,13 @@
             <folder use="1" name="Deploy Applications" path="UserCollection" comment="" />
             <folder use="1" name="Production" path="TaskSequence" comment="" />
             <folder use="1" name="Testing" path="TaskSequence" comment="" />
-            <folder use="1" name="WinPE" path="DriverPackage" comment="" />
-            <folder use="1" name="HP" path="DriverPackage" comment="" />
-            <folder use="1" name="EliteBook.9470m" path="DriverPackage/HP" comment="" />
-            <folder use="1" name="ZBook.15uG2" path="DriverPackage/HP" comment="" />
+            <folder use="0" name="WinPE" path="DriverPackage" comment="" />
+            <folder use="0" name="HP" path="DriverPackage" comment="" />
+            <folder use="0" name="EliteBook.9470m" path="DriverPackage/HP" comment="" />
+            <folder use="0" name="ZBook.15uG2" path="DriverPackage/HP" comment="" />
             <folder use="1" name="Windows Desktop" path="OperatingSystemImage" comment="" />
             <folder use="1" name="Windows Server" path="OperatingSystemImage" comment="" />
+			<folder use="1" name="Windows Desktop" path="OperatingSystemInstaller" comment="" />
             <folder use="1" name="Contoso" path="BootImage" comment="" />
             <folder use="1" name="Google" path="Application" comment="" />
             <folder use="1" name="Microsoft" path="Application" comment="" />
@@ -197,32 +289,33 @@
             <query use="1" name="Contoso - Windows Server Features" comment="Windows Server Feature Names" class="SMS_R_System" expression="select distinct SMS_G_System_SERVER_FEATURE.Name from  SMS_R_System inner join SMS_G_System_SERVER_FEATURE on SMS_G_System_SERVER_FEATURE.ResourceID = SMS_R_System.ResourceId order by SMS_G_System_SERVER_FEATURE.Name" />
         </queries>
         <osimages comment="For bare-metal and build-and-capture installs">
-            <osimage use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent\sources\install.wim" comment="Windows 10 x64 Enterprise 1703" />
-            <osimage use="1" name="Windows Server 2016 Datacenter" path="\\Fs1\SOURCES\ws2016dc\sources\install.wim" comment="Windows Server 2016 Datacenter" />
+            <osimage use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent\sources\install.wim" comment="Windows 10 x64 Enterprise 1703" folder="OperatingSystemImage\Windows Desktop" />
+            <osimage use="0" name="Windows Server 2016 Datacenter" path="\\Fs1\SOURCES\ws2016dc\sources\install.wim" comment="Windows Server 2016 Datacenter" folder="OperatingSystemImage\Windows Server" />
         </osimages>
         <osinstallers comment="For in-place upgrades">
-            <osinstaller use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent" comment="Windows 10 x64 Enterprise 1703" version="1703.15063.540" />
-            <osinstaller use="0" name="Windows Server 2016 Datacenter 1607" path="\\Fs1\SOURCES\ws2016dc" comment="Windows Server 2016 Datacenter" version="1607.14393.1593" />
+            <osinstaller use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent" comment="Windows 10 x64 Enterprise 1703" version="1703.15063.540" folder="OperatingSystemInstaller\Windows Desktop" />
+            <osinstaller use="0" name="Windows Server 2016 Datacenter 1607" path="\\Fs1\SOURCES\ws2016dc" comment="Windows Server 2016 Datacenter" version="1607.14393.1593" folder="" />
         </osinstallers>
         <collections comment="Custom Collections">
             <collection use="1" name="Users - Title - Research Analysts" type="User" comment="Users by Job Title: Research Analyst" parent="All Users" folder="UserCollection\Inventory Organization" ruletype="query" rule="select SMS_R_USER.ResourceID,SMS_R_USER.ResourceType,SMS_R_USER.Name,SMS_R_USER.UniqueUserName,SMS_R_USER.WindowsNTDomain from SMS_R_User where sms_R_User.title = 'Research Analyst'" />
             <collection use="1" name="Users - Title - Sales Managers" type="User" comment="Users by Job Title: Sales Manager" parent="All Users" folder="UserCollection\Inventory Organization" ruletype="query" rule="select distinct SMS_R_User.ResourceId, SMS_R_User.ResourceType, SMS_R_User.Name, SMS_R_User.UniqueUserName, SMS_R_User.WindowsNTDomain from  SMS_R_User where SMS_R_User.title = 'Sales Manager'" />
+			<collection use="1" name="Users - Title - Solutions Architects" type="User" comment="Users by Job Title: Solutions Architect" parent="All Users" folder="UserCollection\Inventory Organization" ruletype="query" rule="select distinct SMS_R_User.ResourceId, SMS_R_User.ResourceType, SMS_R_User.Name, SMS_R_User.UniqueUserName, SMS_R_User.WindowsNTDomain from  SMS_R_User where SMS_R_User.title = 'Solutions Architect'" />
             <collection use="1" name="Users - Deploy - Dev Apps" type="User" comment="Developer Apps Bundle" parent="All Users" folder="UserCollection\Deploy Applications" ruletype="" rule="" />
             <collection use="1" name="Clients - Servers - All Windows Servers" type="Device" comment="Clients with Windows Server" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.Name like '%Server%'" />
             <collection use="1" name="Clients - Servers - 2012 R2" type="Device" comment="Server clients with Windows Server 2012 R2" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.Name like '%Server 2012 R2%'" />
             <collection use="1" name="Clients - Servers - 2016" type="Device" comment="Server clients with Windows Server 2016" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.Name like '%Server 2016%'" />
-            <collection use="1" name="Clients - Servers - Dell" type="Device" comment="Dell server clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Dell' and SMS_G_System_OPERATING_SYSTEM.Name like '%Server%'" />
-            <collection use="1" name="Clients - Servers - HP" type="Device" comment="HP server clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Hewlett-Packard' and SMS_G_System_OPERATING_SYSTEM.Name like '%Server%'" />
-            <collection use="1" name="Clients - Servers - Lenovo" type="Device" comment="Lenovo server clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Lenovo' and SMS_G_System_OPERATING_SYSTEM.Name like '%Server%'" />
+            <collection use="1" name="Clients - Servers - Dell" type="Device" comment="Dell server clients" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Dell' and SMS_G_System_OPERATING_SYSTEM.Name like '%Server%'" />
+            <collection use="1" name="Clients - Servers - HP" type="Device" comment="HP server clients" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Hewlett-Packard' and SMS_G_System_OPERATING_SYSTEM.Name like '%Server%'" />
+            <collection use="1" name="Clients - Servers - Lenovo" type="Device" comment="Lenovo server clients" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Lenovo' and SMS_G_System_OPERATING_SYSTEM.Name like '%Server%'" />
             <collection use="1" name="Clients - Server Role - File Servers" type="Device" comment="File Servers" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_SERVER_FEATURE on SMS_G_System_SERVER_FEATURE.ResourceId = SMS_R_System.ResourceId where SMS_G_System_SERVER_FEATURE.Name = 'File and Storage Services'" />
             <collection use="1" name="Clients - Server Role - Web Servers" type="Device" comment="Web Servers" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_SERVER_FEATURE on SMS_G_System_SERVER_FEATURE.ResourceId = SMS_R_System.ResourceId where SMS_G_System_SERVER_FEATURE.Name = 'Web Server (IIS)'" />
             <collection use="1" name="Clients - Server Role - WSUS Servers" type="Device" comment="WSUS Servers" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_SERVER_FEATURE on SMS_G_System_SERVER_FEATURE.ResourceId = SMS_R_System.ResourceId where SMS_G_System_SERVER_FEATURE.Name = 'WSUS Services'" />
             <collection use="1" name="Clients - Workstations - Windows 10" type="Device" comment="Workstation clients with Windows 10" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.Name like 'Microsoft Windows 10%'" />
             <collection use="1" name="Clients - Workstations - Windows 8.1" type="Device" comment="Workstation clients with Windows 8.1" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.Name like 'Microsoft Windows 8.1%'" />
             <collection use="1" name="Clients - Workstations - Windows 7" type="Device" comment="Workstation clients with Windows 7" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Software" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.Name like 'Microsoft Windows 7%'" />
-            <collection use="1" name="Clients - Workstations - Dell" type="Device" comment="Dell workstation clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Dell' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
-            <collection use="1" name="Clients - Workstations - HP" type="Device" comment="HP workstation clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Hewlett-Packard' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
-            <collection use="1" name="Clients - Workstations - Lenovo" type="Device" comment="Lenovo workstation clients" parent="All Desktop and Server Client" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Lenovo' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
+            <collection use="1" name="Clients - Workstations - Dell" type="Device" comment="Dell workstation clients" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Dell' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
+            <collection use="1" name="Clients - Workstations - HP" type="Device" comment="HP workstation clients" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Hewlett-Packard' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
+            <collection use="1" name="Clients - Workstations - Lenovo" type="Device" comment="Lenovo workstation clients" parent="All Desktop and Server Clients" folder="DeviceCollection\Inventory Hardware" ruletype="query" rule="select distinct SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer = 'Lenovo' and SMS_G_System_OPERATING_SYSTEM.Name not like '%Server%'" />
         </collections>
         <appcategories comment="Application Categories">
             <appcategory use="1" name="IT" enabled="true" comment="" />
@@ -332,10 +425,10 @@
             <account use="1" name="CONTOSO\sql-svc" password="P@ssW0rd!" comment="SQL Server service account" />
         </accounts>
         <malwarepolicies comment="Endpoint Protection Malware Policies">
-            <malwarepolicy use="1" name="Standard Desktop" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_Standard_Desktop.xml" comment="" />
-            <malwarepolicy use="0" name="Standard Desktop" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_Default_CfgMgr.xml" comment="" />
-            <malwarepolicy use="0" name="Standard Desktop" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_High_Security.xml" comment="" />
-            <malwarepolicy use="0" name="Standard Desktop" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_Performance_Optimized.xml" comment="" />
+            <malwarepolicy use="1" name="SCEP Standard Desktop Name" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_Standard_Desktop.xml" comment="" />
+            <malwarepolicy use="0" name="SCEP_Default_CfgMgr" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_Default_CfgMgr.xml" comment="" />
+            <malwarepolicy use="0" name="SCEP_High_Security" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_High_Security.xml" comment="" />
+            <malwarepolicy use="0" name="SCEP_Performance_Optimized" path="E:\CONFIGMGR\AdminConsole\XmlStorage\EPTemplates\SCEP_Performance_Optimized.xml" comment="" />
         </malwarepolicies>
     </cmsite>
 </configuration>
