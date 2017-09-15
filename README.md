@@ -6,6 +6,7 @@ Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
 Part 1 of 2 = builds on top of a standard Windows Server instance to having Configuration Manager.  This includes server roles and features, ADK, MDT, SQL Server, WSUS, and Configuration Manager.  It also includes things like SQL memory and recovery settings, registry keys, custom folders and files, and optional tools (ConfigMgr Toolkit, Right-click Tools, etc.).
 
+* 1.3.00 - Most bugs terminated with extreme nuclear resources, new features, new day
 * 1.2.20 - Fixed bug in Write-Log function affecting HH:mm:ss format display
 * 1.2.19 - Fixed bugs in parsing SQL setup.ini when multiple sqladmins are configured
 * 1.2.18 - Added -Override feature like cm_siteconfig has
@@ -18,6 +19,7 @@ Part 1 of 2 = builds on top of a standard Windows Server instance to having Conf
 
 Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigMgr instance).  Configures AD forest connection, discovery methods, boundary groups, collections, queries, client settings, applications, operating system images, operating system upgrade installers, site maintenance tasks, application categories and antimalware policies. 
 
+* 1.3.00 - Most bugs terminated with extreme nuclear resources, new features, new day
 * 1.2.31 - Fixed bugs in site roles, discovery methods, and software update point settings
 * 1.2.30 - Fixed bug in Write-Log function affecting HH:mm:ss format display, and client push installation code
 * 1.2.28 - Added checks for AD accounts before importing, fixed bug with applications import and folder assignments
@@ -68,7 +70,6 @@ Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigM
 * (combinations of above, eg.: -Detailed -Override)
 
 * [Detailed] is like -Verbose, only prettier, and doesn't get fall-down drunk on you
-* [ForceBoundaries] was an idea I had while on 1.5 hrs of sleep. stay away from it for now.
 * [NoCheck] skips platform requirements validation checks, like memory, etc.
 * [NoReboot] suppresses reboots during the execution
 * [Override] displays a PS GridView menu to allow you to select individual tasks to run regardless of enabled=true in the XML file.
