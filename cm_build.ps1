@@ -15,7 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-	1.3.00 - DS - 2017.09.15
+	1.3.00 - DS - 2017.09.16
     1.2.20 - DS - 2017.09.10
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
@@ -1156,7 +1156,8 @@ if ($controlset) {
 			$pkgComm  = $package.comment 
 			$payload  = $xmldata.configuration.payloads.payload | Where-Object {$_.name -eq $pkgName}
 			#$pkgSrc   = $payload.path // changed in 1.3
-			$pkgSrc   = $xmldata.configuration.sources.source | Where-Object {$_.name -eq $pkgName}
+			$pkgSrcX  = $xmldata.configuration.sources.source | Where-Object {$_.name -eq $pkgName}
+			$pkgSrc   = $pkgSrcX.path
 			$pkgFile  = $payload.file
 			$pkgArgs  = $payload.params
 			$detRule  = $xmldata.configuration.detections.detect | Where-Object {$_.name -eq $pkgName}
