@@ -2,6 +2,11 @@
 
 Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
+# UPDATES
+
+* The XML schema has changed in 1.3.  The new format for cm_build.xml moves most of the custom settings to the top, within the [project] and [sources] section.  This is aimed at reducing the amount of editing required for different environments.
+* The WSUSCONFIG payload isn't being properly parsed from XML, but is somewhat hard-coded in the cm_build.ps1 script (for now). This will be remedied soon.  The reason for this will be to support SQL Server on a remote host with WSUS on the SCCM host.
+
 # CM_BUILD
 
 Part 1 of 2 = builds on top of a standard Windows Server instance to having Configuration Manager.  This includes server roles and features, ADK, MDT, SQL Server, WSUS, and Configuration Manager.  It also includes things like SQL memory and recovery settings, registry keys, custom folders and files, and optional tools (ConfigMgr Toolkit, Right-click Tools, etc.).
@@ -19,7 +24,7 @@ Part 1 of 2 = builds on top of a standard Windows Server instance to having Conf
 
 Part 2 of 2 = builds on top of cm_build (a functional but non-configured ConfigMgr instance).  Configures AD forest connection, discovery methods, boundary groups, collections, queries, client settings, applications, operating system images, operating system upgrade installers, site maintenance tasks, application categories and antimalware policies. 
 
-* 1.3.00 - Most bugs terminated with extreme nuclear resources, new features, new day
+* 1.3.00 - Most bugs terminated with extreme nuclear resources, new features, new day.  New XML format.  Refactored code.
 * 1.2.31 - Fixed bugs in site roles, discovery methods, and software update point settings
 * 1.2.30 - Fixed bug in Write-Log function affecting HH:mm:ss format display, and client push installation code
 * 1.2.28 - Added checks for AD accounts before importing, fixed bug with applications import and folder assignments
