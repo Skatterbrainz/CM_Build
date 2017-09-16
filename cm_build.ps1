@@ -15,12 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-	1.3.00 - DS - 2017.09.16
-    1.2.20 - DS - 2017.09.10
-    1.2.02 - DS - 2017.09.02
-    1.1.43 - DS - 2017.08.27
-    1.1.0  - DS - 2017.08.16
-    1.0.0  - DS - 2017.08.14
+	1.3.01 - DS - 2017.09.16
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -44,7 +39,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.3.00'
+$ScriptVersion = '1.3.01'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -1096,8 +1091,8 @@ function Convert-CmxString {
 	$fullname  = $DataSet.configuration.project.hostname
 	$shortname = $DataSet.configuration.project.host
 	$sitecode  = $DataSet.configuration.project.sitecode
-	Write-Log -Category "info" -Message "full name = $fullname"
-	Write-Log -Category "info" -Message "short name = $shortname"
+	#Write-Log -Category "info" -Message "full name = $fullname"
+	#Write-Log -Category "info" -Message "short name = $shortname"
 	if ($StringVal -ne "") {
 		Write-Output $((($StringVal -replace '@HOST@', "$shortname") -replace '@HOSTNAME@', "$fullname") -replace '@SITECODE@', $sitecode)
 	}
