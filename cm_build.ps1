@@ -15,6 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
+	1.3.00 - DS - 2017.09.16
     1.2.20 - DS - 2017.09.10
     1.2.02 - DS - 2017.09.02
     1.1.43 - DS - 2017.08.27
@@ -43,7 +44,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.2.20'
+$ScriptVersion = '1.3.00'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -97,17 +98,8 @@ if (Get-Module -ListAvailable -Name SqlServer) {
 }
 else {
     Write-Log -Category "info" -Message "installing SqlServer module"
-    Install-Module SqlServer -Force
+    Install-Module SqlServer -Force -AllowClobber
 }
-<#
-if (Get-Module -ListAvailable -Name dbatools) {
-    Write-Log -Category "info" -Message "dbatools module is already installed"
-}
-else {
-    Write-Log -Category "info" -Message "installing dbatools module"
-    Install-Module dbatools -SkipPublisherCheck -Force
-}
-#>
 if (-not(Test-Path "c:\ProgramData\chocolatey\choco.exe")) {
     Write-Log -Category "info" -Message "installing chocolatey..."
     if ($WhatIfPreference) {
@@ -296,7 +288,7 @@ function Import-CMxFiles {
         $data = ""
         foreach ($filekey in $filekeys) {
             $keyname = $filekey.name
-            $keyval  = $filekey.value
+            $keyval  = Convert-CmxString $DataSet -Stringval $filekey.value
             if ($keyname.StartsWith('__')) {
                 if ($data -ne "") {
                     $data += "`r`n`[$keyval`]`r`n"
@@ -353,7 +345,7 @@ function Import-CMxServerRoles {
         if ($AlternateSource -ne "") {
             Write-Log -Category "info" -Message "referencing alternate windows content source"
             try {
-                $output   = Install-WindowsFeature -Name $FeatureCode -LogPath "$LogsFolder\$LogFile" -Source $AlternateSource
+                $output   = Install-WindowsFeature -Name $FeatureCode -LogPath "$LogsFolder\$LogFile" -Source "$AlternateSource\sources\sxs"
                 $exitcode = $output.ExitCode.Value__
                 if ($successcodes.Contains($exitcode)) {
                     $result = 0
@@ -419,7 +411,7 @@ function Import-CMxServerRolesFile {
             Write-Log -Category "info" -Message "referencing alternate windows content source: $AltSource"
             try {
                 Write-Log -Category "info" -Message "installing features from configuration file: $PackageFile using alternate source"
-                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -Source $AltSource -ErrorAction Continue
+                $result = Install-WindowsFeature -ConfigurationFilePath $PackageFile -LogPath "$LogsFolder\$LogFile" -Source "$AltSource\sources\sxs" -ErrorAction Continue
                 if ($successcodes.Contains($result.ExitCode.Value__)) {
                     $result = 0
                     Set-CMxTaskCompleted -KeyName $PackageName -Value $(Get-Date)
@@ -487,6 +479,8 @@ function Invoke-CMxWsusConfiguration {
     }
     catch {
         Write-Warning "ERROR: Unable to invoke WSUS post-install configuration"
+		Write-Log -Category "error" -Message $_.Exception.Message
+		$result = $false
     }
     Write-Log -Category "info" -Message "function runtime = $(Get-TimeOffset -StartTime $timex)"
     Write-Output $result
@@ -1092,6 +1086,26 @@ function Set-CMxLocalAccountRights {
 	Write-Output $result
 }
 
+function Convert-CmxString {
+	param(
+		[parameter(Mandatory=$True)]
+			[ValidateNotNullOrEmpty()] $DataSet,
+		[parameter(Mandatory=$False)]
+			[string] $StringVal = ""
+	)
+	$fullname  = $DataSet.configuration.project.hostname
+	$shortname = $DataSet.configuration.project.host
+	$sitecode  = $DataSet.configuration.project.sitecode
+	Write-Log -Category "info" -Message "full name = $fullname"
+	Write-Log -Category "info" -Message "short name = $shortname"
+	if ($StringVal -ne "") {
+		Write-Output $((($StringVal -replace '@HOST@', "$shortname") -replace '@HOSTNAME@', "$fullname") -replace '@SITECODE@', $sitecode)
+	}
+	else {
+		Write-Output ""
+	}
+}
+
 # end-functions
 
 [xml]$xmldata = Get-CMxConfigData $XmlFile
@@ -1107,8 +1121,8 @@ else {
 
 if ($controlset) {
 	$project   = $xmldata.configuration.project
-	$AltSource = $xmldata.configuration.references.reference | 
-		Where-Object {$_.name -eq 'WindowsServer'} | 
+	$AltSource = $xmldata.configuration.sources.source | 
+		Where-Object {$_.name -eq 'WIN10'} | 
 			Select-Object -ExpandProperty path
 	Write-Log -Category "info" -Message "alternate windows source = $AltSource"
 
@@ -1141,7 +1155,9 @@ if ($controlset) {
 			$pkgType  = $package.type 
 			$pkgComm  = $package.comment 
 			$payload  = $xmldata.configuration.payloads.payload | Where-Object {$_.name -eq $pkgName}
-			$pkgSrc   = $payload.path 
+			#$pkgSrc   = $payload.path // changed in 1.3
+			$pkgSrcX  = $xmldata.configuration.sources.source | Where-Object {$_.name -eq $pkgName}
+			$pkgSrc   = $pkgSrcX.path
 			$pkgFile  = $payload.file
 			$pkgArgs  = $payload.params
 			$detRule  = $xmldata.configuration.detections.detect | Where-Object {$_.name -eq $pkgName}
