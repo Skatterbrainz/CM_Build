@@ -11,6 +11,7 @@ Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
 Part 1 of 2 = builds on top of a standard Windows Server instance to having Configuration Manager.  This includes server roles and features, ADK, MDT, SQL Server, WSUS, and Configuration Manager.  It also includes things like SQL memory and recovery settings, registry keys, custom folders and files, and optional tools (ConfigMgr Toolkit, Right-click Tools, etc.).
 
+* 1.3.02 - Fixed sql memory config issue caused by removing dbatools PS module reference
 * 1.3.00 - Most bugs terminated with extreme nuclear resources, new features, new day
 * 1.2.20 - Fixed bug in Write-Log function affecting HH:mm:ss format display
 * 1.2.19 - Fixed bugs in parsing SQL setup.ini when multiple sqladmins are configured
