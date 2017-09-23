@@ -15,7 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-	1.3.01 - DS - 2017.09.16
+	1.3.02 - DS - 2017.09.23
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -39,7 +39,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.3.01'
+$ScriptVersion = '1.3.02'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -94,6 +94,13 @@ if (Get-Module -ListAvailable -Name SqlServer) {
 else {
     Write-Log -Category "info" -Message "installing SqlServer module"
     Install-Module SqlServer -Force -AllowClobber
+}
+if (Get-Module -ListAvailable -Name dbatools) {
+    Write-Log -Category "info" -Message "DbaTools module is already installed"
+}
+else {
+    Write-Log -Category "info" -Message "installing DbaTools module"
+    Install-Module DbaTools -Force -AllowClobber
 }
 if (-not(Test-Path "c:\ProgramData\chocolatey\choco.exe")) {
     Write-Log -Category "info" -Message "installing chocolatey..."
