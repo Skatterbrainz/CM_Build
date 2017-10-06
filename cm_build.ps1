@@ -126,7 +126,7 @@ if (-not(Get-Module -Name "Carbon")) {
 #Clear-Host
 Write-Log -Category "info" -Message "defining internal functions"
 
-# begin-functions
+#region functions
 
 function Get-TimeOffset {
     param (
@@ -234,6 +234,7 @@ function Get-CMxConfigData {
         }
     }
 }
+
 function Import-CMxFolders {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param(
@@ -1118,7 +1119,7 @@ function Convert-CmxString {
 	}
 }
 
-# end-functions
+#endregion functions
 
 [xml]$xmldata = Get-CMxConfigData $XmlFile
 Write-Log -Category "info" -Message "----------------------------------------------------"
