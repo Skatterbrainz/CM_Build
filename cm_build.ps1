@@ -15,7 +15,7 @@
 .PARAMETER Detailed
     [switch](optional) Show verbose output
 .NOTES
-	1.3.02 - DS - 2017.09.23
+	1.3.04 - DS - 2017.10.05
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -27,7 +27,7 @@
 
 [CmdletBinding()]
 param (
-    [parameter(Mandatory=$True, HelpMessage="Path and name of XML input file")]
+    [parameter(Mandatory=$True, HelpMessage="Path or URI of XML input file")]
         [ValidateNotNullOrEmpty()]
         [string] $XmlFile,
     [parameter(Mandatory=$False, HelpMessage="Skip platform validation checking")]
@@ -39,7 +39,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.3.02'
+$ScriptVersion = '1.3.04'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -210,20 +210,30 @@ function Get-CMxConfigData {
             [string] $XmlFile
     )
     Write-Host "Loading configuration data" -ForegroundColor Green
-    if (-not(Test-Path $XmlFile)) {
-        Write-Warning "ERROR: configuration file not found: $XmlFile"
-    }
-    else {
+    if ($XmlFile.StartsWith("http")) {
         try {
-            [xml]$data = Get-Content $XmlFile
+            [xml]$data = Invoke-RestMethod -Uri $XmlFile
             Write-Output $data
         }
         catch {
-            Write-Log -Category "error" -Message "failed to import configuration data"
+            Write-Log -Category "error" -Message "failed to import data from Uri: $XmlFile"
+        }
+    }
+    else {
+        if (-not(Test-Path $XmlFile)) {
+            Write-Warning "ERROR: configuration file not found: $XmlFile"
+        }
+        else {
+            try {
+                [xml]$data = Get-Content $XmlFile
+                Write-Output $data
+            }
+            catch {
+                Write-Log -Category "error" -Message "failed to import data from file: $XmlFile"
+            }
         }
     }
 }
-
 function Import-CMxFolders {
     [CmdletBinding(SupportsShouldProcess=$True)]
     param(
