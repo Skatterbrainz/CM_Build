@@ -12,7 +12,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.3.00 - DS - 2017.09.14
+    1.3.04 - DS - 2017.10.05
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -44,7 +44,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey        = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion  = '1.3.00'
+$ScriptVersion  = '1.3.04'
 $ScriptPath     = Get-ScriptDirectory
 $HostName       = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder     = "$ScriptPath\Logs"
@@ -109,6 +109,38 @@ function Import-CmxModule {
     }
     else {
         Write-Output $True
+    }
+}
+
+function Get-CMxConfigData {
+    param (
+        [parameter(Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string] $XmlFile
+    )
+    Write-Host "Loading configuration data" -ForegroundColor Green
+    if ($XmlFile.StartsWith("http")) {
+        try {
+            [xml]$data = Invoke-RestMethod -Uri $XmlFile
+            Write-Output $data
+        }
+        catch {
+            Write-Log -Category "error" -Message "failed to import data from Uri: $XmlFile"
+        }
+    }
+    else {
+        if (-not(Test-Path $XmlFile)) {
+            Write-Warning "ERROR: configuration file not found: $XmlFile"
+        }
+        else {
+            try {
+                [xml]$data = Get-Content $XmlFile
+                Write-Output $data
+            }
+            catch {
+                Write-Log -Category "error" -Message "failed to import data from file: $XmlFile"
+            }
+        }
     }
 }
 
@@ -1788,9 +1820,9 @@ function Import-CmxClientPush {
 
 Set-Location $env:USERPROFILE
 
-Write-Log -Category "info" -Message "loading xml data from $XmlFile"
-if (-not(Test-Path $XmlFile)) {Write-Warning "XmlFile not found: $XmlFile"; break}
-[xml]$xmldata = Get-Content $XmlFile
+[xml]$xmldata = Get-CMxConfigData -XmlFile $XmlFile
+Write-Log -Category "info" -Message "----------------------------------------------------"
+
 $sitecode = $xmldata.configuration.cmsite.sitecode
 if (($sitecode -eq "") -or (-not($sitecode))) {
     Write-Warning "unable to load XML data from $xmlFile"
