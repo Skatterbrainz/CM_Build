@@ -82,7 +82,7 @@ if (-not(Test-Path $XmlFile)) {
     break
 }
 
-### functions
+#region functions
 
 function Get-TimeOffset {
     param (
@@ -1815,8 +1815,7 @@ function Import-CmxClientPush {
 		}
 	} # foreach
 }
-
-# --------------------------------------------------------------------
+#endregion functions
 
 Set-Location $env:USERPROFILE
 
@@ -1968,9 +1967,6 @@ foreach ($control in $controlset) {
 Write-Log -Category "info" -Message "---------------------------------------------------"
 Write-Log -Category "info" -Message "restore working path to user profile"
 Set-Location -Path $env:USERPROFILE
-
 Write-Host "---------------- COMPLETED $(Get-Date) ------------------" -ForegroundColor Green
-
 Write-Log -Category info -Message "total runtime: $(Get-TimeOffset $Runtime1)"
-
 Stop-Transcript
