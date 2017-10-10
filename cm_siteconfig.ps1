@@ -12,7 +12,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.3.04 - DS - 2017.10.05
+    1.3.05 - DS - 2017.10.10
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -44,7 +44,7 @@ function Get-ScriptDirectory {
 }
 
 $basekey        = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion  = '1.3.04'
+$ScriptVersion  = '1.3.05'
 $ScriptPath     = Get-ScriptDirectory
 $HostName       = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder     = "$ScriptPath\Logs"
@@ -82,7 +82,7 @@ if (-not(Test-Path $XmlFile)) {
     break
 }
 
-#region functions
+### functions
 
 function Get-TimeOffset {
     param (
@@ -98,7 +98,7 @@ function Get-TimeOffset {
 function Import-CmxModule {
     [CmdletBinding()]
     param ()
-    Write-Log -Category info -Message "Importing ConfigurationManager module"
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxModule -------------------------------"
     if (-not(Get-Module ConfigurationManager)) {
         Write-Host "Importing the ConfigurationManager powershell module" -ForegroundColor Green
         try {
@@ -118,6 +118,7 @@ function Get-CMxConfigData {
             [ValidateNotNullOrEmpty()]
             [string] $XmlFile
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxConfigData -------------------------------"
     Write-Host "Loading configuration data" -ForegroundColor Green
     if ($XmlFile.StartsWith("http")) {
         try {
@@ -151,7 +152,7 @@ function Import-CmxDiscoveryMethods {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
-    Write-Log -Category "info" -Message "----------------------------------------------------"
+    Write-Log -Category "info" -Message "------------------------------ Import-CmxDiscoveryMethods -------------------------------"
     Write-Host "Configuring Discovery Methods" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -329,27 +330,28 @@ function Set-CmxADForest {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Set-CmxADForest -------------------------------"
     $adforest = $DataSet.configuration.cmsite.forest
     Write-Host "Configuring AD Forest" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
-    try {
-        New-CMActiveDirectoryForest -ForestFqdn "$adforest" -EnableDiscovery $True -ErrorAction SilentlyContinue
-        Write-Log -Category "info" -Message "item created successfully: $adforest"
-        Write-Output $True
-    }
-    catch {
-        if ($_.Exception.Message -eq 'An object with the specified name already exists.') {
-            Write-Log -Category "info" -Message "item already exists"
-            Write-Output $True
-        }
-        else {
-            Write-Log -Category error -Message $_.Exception.Message
+	Write-Log -Category "info" -Message "forest FQDN is $adforest"
+	if (Get-CMActiveDirectoryForest -ForestFqdn "$adforest") {
+		Write-Log -Category "info" -Message "AD forest was already configured"
+	}
+	else {
+		try {
+			New-CMActiveDirectoryForest -ForestFqdn "$adforest" -EnableDiscovery $True -ErrorAction SilentlyContinue
+			Write-Log -Category "info" -Message "item created successfully: $adforest"
+			Write-Output $True
+		}
+		catch {
+            Write-Log -Category "error" -Message $_.Exception.Message
             $result = $false
             break
         }
     }
-    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Log -Category "info" -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -360,6 +362,7 @@ function Import-CmxBoundaryGroups {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxBoundaryGroups -------------------------------"
     Write-Host "Configuring Site Boundary Groups" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -391,7 +394,7 @@ function Import-CmxBoundaryGroups {
 				Write-Log -Category "info" -Message "boundary group $bgName has been updated"
 			}
 			catch {
-				Write-Log -Category error -Message $_.Exception.Message
+				Write-Log -Category "error" -Message $_.Exception.Message
 				$result = $False
 				break
 			}
@@ -409,6 +412,7 @@ function Set-CmxBoundaries {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Set-CmxBoundaries -------------------------------"
     Write-Host "Configuring Site Boundaries" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -478,6 +482,7 @@ function Set-CmxSiteServerRoles {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Set-CmxSiteServerRoles -------------------------------"
     Write-Host "Configuring Site System Roles" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -659,10 +664,6 @@ function Set-CmxSiteServerRoles {
 							$code2 += " `-EnableCallWsusCleanupWizard `$$params"
 							break
 						}
-						'ContentFileOption' {
-							$code2 += " `-ContentFileOption `"$params`""
-							break
-						}
 					} # switch
 				} # foreach
 				if ($code1.Length -gt 0) {
@@ -801,19 +802,27 @@ function Set-CmxSiteServerRoles {
                     } # switch
                 } # foreach
                 if ($dbserver -and $dbname -and $dbuser) {
-                    try {
-                        Add-CMReportingServicePoint -SiteCode "$sitecode" -SiteSystemServerName "$HostName" -DatabaseServerName "$dbserver" -DatabaseName "$dbname" -UserName "$dbuser" -ErrorAction SilentlyContinue | Out-Null
-                        Write-Log -Category info -Message "reporting services point has been configured"
-                    }
-                    catch {
-                        if ($_.Exception.Message -like "*already exists*") {
-                            Write-Log -Category info -Message "reporting services point is already active"
-                        }
-                        else {
-                            Write-Log -Category error -Message "your code just blew chunks. what a mess."
-                            Write-Log -Category error -Message $_.Exception.Message
-                            $result = $False
-                        }
+					if (Get-WmiObject -Class Win32_UserAccount | Where-Object {$_.Caption -eq "$dbUser"}) {
+						if (Get-CMReportingServicePoint -SiteCode "$sitecode" -SiteSystemServerName "$HostName") {
+							Write-Log -Category info -Message "reporting services point is already active"
+						}
+						else {
+							try {
+								Add-CMReportingServicePoint -SiteCode "$sitecode" -SiteSystemServerName "$HostName" -DatabaseServerName "$dbserver" -DatabaseName "$dbname" -UserName "$dbuser" -ErrorAction SilentlyContinue | Out-Null
+								Write-Log -Category info -Message "reporting services point has been configured"
+							}
+							catch {
+								Write-Log -Category error -Message "your code just blew chunks. what a mess."
+								Write-Log -Category error -Message $_.Exception.Message
+								$result = $False
+								break
+							}
+						}
+					}
+					else {
+						Write-Log -Category "error" -Message "user account $dbuser was not found in the current AD domain"
+						$result = $False
+						break
                     }
                 }
                 break
@@ -928,6 +937,7 @@ function Import-CmxServerSettings {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxServerSettings -------------------------------"
     Write-Host "Configuring Server Settings" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -938,25 +948,34 @@ function Import-CmxServerSettings {
         $setVal  = $item.value
         switch ($setName) {
             'CMSoftwareDistributionComponent' {
-                Write-Log -Category info -Message "setting name: $setName"
+                Write-Log -Category "info" -Message "setting name: $setName"
                 switch ($setKey) {
                     'NetworkAccessAccountName' {
-                        Write-Log -Category info -Message "setting $setKey == $setVal"
-                        try {
-                            Set-CMSoftwareDistributionComponent -SiteCode "$sitecode" -NetworkAccessAccountName "$setVal"
-                        }
-                        catch {
-                            Write-Log -Category error -Message $_.Exception.Message
-                            $result = $False
-                        }
+                        Write-Log -Category "info" -Message "setting $setKey == $setVal"
+						if (Get-WmiObject -Class Win32_UserAccount | Where-Object {$_.Domain -eq "$($env:USERDOMAIN)" -and $_.Name -eq "$setVal"}) {
+							try {
+								Set-CMSoftwareDistributionComponent -SiteCode "$sitecode" -NetworkAccessAccountName "$setVal"
+							}
+							catch {
+								Write-Log -Category "error" -Message $_.Exception.Message
+								$result = $False
+								break
+							}
+						}
+						else {
+							Write-Log -Category "error" -Message "account $setVal was not found in domain $($env:USERDOMAIN)"
+							$result = $False
+							break
+						}
                         break
                     }
                 } # switch
                 break
             }
+			## next condition / future use ##
         } # switch
     } # foreach
-    Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
+    Write-Log -Category "info" -Message "function runtime: $(Get-TimeOffset $time1)"
     Write-Output $result
 }
 
@@ -967,6 +986,7 @@ function Import-CmxClientSettings {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxClientSettings -------------------------------"
     Write-Host "Configuring Client Settings" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -1065,6 +1085,7 @@ function Set-CMSiteConfigFolders {
         [parameter(Mandatory=$True)]
             $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Set-CMSiteConfigFolders -------------------------------"
     Write-Host "Configuring console folders" -ForegroundColor Green
     $result = $true
     $Time1  = Get-Date
@@ -1097,6 +1118,7 @@ function Import-CmxQueries {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxQueries -------------------------------"
     Write-Host "Importing custom Queries" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -1132,6 +1154,7 @@ function Import-CmxOSImages {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxOSImages -------------------------------"
     Write-Host "Importing OS images" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -1182,6 +1205,7 @@ function Import-CmxOSInstallers {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxOSInstallers -------------------------------"
     Write-Host "Configuring OS upgrade installers" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -1230,6 +1254,7 @@ function Import-CmxCollections {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxCollections -------------------------------"
     Write-Host "Configuring collections" -ForegroundColor Green
     $result = $True
     $Time1  = Get-Date
@@ -1266,7 +1291,14 @@ function Import-CmxCollections {
 			}
 			'query' {
 				Write-Log -Category "info" -Message "associating query membership rule"
-				Add-CMUserCollectionQueryMembershipRule -CollectionName $collName -RuleName "1" -QueryExpression $collRuleText
+				try {
+					Add-CMUserCollectionQueryMembershipRule -CollectionName $collName -RuleName "1" -QueryExpression $collRuleText
+				}
+				catch {
+					Write-Log -Category "error" -Message $_.Exception.Message
+					$result = $False
+					break
+				}
 				break
 			}
 		} # switch
@@ -1283,6 +1315,7 @@ function Import-CmxMaintenanceTasks {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxMaintenanceTasks -------------------------------"
     Write-Host "Configuring site maintenance tasks" -ForegroundColor Green
     $result = $true
     $Time1  = Get-Date
@@ -1325,6 +1358,7 @@ function Import-CmxAppCategories {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxAppCategories -------------------------------"
     Write-Host "Configuring application categories" -ForegroundColor Green
     $result = $true
     $Time1  = Get-Date
@@ -1358,6 +1392,7 @@ function Import-CmxApplications {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxApplications -------------------------------"
     Write-Host "Importing applications" -ForegroundColor Green
     $result = $true
     $Time1  = Get-Date
@@ -1581,6 +1616,7 @@ function Import-CmxAccounts {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxAccounts -------------------------------"
     Write-Host "Configuring accounts" -ForegroundColor Green
     $result = $true
     $time1  = Get-Date
@@ -1623,6 +1659,7 @@ function Import-CmxDPGroups {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxDPGroups -------------------------------"
     Write-Host "Configuring distribution point groups" -ForegroundColor Green
     $result = $true
     $Time1  = Get-Date
@@ -1657,6 +1694,7 @@ function Import-CmxMalwarePolicies {
         [ValidateNotNullOrEmpty()]
         $DataSet
     )
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxMalwarePolicies -------------------------------"
     Write-Host "Configuring antimalware policies" -ForegroundColor Green
     $result = $true
     $Time1  = Get-Date
@@ -1687,6 +1725,7 @@ function Import-CmxMalwarePolicies {
 
 function Test-CMxAdContainer {
 	param()
+	Write-Log -Category "info" -Message "------------------------------ Test-CMxAdContainer -------------------------------"
 	Write-Host "Searching for AD container: System Management" -ForegroundColor Green
 	$strFilter = "(&(objectCategory=Container)(Name=System Management))"
 	$objDomain = New-Object System.DirectoryServices.DirectoryEntry
@@ -1703,6 +1742,7 @@ function Test-CMxAdContainer {
 
 function Test-CMxAdSchema {
 	param ()
+	Write-Log -Category "info" -Message "------------------------------ Test-CMxAdSchema -------------------------------"
 	Write-Host "Verifying for AD Schema extension" -ForegroundColor Green
 	$strFilter = "(&(objectClass=mSSMSSite)(Name=*))"
 	$objDomain = New-Object System.DirectoryServices.DirectoryEntry
@@ -1724,6 +1764,7 @@ function Test-CMxAdUser {
         [ValidateNotNullOrEmpty()]
         [string] $UserName
     )
+	Write-Log -Category "info" -Message "------------------------------ Test-CMxAdUser -------------------------------"
     $tmpuser = $UserName.Split('\')[$UserName.Split('\').Count - 1]
 	Write-Host "Searching for AD user: $UserName" -ForegroundColor Green
 	$strFilter = "(&(objectCategory=user)(sAMAccountName=$tmpuser))"
@@ -1747,6 +1788,7 @@ function Import-CmxClientPush {
 		[ValidateNotNullOrEmpty()]
 		$DataSet
 	)
+	Write-Log -Category "info" -Message "------------------------------ Import-CmxClientPush -------------------------------"
 	foreach ($set in $DataSet.configuration.cmsite.clientoptions.CMClientPushInstallation | Where-Object {$_.use -eq '1'}) {
 		if ($set.AutomaticInstall -eq 'true') {
 			try {
@@ -1795,12 +1837,22 @@ function Import-CmxClientPush {
 		}
 		if ($set.Accounts.length -gt 0) {
 			foreach ($acct in $set.Accounts.Split(",")) {
-				try {
-					Set-CMClientPushInstallation -SiteCode "$sitecode" -AddAccount $acct | Out-Null
-					Write-Log -Category "info" -Message "client push: set installation account to $($acct)"
+				Write-Log -Category "info" -Message "assigning user account to client push list: $acct"
+				if (Get-WmiObject -Class Win32_UserAccount | Where {$_.Caption -eq "$acct"}) {
+					try {
+						Set-CMClientPushInstallation -SiteCode "$sitecode" -AddAccount $acct | Out-Null
+						Write-Log -Category "info" -Message "client push: set installation account to $($acct)"
+					}
+					catch {
+						Write-Log -Category "error" -Message $_.Exception.Message
+						$result = $False
+						break
+					}
 				}
-				catch {
-					Write-Log -Category "error" -Message $_.Exception.Message
+				else {
+					Write-Log -Category "error" -Message "user account $acct was not found in the current AD domain"
+					$result = $False
+					break
 				}
 			} # foreach
 		}
@@ -1815,7 +1867,8 @@ function Import-CmxClientPush {
 		}
 	} # foreach
 }
-#endregion functions
+
+# --------------------------------------------------------------------
 
 Set-Location $env:USERPROFILE
 
@@ -1967,6 +2020,9 @@ foreach ($control in $controlset) {
 Write-Log -Category "info" -Message "---------------------------------------------------"
 Write-Log -Category "info" -Message "restore working path to user profile"
 Set-Location -Path $env:USERPROFILE
+
 Write-Host "---------------- COMPLETED $(Get-Date) ------------------" -ForegroundColor Green
+
 Write-Log -Category info -Message "total runtime: $(Get-TimeOffset $Runtime1)"
+
 Stop-Transcript
