@@ -2,27 +2,27 @@
 #requires -version 3
 #requires -modules ServerManager
 <#
-.SYNOPSIS
-    SCCM site server installation script
-.DESCRIPTION
-    Yeah, what he said.
-.PARAMETER XmlFile
-    [string](optional) Path and Name of XML input file
-.PARAMETER NoCheck
-    [switch](optional) Skip platform validation restrictions
-.PARAMETER NoReboot
-    [switch](optional) Suppress reboots until very end
-.PARAMETER Detailed
-    [switch](optional) Show verbose output
-.NOTES
-	1.3.04 - DS - 2017.10.05
-    
-    Read the associated XML to make sure the path and filename values
-    all match up like you need them to.
+    .SYNOPSIS
+        SCCM site server installation script
+    .DESCRIPTION
+        Yeah, what he said.
+    .PARAMETER XmlFile
+        [string](optional) Path and Name of XML input file
+    .PARAMETER NoCheck
+        [switch](optional) Skip platform validation restrictions
+    .PARAMETER NoReboot
+        [switch](optional) Suppress reboots until very end
+    .PARAMETER Detailed
+        [switch](optional) Show verbose output
+    .NOTES
+        1.3.06 - DS - 2017.10.10
 
-.EXAMPLE
-    .\cm_build.ps1 -XmlFile .\cm_build.xml -Verbose
-    .\cm_build.ps1 -XmlFile .\cm_build.xml -NoCheck -NoReboot -Verbose
+        Read the associated XML to make sure the path and filename values
+        all match up like you need them to.
+
+    .EXAMPLE
+        .\cm_build.ps1 -XmlFile .\cm_build.xml -Verbose
+        .\cm_build.ps1 -XmlFile .\cm_build.xml -NoCheck -NoReboot -Verbose
 #>
 
 [CmdletBinding()]
@@ -39,7 +39,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.3.04'
+$ScriptVersion = '1.3.06'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -1123,6 +1123,15 @@ function Convert-CmxString {
 
 [xml]$xmldata = Get-CMxConfigData $XmlFile
 Write-Log -Category "info" -Message "----------------------------------------------------"
+if ($xmldata.configuration.schemaversion -ge $SchemaVersion) {
+    Write-Log -Category "info" -Message "xml template schema version is valid"
+}
+else {
+    Write-Log -Category "info" -Message "xml template schema version is invalid: $($xmldata.configuration.schemaversion)"
+    Write-Warning "The specified XML file is not using a current schema version"
+    break
+}
+
 Set-CMxTaskCompleted -KeyName 'START' -Value $(Get-Date)
 
 if ($Override) {
