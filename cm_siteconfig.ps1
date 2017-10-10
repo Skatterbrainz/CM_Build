@@ -12,7 +12,7 @@
 .PARAMETER Override
     [switch](optional) Allow override of Controls in XML file using GUI (gridview) selection at runtime
 .NOTES
-    1.3.05 - DS - 2017.10.10
+    1.3.06 - DS - 2017.10.10
     
     Read the associated XML to make sure the path and filename values
     all match up like you need them to.
@@ -44,7 +44,8 @@ function Get-ScriptDirectory {
 }
 
 $basekey        = 'HKLM:\SOFTWARE\CM_SITECONFIG'
-$ScriptVersion  = '1.3.05'
+$ScriptVersion  = '1.3.06'
+$SchemaVersion  = '1.3'
 $ScriptPath     = Get-ScriptDirectory
 $HostName       = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 $LogsFolder     = "$ScriptPath\Logs"
@@ -1874,7 +1875,14 @@ Set-Location $env:USERPROFILE
 
 [xml]$xmldata = Get-CMxConfigData -XmlFile $XmlFile
 Write-Log -Category "info" -Message "----------------------------------------------------"
-
+if ($xmldata.configuration.schemaversion -ge $SchemaVersion) {
+    Write-Log -Category "info" -Message "xml template schema version is valid"
+}
+else {
+    Write-Log -Category "info" -Message "xml template schema version is invalid: $($xmldata.configuration.schemaversion)"
+    Write-Warning "The specified XML file is not using a current schema version"
+    break
+}
 $sitecode = $xmldata.configuration.cmsite.sitecode
 if (($sitecode -eq "") -or (-not($sitecode))) {
     Write-Warning "unable to load XML data from $xmlFile"
@@ -2020,9 +2028,6 @@ foreach ($control in $controlset) {
 Write-Log -Category "info" -Message "---------------------------------------------------"
 Write-Log -Category "info" -Message "restore working path to user profile"
 Set-Location -Path $env:USERPROFILE
-
 Write-Host "---------------- COMPLETED $(Get-Date) ------------------" -ForegroundColor Green
-
 Write-Log -Category info -Message "total runtime: $(Get-TimeOffset $Runtime1)"
-
 Stop-Transcript
