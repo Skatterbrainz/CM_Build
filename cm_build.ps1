@@ -14,15 +14,17 @@
         [switch](optional) Suppress reboots until very end
     .PARAMETER Detailed
         [switch](optional) Show verbose output
+    .PARAMETER Override
+    	[switch](optional) Choose package items to execute directly from GUI menu
     .NOTES
-        1.3.06 - DS - 2017.10.10
+        1.3.07 - DS - 2017.10.14
 
         Read the associated XML to make sure the path and filename values
         all match up like you need them to.
 
     .EXAMPLE
         .\cm_build.ps1 -XmlFile .\cm_build.xml -Verbose
-        .\cm_build.ps1 -XmlFile .\cm_build.xml -NoCheck -NoReboot -Verbose
+        .\cm_build.ps1 -XmlFile .\cm_build.xml -NoCheck -NoReboot -Detailed
 #>
 
 [CmdletBinding()]
@@ -39,7 +41,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.3.06'
+$ScriptVersion = '1.3.07'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -123,6 +125,7 @@ if (-not(Get-Module -Name "Carbon")) {
 	Write-Log -Category "info" -Message "installing Carbon package"
 	cinst carbon -y
 }
+Import-Module ServerManager
 #Clear-Host
 Write-Log -Category "info" -Message "defining internal functions"
 
@@ -247,9 +250,10 @@ function Import-CMxFolders {
     $timex  = Get-Date
     foreach ($item in $DataSet.configuration.folders.folder | Where-Object {$_.use -eq '1'}) {
         $folderName = $item.name
+	$folderComm = $item.comment
         foreach ($fn in $folderName.split(',')) {
             if (-not(Test-Path $fn)) {
-                Write-Log -Category "info" -Message "creating folder: $fn"
+                Write-Log -Category "info" -Message "creating folder: $fn (comment: $folderComm)"
                 try {
                     New-Item -Path $fn -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
                     $WaitAfter = $True
@@ -290,8 +294,7 @@ function Import-CMxFiles {
         $fullName = "$filePath\$filename"
         $fileComm = $item.comment 
         $filekeys = $item.keys.key
-        Write-Log -Category "info" -Message "filename: $fullName"
-        Write-Log -Category "info" -Message "tcomment: $fileComm"
+        Write-Log -Category "info" -Message "filename: $fullName (comment: $fileComm)"
         if (-not (Test-Path $fullName)) {
             Write-Log -Category "info" -Message "creating new file: $fullName"
         }
