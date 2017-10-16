@@ -68,12 +68,14 @@ In short, CM_SITECONFIG provides automation for the following configuration chan
 * Discovery Methods
 * Boundary Groups
 * Queries
-* Collections
+* User and Device Collections (Direct and Query rules)
 * ConfigMgr (user) Accounts
 * Client Settings
 * Client Push Installation Settings
-* Additional Site System Roles (SUP, CP, SSRP, AISP, DP, etc.)
+* Additional Site System Roles (SUP, CP, SSRP, AISP, DP, AppCatWS, AppCatWSP, etc.)
 * Applications
+* Application Categories
+* Console Folders
 * OS images and OS upgrade packages
 * Site Maintenance Tasks
 * EPP Antimalware policies
