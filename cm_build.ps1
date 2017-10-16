@@ -17,7 +17,7 @@
     .PARAMETER Override
     	[switch](optional) Choose package items to execute directly from GUI menu
     .NOTES
-        1.3.07 - DS - 2017.10.14
+        1.3.08 - DS - 2017.10.15
 
         Read the associated XML to make sure the path and filename values
         all match up like you need them to.
@@ -41,18 +41,23 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.3.07'
+$ScriptVersion = '1.3.08'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
 
 function Get-ScriptDirectory {
     $Invocation = (Get-Variable MyInvocation -Scope 1).Value
-    Split-Path $Invocation.MyCommand.Path
+    try {
+		Write-Output $(Split-Path $Invocation.MyCommand.Path)
+	}
+	catch {
+		# if invoked via URL the invocation object doesn't return a path
+		Write-Output $pwd
+	}
 }
 
 function Write-Log {
-    [CmdletBinding()]
     param (
         [parameter(Mandatory=$True)]
             [ValidateSet('info','error','warning')]
@@ -250,7 +255,7 @@ function Import-CMxFolders {
     $timex  = Get-Date
     foreach ($item in $DataSet.configuration.folders.folder | Where-Object {$_.use -eq '1'}) {
         $folderName = $item.name
-	$folderComm = $item.comment
+		$folderComm = $item.comment
         foreach ($fn in $folderName.split(',')) {
             if (-not(Test-Path $fn)) {
                 Write-Log -Category "info" -Message "creating folder: $fn (comment: $folderComm)"
@@ -537,7 +542,8 @@ function Invoke-CMxSqlConfiguration {
                     # convert total memory GB to MB
                     $actMax   = Get-CMxTotalMemory
                     $newMax   = $actMax * $dblRatio
-                    $curMax   = [math]::Round((Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB/1024,0)
+                    #$curMax   = [math]::Round((Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB/1024,0)
+					$curMax   =  [math]::Round((Get-DbaMaxMemory -SqlServer $HostFullName)/1024,0)
                     Write-Log -Category "info" -Message "SQL - total memory (GB)....... $actMax"
                     Write-Log -Category "info" -Message "SQL - recommended max (GB).... $newMax"
                     Write-Log -Category "info" -Message "SQL - current max (GB)........ $curMax"
@@ -554,7 +560,8 @@ function Invoke-CMxSqlConfiguration {
                         $newMax = [math]::Round($newMax * 1024,0)
                         Write-Log -Category "info" -Message "SQL - adjusting max memory to $newMax MB"
                         try {
-                            Set-SqlMaxMemory -SqlInstance $HostFullName -MaxMB $newMax | Out-Null
+                            #Set-SqlMaxMemory -SqlInstance $HostFullName -MaxMB $newMax | Out-Null
+							Set-DbaMaxMemory -SqlServer $HostFullName -MaxMb $newMax | Out-Null
                             Write-Log -Category "info" -Message "SQL - maximum memory allocation is now: $newMax"
                             Set-CMxTaskCompleted -KeyName 'SQLCONFIG' -Value $(Get-Date)
                             $result = 0
@@ -566,9 +573,11 @@ function Invoke-CMxSqlConfiguration {
                 }
                 else {
                     Write-Log -Category "info" -Message "configuring static memory limit"
-                    $curMax =  (Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB
+                    #$curMax = (Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB
+					$curMax = Get-DbaMaxMemory -SqlServer $HostFullName
                     try {
-                        Set-SqlMaxMemory -SqlInstance $HostFullName -MaxMb [int]$optData -Silent | Out-Null
+						Set-DbaMaxMemory -SqlServer $HostFullName -MaxMb [int]$optData | Out-Null
+                        #Set-SqlMaxMemory -SqlInstance $HostFullName -MaxMb [int]$optData -Silent | Out-Null
                     }
                     catch {
                         Write-Log -Category "error" -Message "failed to set max memory"
@@ -1180,7 +1189,6 @@ if ($controlset) {
 			$pkgType  = $package.type 
 			$pkgComm  = $package.comment 
 			$payload  = $xmldata.configuration.payloads.payload | Where-Object {$_.name -eq $pkgName}
-			#$pkgSrc   = $payload.path // changed in 1.3
 			$pkgSrcX  = $xmldata.configuration.sources.source | Where-Object {$_.name -eq $pkgName}
 			$pkgSrc   = $pkgSrcX.path
 			$pkgFile  = $payload.file
