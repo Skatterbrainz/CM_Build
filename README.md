@@ -2,25 +2,35 @@
 
 Refer to https://skatterbrainz.wordpress.com/2017/09/04/cm_siteconfig-1-2/
 
-# UPDATES
+# Disclaimer
 
-* The XML schema has changed in 1.3.  The new format for cm_build.xml moves most of the custom settings to the top, within the [project] and [sources] section.  This is aimed at reducing the amount of editing required for different environments.
-* The WSUSCONFIG payload isn't being properly parsed from XML, but is somewhat hard-coded in the cm_build.ps1 script (for now). This will be remedied soon.  The reason for this will be to support SQL Server on a remote host with WSUS on the SCCM host.
+* This is not a funded project: it has no official resources allocated to it, and is only worked on by 1 volunteer as of now. Do not create any production dependency on this project unless you are willing to support it completely yourself. Feel free to file Issues and submit Pull Requests, but please understand that with limited resources, it may be a while before your submissions are addressed.
+
+* This is an experimental project: it is not fully baked, and you should expect breaking changes to be made often.
+
+* There is no official "support" provided for this project.  Issue submissions will be reviewed and addressed as quickly as possible, based upon resource and time availability, but there is no promise of an explicit or implied response time limit.
 
 # CM_BUILD
 
+## History
+
 Part 1 of 2 = builds on top of a standard Windows Server instance to having Configuration Manager.  This includes server roles and features, ADK, MDT, SQL Server, WSUS, and Configuration Manager.  It also includes things like SQL memory and recovery settings, registry keys, custom folders and files, and optional tools (ConfigMgr Toolkit, Right-click Tools, etc.).
 
+* 1.3.09 - Fixed bug in SQL memory configuration function
+* 1.3.08 - Minor updates
+* 1.3.07 - Fixed bug in dependency and detection methods
+* 1.3.06 - Incorporated ps module "carbon" to support user account permissions
+* 1.3.05 - Fixed bugs in the User Account processing function
 * 1.3.04 - Added support for -XmlFile input from file or URI (ex. Github gist)
 * 1.3.02 - Fixed sql memory config issue caused by removing dbatools PS module reference
-* 1.3.00 - Most bugs terminated with extreme nuclear resources, new features, new day
+* 1.3.00 - Most bugs terminated with extreme nuclear resources, new features, new day (September 2017)
 * 1.2.20 - Fixed bug in Write-Log function affecting HH:mm:ss format display
 * 1.2.19 - Fixed bugs in parsing SQL setup.ini when multiple sqladmins are configured
 * 1.2.18 - Added -Override feature like cm_siteconfig has
 * 1.2.17 - Fixed bugs in function output consistency and output handling
 * 1.2.00 - breakfast and then coffee
 * 1.1.00 - second cup of coffee
-* 1.0.00 - first cup of coffee
+* 1.0.00 - first cup of coffee (September 2017)
  
 # CM_SITECONFIG
 
