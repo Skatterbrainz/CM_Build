@@ -17,7 +17,7 @@
     .PARAMETER Override
     	[switch](optional) Choose package items to execute directly from GUI menu
     .NOTES
-        1.3.08 - DS - 2017.10.15
+        1.3.09 - DS - 2017.10.16
 
         Read the associated XML to make sure the path and filename values
         all match up like you need them to.
@@ -41,7 +41,7 @@ param (
     [parameter(Mandatory=$False, HelpMessage="Override control set from XML file")]
         [switch] $Override
 )
-$ScriptVersion = '1.3.08'
+$ScriptVersion = '1.3.09'
 $basekey  = 'HKLM:\SOFTWARE\CM_BUILD'
 $RunTime1 = Get-Date
 $HostFullName = "$($env:COMPUTERNAME).$($env:USERDNSDOMAIN)"
@@ -543,7 +543,7 @@ function Invoke-CMxSqlConfiguration {
                     $actMax   = Get-CMxTotalMemory
                     $newMax   = $actMax * $dblRatio
                     #$curMax   = [math]::Round((Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB/1024,0)
-					$curMax   =  [math]::Round((Get-DbaMaxMemory -SqlServer $HostFullName)/1024,0)
+					$curMax   =  [math]::Round((Get-DbaMaxMemory -SqlServer $HostFullName).SqlMaxMB/1024,0)
                     Write-Log -Category "info" -Message "SQL - total memory (GB)....... $actMax"
                     Write-Log -Category "info" -Message "SQL - recommended max (GB).... $newMax"
                     Write-Log -Category "info" -Message "SQL - current max (GB)........ $curMax"
@@ -574,7 +574,7 @@ function Invoke-CMxSqlConfiguration {
                 else {
                     Write-Log -Category "info" -Message "configuring static memory limit"
                     #$curMax = (Get-SqlMaxMemory -SqlInstance $HostFullName).SqlMaxMB
-					$curMax = Get-DbaMaxMemory -SqlServer $HostFullName
+					$curMax = (Get-DbaMaxMemory -SqlServer $HostFullName).SqlMaxMB
                     try {
 						Set-DbaMaxMemory -SqlServer $HostFullName -MaxMb [int]$optData | Out-Null
                         #Set-SqlMaxMemory -SqlInstance $HostFullName -MaxMb [int]$optData -Silent | Out-Null
