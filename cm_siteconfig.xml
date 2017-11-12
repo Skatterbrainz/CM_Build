@@ -288,16 +288,20 @@
             <query use="1" name="Contoso - Serial, MAC and Hostname" comment="Serial Number, MAC address and Hostname for all Devices" class="SMS_R_System" expression="select distinct SMS_R_System.Name, SMS_G_System_SYSTEM_ENCLOSURE.SerialNumber, SMS_G_System_NETWORK_ADAPTER.MACAddress, SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.IPEnabled from SMS_R_System inner join SMS_G_System_SYSTEM_ENCLOSURE on SMS_G_System_SYSTEM_ENCLOSURE.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_NETWORK_ADAPTER on SMS_G_System_NETWORK_ADAPTER.ResourceID = SMS_R_System.ResourceId inner join SMS_G_System_NETWORK_ADAPTER_CONFIGURATION on SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.ResourceID = SMS_R_System.ResourceId where SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.IPEnabled = 1 and SMS_G_System_NETWORK_ADAPTER.MACAddress not like '' order by SMS_R_System.Name" />
             <query use="1" name="Contoso - Windows Server Features" comment="Windows Server Feature Names" class="SMS_R_System" expression="select distinct SMS_G_System_SERVER_FEATURE.Name from SMS_R_System inner join SMS_G_System_SERVER_FEATURE on SMS_G_System_SERVER_FEATURE.ResourceID = SMS_R_System.ResourceId order by SMS_G_System_SERVER_FEATURE.Name" />
 			<query use="1" name="Contoso - Client IP Gateways" comment="All Client IP Gateways" class="SMS_R_System" expression="select distinct SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.DefaultIPGateway from SMS_R_System inner join SMS_G_System_NETWORK_ADAPTER_CONFIGURATION on SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.ResourceID = SMS_R_System.ResourceId where SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.DefaultIPGateway != '' order by SMS_G_System_NETWORK_ADAPTER_CONFIGURATION.DefaultIPGateway" />
-			<query use="1" name="Contoso - Windows 10 1703 clients" comment="All Windows 10 1703 Clients" class="SMS_R_System" expression="select * from  SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.BuildNumber = '15063'" />
-			<query use="1" name="Contoso - Windows 10 1607 clients" comment="All Windows 10 1607 Clients" class="SMS_R_System" expression="select * from  SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.BuildNumber = '14393'" />
-			<query use="1" name="Contoso - Windows 10 1511 clients" comment="All Windows 10 1511 Clients" class="SMS_R_System" expression="select * from  SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.BuildNumber = '10586'" />
+			<query use="1" name="Contoso - Windows 10 1709 SACT clients" comment="All Windows 10 1703 Clients" class="SMS_R_System" expression="select * from  SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.BuildNumber = '16299'" />
+			<query use="1" name="Contoso - Windows 10 1703 SAC clients" comment="All Windows 10 1703 Clients" class="SMS_R_System" expression="select * from  SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.BuildNumber = '15063'" />
+			<query use="1" name="Contoso - Windows 10 1607 SAC clients" comment="All Windows 10 1607 Clients" class="SMS_R_System" expression="select * from  SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.BuildNumber = '14393'" />
+			<query use="1" name="Contoso - Windows 10 1511 SAC clients" comment="All Windows 10 1511 Clients" class="SMS_R_System" expression="select * from  SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceId = SMS_R_System.ResourceId where SMS_G_System_OPERATING_SYSTEM.BuildNumber = '10586'" />
         </queries>
         <osimages comment="For bare-metal and build-and-capture installs">
-            <osimage use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent\sources\install.wim" comment="Windows 10 x64 Enterprise 1703" folder="OperatingSystemImage\Windows Desktop" />
-            <osimage use="0" name="Windows Server 2016 Datacenter" path="\\Fs1\SOURCES\ws2016dc\sources\install.wim" comment="Windows Server 2016 Datacenter" folder="OperatingSystemImage\Windows Server" />
+            <osimage use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\W10x64ent1709\sources\install.wim" comment="Windows 10 x64 Enterprise 1709" folder="OperatingSystemImage\Windows Desktop" />
+			<osimage use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\W10x64ent1703\sources\install.wim" comment="Windows 10 x64 Enterprise 1703" folder="OperatingSystemImage\Windows Desktop" />
+            <osimage use="0" name="Windows Server 1709 Datacenter" path="\\Fs1\SOURCES\ws1709\sources\install.wim" comment="Windows Server 1709" folder="OperatingSystemImage\Windows Server" />
+			<osimage use="0" name="Windows Server 2016 Datacenter" path="\\Fs1\SOURCES\ws2016dc\sources\install.wim" comment="Windows Server 2016 Datacenter" folder="OperatingSystemImage\Windows Server" />
         </osimages>
         <osinstallers comment="For in-place upgrades">
-            <osinstaller use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\Win10x64ent" comment="Windows 10 x64 Enterprise 1703" version="1703.15063.540" folder="OperatingSystemInstaller\Windows Desktop" />
+            <osinstaller use="1" name="Windows 10 x64 Ent 1709" path="\\Fs1\SOURCES\W10x64ent1709" comment="Windows 10 x64 Enterprise 1709" version="1709.16299.190" folder="OperatingSystemInstaller\Windows Desktop" />
+			<osinstaller use="1" name="Windows 10 x64 Ent 1703" path="\\Fs1\SOURCES\W10x64ent1703" comment="Windows 10 x64 Enterprise 1703" version="1703.15063.540" folder="OperatingSystemInstaller\Windows Desktop" />
             <osinstaller use="0" name="Windows Server 2016 Datacenter 1607" path="\\Fs1\SOURCES\ws2016dc" comment="Windows Server 2016 Datacenter" version="1607.14393.1593" folder="" />
         </osinstallers>
         <collections comment="Custom Collections">
@@ -376,6 +380,11 @@
 			<application use="1" name="SQL Server Management Studio" publisher="Microsoft" version="2017.2" categories="IT,Developer" comment="SQL Server Management Studio" folder="Microsoft" keywords="sql,ssms,management,database">
 				<deptypes comment="Deployment Types">
 					<deptype name="x64 installer" platform="64" source="\\Fs1\APPS\CM_BUILD\SSMS\SSMS-Setup-ENU.exe" options="/S" uninstall="" comment="" />
+				</deptypes>
+			</application>
+			<application use="0" name="Chocolatey" publisher="Chocolatey" version="0.10.8" categories="General" comment="Chocolatey base install" folder="" keywords="chocolately,nuget,apps">
+				<deptypes comment="Deployment Types">
+					<deptype name="" platform="" source="" options="" uninstall="" comment="" />
 				</deptypes>
 			</application>
 			<!--
