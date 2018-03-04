@@ -698,7 +698,7 @@ function Set-CmxSiteServerRoles {
                     switch ($roleopt.name) {
                         'Mode' {
                             Write-Log -Category info -Message "setting $($roleopt.name) = $($roleopt.params)"
-                            Set-CMServiceConnectionPoint -SiteCode P01 -SiteSystemServerName "$HostName" -Mode $roleopt.params
+                            Set-CMServiceConnectionPoint -SiteCode $sitecode -SiteSystemServerName "$HostName" -Mode $roleopt.params
                             break
                         }
                     } # switch
@@ -908,12 +908,12 @@ function Set-CmxSiteServerRoles {
                 break
             }
 			'epp' {
-				if (Get-CMEndpointProtectionPoint -SiteCode "P01") {
+				if (Get-CMEndpointProtectionPoint -SiteCode $sitecode) {
 					Write-Log -Category "info" -Message "endpoint protection role already added"
 				}
 				else {
 					try {
-						Add-CMEndpointProtectionPoint -SiteCode "P01" -SiteSystemServerName $hostname -ProtectionService BasicMembership -ErrorAction SilentlyContinue | Out-Null
+						Add-CMEndpointProtectionPoint -SiteCode $sitecode -SiteSystemServerName $hostname -ProtectionService BasicMembership -ErrorAction SilentlyContinue | Out-Null
 						Write-Log -Category "info" -Message "endpoint protection role added successfully"
 					}
 					catch {
