@@ -469,7 +469,7 @@ function Set-CmxBoundaries {
             }
         }
         else {
-            Write-Log -Category "info" -Message "oundary [$bName] is not assigned to a boundary group"
+            Write-Log -Category "info" -Message "Boundary [$bName] is not assigned to a boundary group"
         }
     } # foreach
     Write-Log -Category info -Message "function runtime: $(Get-TimeOffset $time1)"
@@ -1093,7 +1093,7 @@ function Set-CMSiteConfigFolders {
     foreach ($item in $DataSet.configuration.cmsite.folders.folder | Where-Object {$_.use -eq '1'}) {
         $folderName = $item.name
         $folderPath = $item.path
-		Write-Log -Category "info" -Message "folder path: $folderPath\folderName"
+		Write-Log -Category "info" -Message "folder path: $folderPath\$folderName"
 		if (Test-Path "$folderPath\$folderName") {
 			Write-Log -Category "info" -Message "folder already exists"
 		}
