@@ -1186,6 +1186,7 @@ function Import-CmxOSImages {
                 }
             }
 			else {
+				Set-Location $oldLoc
 				Write-Log -Category "error" -Message "failed to locate image source: $imagePath"
 				$result = $False
 				break
